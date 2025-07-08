@@ -401,3 +401,78 @@ pm2 restart jarvis-app
 3. **Monitoring**: ตั้งค่า monitoring และ alerting
 4. **Updates**: อัปเดต dependencies เป็นประจำ
 5. **Documentation**: เก็บเอกสารการตั้งค่าและ troubleshooting 
+
+# Deployment Guide
+
+## Environment Variables Setup
+
+### Required Environment Variables for Production
+
+คุณต้องตั้งค่า environment variables ต่อไปนี้ใน production platform:
+
+```bash
+# Google Sheets API Configuration
+GOOGLE_PROJECT_ID=your-google-project-id
+GOOGLE_PRIVATE_KEY_ID=your-private-key-id
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n"
+GOOGLE_CLIENT_EMAIL=your-service-account@your-project.iam.gserviceaccount.com
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_SPREADSHEET_ID=your-google-spreadsheet-id
+
+# Application Configuration
+NEXT_PUBLIC_APP_NAME=J.A.R.V.I.S
+NEXT_PUBLIC_APP_VERSION=1.0.0
+NODE_ENV=production
+```
+
+### How to Set Environment Variables
+
+#### Vercel
+1. ไปที่ Vercel Dashboard
+2. เลือกโปรเจค
+3. ไปที่ Settings > Environment Variables
+4. เพิ่ม environment variables ทั้งหมดข้างต้น
+
+#### Netlify
+1. ไปที่ Netlify Dashboard
+2. เลือกไซต์
+3. ไปที่ Site settings > Environment variables
+4. เพิ่ม environment variables ทั้งหมดข้างต้น
+
+#### Other Platforms
+- ตรวจสอบ documentation ของ platform ที่ใช้
+- ตั้งค่า environment variables ในส่วน Settings หรือ Configuration
+
+### Google Sheets API Setup
+
+1. ไปที่ [Google Cloud Console](https://console.cloud.google.com)
+2. สร้าง project ใหม่หรือใช้ project ที่มีอยู่
+3. เปิดใช้งาน Google Sheets API
+4. สร้าง Service Account
+5. ดาวน์โหลด JSON key file
+6. ใช้ข้อมูลจาก JSON file เพื่อตั้งค่า environment variables
+
+### Testing Environment Variables
+
+หลังจากตั้งค่าแล้ว ให้ทดสอบโดย:
+
+1. Deploy ใหม่
+2. ตรวจสอบ logs ใน production
+3. ทดสอบการเชื่อมต่อ Google Sheets
+
+### Troubleshooting
+
+#### Error: "Failed to fetch data from Google Sheets"
+- ตรวจสอบว่า environment variables ถูกตั้งค่าถูกต้อง
+- ตรวจสอบว่า Google Sheets API เปิดใช้งานแล้ว
+- ตรวจสอบว่า Service Account มีสิทธิ์เข้าถึง spreadsheet
+
+#### Error: "Missing required environment variables"
+- ตรวจสอบว่า environment variables ทั้งหมดถูกตั้งค่าแล้ว
+- ตรวจสอบการสะกดชื่อ variables
+- ตรวจสอบว่าไม่มีช่องว่างหรืออักขระพิเศษ
+
+### Development vs Production
+
+- **Development**: ใช้ mock data ถ้าไม่มี Google credentials
+- **Production**: ต้องมี Google credentials ทั้งหมด 

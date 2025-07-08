@@ -82,7 +82,22 @@ export const validateGoogleAuthConfig = () => {
   const missingVars = requiredEnvVars.filter(varName => !process.env[varName])
   
   if (missingVars.length > 0) {
-    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`)
+    const errorMessage = `Missing required environment variables: ${missingVars.join(', ')}. Please configure these variables in your production environment.`
+    console.error('Environment Variables Error:', errorMessage)
+    throw new Error(errorMessage)
+  }
+
+  // Additional validation for production
+  if (process.env.NODE_ENV === 'production') {
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY
+    if (!privateKey || privateKey === 'your-private-key-here') {
+      throw new Error('GOOGLE_PRIVATE_KEY is not properly configured for production')
+    }
+    
+    const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID
+    if (!spreadsheetId || spreadsheetId === 'your-google-spreadsheet-id') {
+      throw new Error('GOOGLE_SPREADSHEET_ID is not properly configured for production')
+    }
   }
 
   return true

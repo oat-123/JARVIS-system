@@ -28,17 +28,17 @@ export const userSheetMap = {
   "ชั้น4_พัน4": {
     name: "ชั้น4_พัน4",
     gid: "0",
-    url: "https://docs.google.com/spreadsheets/d/1PfZdCw2iL65CPTZzNsCnkhF7EVJNFZHRvYAXqeOJsSk/edit#gid=0",
+    url: "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=0",
   },
   "ชั้น4_พัน1": {
     name: "ชั้น4_พัน1",
     gid: "589142731",
-    url: "https://docs.google.com/spreadsheets/d/1PfZdCw2iL65CPTZzNsCnkhF7EVJNFZHRvYAXqeOJsSk/edit#gid=589142731",
+    url: "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=589142731",
   },
   "ชั้น4_พัน3": {
     name: "ชั้น4_พัน3",
     gid: "258225546",
-    url: "https://docs.google.com/spreadsheets/d/1PfZdCw2iL65CPTZzNsCnkhF7EVJNFZHRvYAXqeOJsSk/edit#gid=258225546",
+    url: "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=258225546",
   },
 } as const
 

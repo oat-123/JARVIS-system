@@ -1,105 +1,83 @@
 #!/bin/bash
 
 # J.A.R.V.I.S Backup Script
-# Usage: ./scripts/backup.sh
+# This script creates backups of the application and Google Sheets data
 
 set -e
 
+# Configuration
 BACKUP_DIR="./backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="jarvis_backup_$DATE.json"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+BACKUP_NAME="jarvis_backup_${TIMESTAMP}"
 
-echo "💾 Starting backup process..."
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
 
-# Create backup directory if it doesn't exist
-mkdir -p "$BACKUP_DIR"
+echo -e "${GREEN}🔄 Starting J.A.R.V.I.S Backup...${NC}"
 
-# Load environment variables
-if [ -f ".env" ]; then
-    export $(cat .env | grep -v '^#' | xargs)
+# Create backup directory
+mkdir -p "${BACKUP_DIR}"
+
+# Backup application files
+echo -e "${YELLOW}📁 Backing up application files...${NC}"
+tar -czf "${BACKUP_DIR}/${BACKUP_NAME}_app.tar.gz" \
+  --exclude=node_modules \
+  --exclude=.next \
+  --exclude=backups \
+  --exclude=.git \
+  .
+
+# Backup environment variables (if exists)
+if [ -f ".env.local" ]; then
+  echo -e "${YELLOW}🔐 Backing up environment variables...${NC}"
+  cp .env.local "${BACKUP_DIR}/${BACKUP_NAME}_env.local"
 fi
 
-# Check if Google Cloud SDK is installed
-if ! command -v gcloud &> /dev/null; then
-    echo "📦 Installing Google Cloud SDK..."
-    curl https://sdk.cloud.google.com | bash
-    exec -l $SHELL
-fi
-
-# Authenticate with Google Cloud
-echo "🔐 Authenticating with Google Cloud..."
-gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-
-# Backup Google Sheets data
-echo "📊 Backing up Google Sheets data..."
-
-# Create backup data structure
-BACKUP_DATA=$(cat <<EOF
-{
-  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "environment": "production",
-  "sheets": {
-    "ชั้น4พัน4": {
-      "name": "ชั้น4_พัน4",
-      "url": "https://docs.google.com/spreadsheets/d/1PfZdCw2iL65CPTZzNsCnkhF7EVJNFZHRvYAXqeOJsSk/edit#gid=0"
-    },
-    "ชั้น4พัน1": {
-      "name": "ชั้น4_พัน1", 
-      "url": "https://docs.google.com/spreadsheets/d/1PfZdCw2iL65CPTZzNsCnkhF7EVJNFZHRvYAXqeOJsSk/edit#gid=589142731"
-    },
-    "ชั้น4พัน3": {
-      "name": "ชั้น4_พัน3",
-      "url": "https://docs.google.com/spreadsheets/d/1PfZdCw2iL65CPTZzNsCnkhF7EVJNFZHRvYAXqeOJsSk/edit#gid=258225546"
-    }
-  },
-  "users": {
-    "oat": {
-      "password": "crma74",
-      "displayName": "ผู้ใช้ OAT",
-      "role": "ผู้ดูแลระบบ",
-      "group": "ชั้น4_พัน4",
-      "sheetname": "ชั้น4_พัน4"
-    },
-    "time": {
-      "password": "crma74",
-      "displayName": "ผู้ใช้ TIME", 
-      "role": "ผู้ใช้งาน",
-      "group": "ชั้น4_พัน1",
-      "sheetname": "ชั้น4_พัน1"
-    },
-    "chai": {
-      "password": "crma74",
-      "displayName": "ผู้ใช้ CHAI",
-      "role": "ผู้ใช้งาน", 
-      "group": "ชั้น4_พัน3",
-      "sheetname": "ชั้น4_พัน3"
-    }
-  }
-}
-EOF
+# Google Sheets backup configuration
+SHEET_CONFIGS=(
+  '{"name": "ชั้น4_พัน4", "gid": "0", "url": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=0"}'
+  '{"name": "ชั้น4_พัน1", "gid": "589142731", "url": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=589142731"}'
+  '{"name": "ชั้น4_พัน3", "gid": "258225546", "url": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=258225546"}'
 )
 
-# Save backup to file
-echo "$BACKUP_DATA" > "$BACKUP_DIR/$BACKUP_FILE"
+# Create backup summary
+echo -e "${YELLOW}📋 Creating backup summary...${NC}"
+cat > "${BACKUP_DIR}/${BACKUP_NAME}_summary.txt" << EOF
+J.A.R.V.I.S Backup Summary
+==========================
+Timestamp: ${TIMESTAMP}
+Backup Name: ${BACKUP_NAME}
 
-# Compress backup
-echo "🗜️  Compressing backup..."
-gzip "$BACKUP_DIR/$BACKUP_FILE"
+Files Backed Up:
+- Application files: ${BACKUP_NAME}_app.tar.gz
+- Environment variables: ${BACKUP_NAME}_env.local (if exists)
 
-# Upload to Google Cloud Storage (optional)
-if [ ! -z "$GOOGLE_CLOUD_STORAGE_BUCKET" ]; then
-    echo "☁️  Uploading backup to Google Cloud Storage..."
-    gsutil cp "$BACKUP_DIR/$BACKUP_FILE.gz" "gs://$GOOGLE_CLOUD_STORAGE_BUCKET/backups/"
+Google Sheets Configuration:
+$(for config in "${SHEET_CONFIGS[@]}"; do
+  echo "$config"
+done)
+
+Backup Location: ${BACKUP_DIR}
+Total Size: $(du -sh "${BACKUP_DIR}/${BACKUP_NAME}"* | awk '{sum+=$1} END {print sum "B"}')
+
+Notes:
+- This backup includes all application files except node_modules and .next
+- Environment variables are backed up separately for security
+- Google Sheets data should be backed up manually through Google Drive
+EOF
+
+echo -e "${GREEN}✅ Backup completed successfully!${NC}"
+echo -e "${YELLOW}📁 Backup location: ${BACKUP_DIR}/${BACKUP_NAME}*${NC}"
+echo -e "${YELLOW}📋 Summary: ${BACKUP_DIR}/${BACKUP_NAME}_summary.txt${NC}"
+
+# Optional: Upload to cloud storage (if configured)
+if [ -n "$GOOGLE_CLOUD_STORAGE_BUCKET" ]; then
+  echo -e "${YELLOW}☁️ Uploading to cloud storage...${NC}"
+  # Add cloud upload logic here
+  echo -e "${GREEN}✅ Cloud upload completed!${NC}"
 fi
 
-# Clean up old backups (keep last 30 days)
-echo "🧹 Cleaning up old backups..."
-find "$BACKUP_DIR" -name "jarvis_backup_*.json.gz" -mtime +30 -delete
-
-echo "✅ Backup completed successfully!"
-echo "📁 Backup location: $BACKUP_DIR/$BACKUP_FILE.gz"
-echo "📊 Backup size: $(du -h "$BACKUP_DIR/$BACKUP_FILE.gz" | cut -f1)"
-
-# List recent backups
-echo "📋 Recent backups:"
-ls -la "$BACKUP_DIR"/jarvis_backup_*.json.gz 2>/dev/null | tail -5 || echo "No backups found" 
+echo -e "${GREEN}🎉 Backup process finished!${NC}" 

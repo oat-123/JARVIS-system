@@ -369,3 +369,136 @@ npm install
 - [ ] โมดูลต่างๆ ทำงาน
 - [ ] Monitoring ตั้งค่า
 - [ ] Backup ตั้งค่า 
+
+# Troubleshooting Guide
+
+## ปัญหาที่พบบ่อยและวิธีแก้ไข
+
+### 1. Error: "Failed to fetch data from Google Sheets"
+
+**สาเหตุ:** Environment variables ไม่ถูกตั้งค่าใน production
+
+**วิธีแก้ไข:**
+1. ตรวจสอบ environment variables ใน production platform
+2. ตั้งค่า Google Sheets API credentials
+3. ตรวจสอบสิทธิ์การเข้าถึง spreadsheet
+
+**ขั้นตอน:**
+```bash
+# ตรวจสอบ environment variables
+npm run check-env
+
+# ตั้งค่าใน production platform (Vercel/Netlify)
+GOOGLE_PROJECT_ID=your-project-id
+GOOGLE_PRIVATE_KEY_ID=your-private-key-id
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_SPREADSHEET_ID=your-spreadsheet-id
+```
+
+### 2. Error: "Missing required environment variables"
+
+**สาเหตุ:** Environment variables บางตัวหายไป
+
+**วิธีแก้ไข:**
+1. ตรวจสอบการสะกดชื่อ variables
+2. ตรวจสอบว่าไม่มีช่องว่างหรืออักขระพิเศษ
+3. ตั้งค่า variables ทั้งหมดที่จำเป็น
+
+### 3. Error: "Google Sheets API not enabled"
+
+**สาเหตุ:** Google Sheets API ยังไม่ได้เปิดใช้งาน
+
+**วิธีแก้ไข:**
+1. ไปที่ [Google Cloud Console](https://console.cloud.google.com)
+2. เลือก project ของคุณ
+3. ไปที่ APIs & Services > Library
+4. ค้นหา "Google Sheets API"
+5. เปิดใช้งาน API
+
+### 4. Error: "Service Account permissions"
+
+**สาเหตุ:** Service Account ไม่มีสิทธิ์เข้าถึง spreadsheet
+
+**วิธีแก้ไข:**
+1. เปิด Google Sheets
+2. คลิก Share (ปุ่มสีน้ำเงิน)
+3. เพิ่ม Service Account email
+4. ให้สิทธิ์ Editor หรือ Viewer
+
+### 5. Error: "Invalid private key format"
+
+**สาเหตุ:** Private key ไม่ถูกต้อง
+
+**วิธีแก้ไข:**
+1. ตรวจสอบว่า private key มี `\n` สำหรับขึ้นบรรทัดใหม่
+2. ตรวจสอบว่า private key เริ่มต้นด้วย `-----BEGIN PRIVATE KEY-----`
+3. ตรวจสอบว่า private key สิ้นสุดด้วย `-----END PRIVATE KEY-----`
+
+### 6. Development vs Production Issues
+
+**Development (localhost):**
+- ใช้ mock data ถ้าไม่มี Google credentials
+- ทำงานได้แม้ไม่มี environment variables
+
+**Production:**
+- ต้องมี Google credentials ทั้งหมด
+- จะ error ถ้าไม่มี environment variables
+
+### 7. การตรวจสอบ Logs
+
+**Vercel:**
+1. ไปที่ Vercel Dashboard
+2. เลือกโปรเจค
+3. ไปที่ Functions tab
+4. ดู logs ของ API routes
+
+**Netlify:**
+1. ไปที่ Netlify Dashboard
+2. เลือกไซต์
+3. ไปที่ Functions tab
+4. ดู logs ของ functions
+
+### 8. การทดสอบ Environment Variables
+
+```bash
+# ตรวจสอบ environment variables
+npm run check-env
+
+# ทดสอบการเชื่อมต่อ Google Sheets
+curl https://your-domain.vercel.app/api/sheets/info
+```
+
+### 9. การ Debug ใน Production
+
+1. เพิ่ม console.log ใน API routes
+2. ตรวจสอบ logs ใน production platform
+3. ใช้ browser developer tools ดู network requests
+4. ตรวจสอบ response status codes
+
+### 10. การ Backup และ Recovery
+
+```bash
+# Backup environment variables
+cp .env.local .env.local.backup
+
+# Restore environment variables
+cp .env.local.backup .env.local
+```
+
+## ข้อควรระวัง
+
+1. **อย่า commit environment variables ลง git**
+2. **ใช้ .env.local สำหรับ local development**
+3. **ตั้งค่า environment variables ใน production platform**
+4. **ตรวจสอบสิทธิ์ Service Account**
+5. **ทดสอบก่อน deploy**
+
+## การขอความช่วยเหลือ
+
+หากยังมีปัญหา:
+1. ตรวจสอบ logs ใน production
+2. ใช้ `npm run check-env` ตรวจสอบ environment variables
+3. ดู DEPLOYMENT.md สำหรับรายละเอียดเพิ่มเติม
+4. ตรวจสอบ Google Cloud Console สำหรับ API quotas และ permissions 

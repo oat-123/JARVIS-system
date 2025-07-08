@@ -1,3 +1,4 @@
+"use client";
 type UserKey = "oat" | "time" | "chai"
 
 interface User {

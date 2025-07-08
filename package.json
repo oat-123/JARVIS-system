@@ -17,6 +17,8 @@
     "security-check": "node scripts/security-check.js",
     "prepare-cleanup": "node scripts/prepare-cleanup.js",
     "clean-history": "node scripts/clean-history.js",
+    "clean-history-windows": "powershell -ExecutionPolicy Bypass -File scripts\\clean-history-windows.ps1",
+    "test-cleanup": "node scripts/test-cleanup.js",
     "deploy": "bash scripts/deploy.sh",
     "deploy:prod": "bash scripts/deploy.sh production",
     "backup": "bash scripts/backup.sh",

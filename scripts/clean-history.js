@@ -9,6 +9,7 @@ const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 const readline = require('readline')
+const os = require('os')
 
 // Colors for output
 const colors = {
@@ -118,8 +119,46 @@ function continueCleanup() {
     // Remove sensitive files from git history
     console.log(`${colors.yellow}🧹 Removing sensitive files from git history...${colors.reset}`)
     
-    // Create a filter script
-    const filterScript = `#!/bin/bash
+    // Detect OS and create appropriate filter script
+    const isWindows = os.platform() === 'win32'
+    
+    if (isWindows) {
+      // Use PowerShell for Windows
+      const filterScript = `
+# PowerShell script to remove sensitive data from git history
+param($filePath)
+
+if (Test-Path $filePath) {
+    $content = Get-Content $filePath -Raw
+    if ($content) {
+        $content = $content -replace 'oat-assist', 'your-google-project-id'
+        $content = $content -replace '1PfZdCw2iL65CPTZzNsCnkhF7EVJNFZHRvYAXqeOJsSk', 'YOUR_SPREADSHEET_ID'
+        $content = $content -replace 'oatmultitools-oatdev-com@oat-assist\.iam\.gserviceaccount\.com', 'your-service-account@your-project.iam.gserviceaccount.com'
+        $content = $content -replace '6e9fd4d2776efa9d1c49e0c39ac3e0337d9219bb', 'your-private-key-id'
+        $content = $content -replace '106726004126140712061', 'your-client-id'
+        
+        # Remove private keys
+        $content = $content -replace '(?s)-----BEGIN PRIVATE KEY-----.*?-----END PRIVATE KEY-----', ''
+        
+        Set-Content $filePath $content
+    }
+}
+`
+      
+      const tempScriptPath = path.join(os.tmpdir(), 'filter-branch-script.ps1')
+      fs.writeFileSync(tempScriptPath, filterScript)
+      
+      // Run filter-branch with PowerShell
+      console.log(`${colors.yellow}🔍 Scanning and cleaning git history...${colors.reset}`)
+      execSync(`git filter-branch --tree-filter "powershell -ExecutionPolicy Bypass -File '${tempScriptPath}'" HEAD`)
+      
+      // Clean up
+      console.log(`${colors.yellow}🧹 Cleaning up temporary files...${colors.reset}`)
+      fs.unlinkSync(tempScriptPath)
+      
+    } else {
+      // Use bash for Unix-like systems
+      const filterScript = `#!/bin/bash
 # Remove sensitive data from git history
 
 # Remove specific patterns
@@ -132,18 +171,19 @@ sed -i 's/106726004126140712061/your-client-id/g' "$1"
 # Remove private keys
 sed -i '/-----BEGIN PRIVATE KEY-----/,/-----END PRIVATE KEY-----/d' "$1"
 `
-    
-    const tempScriptPath = path.join(require('os').tmpdir(), 'filter-branch-script.sh')
-    fs.writeFileSync(tempScriptPath, filterScript)
-    fs.chmodSync(tempScriptPath, '755')
-    
-    // Run filter-branch to clean history
-    console.log(`${colors.yellow}🔍 Scanning and cleaning git history...${colors.reset}`)
-    execSync(`git filter-branch --tree-filter "${tempScriptPath}" HEAD`)
-    
-    // Clean up
-    console.log(`${colors.yellow}🧹 Cleaning up temporary files...${colors.reset}`)
-    fs.unlinkSync(tempScriptPath)
+      
+      const tempScriptPath = path.join(os.tmpdir(), 'filter-branch-script.sh')
+      fs.writeFileSync(tempScriptPath, filterScript)
+      fs.chmodSync(tempScriptPath, '755')
+      
+      // Run filter-branch to clean history
+      console.log(`${colors.yellow}🔍 Scanning and cleaning git history...${colors.reset}`)
+      execSync(`git filter-branch --tree-filter "${tempScriptPath}" HEAD`)
+      
+      // Clean up
+      console.log(`${colors.yellow}🧹 Cleaning up temporary files...${colors.reset}`)
+      fs.unlinkSync(tempScriptPath)
+    }
     
     // Force garbage collection
     console.log(`${colors.yellow}🗑️  Running git garbage collection...${colors.reset}`)

@@ -48,11 +48,23 @@ git checkout -- .
 
 #### 3. ใช้สคริปต์ทำความสะอาดที่อัปเดตแล้ว
 
+**สำหรับ Windows:**
+```bash
+npm run clean-history-windows
+```
+
+**สำหรับ Cross-platform:**
 ```bash
 npm run clean-history
 ```
 
+**ทดสอบก่อนทำ:**
+```bash
+npm run test-cleanup
+```
+
 สคริปต์ใหม่จะ:
+- ตรวจสอบ OS และใช้ PowerShell สำหรับ Windows
 - ตรวจสอบ unstaged changes อัตโนมัติ
 - ถามว่าต้องการ commit changes หรือไม่
 - ดำเนินการต่อหลังจากจัดการ changes แล้ว

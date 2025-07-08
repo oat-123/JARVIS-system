@@ -1,9 +1,3 @@
-"use client"
-import { useState } from "react"
-import { LoginPage } from "@/components/login-page"
-import { Dashboard } from "@/components/dashboard"
-
-// Define the UserKey type and users object
 type UserKey = "oat" | "time" | "chai"
 
 interface User {
@@ -26,6 +20,8 @@ const users: Record<UserKey, User> = {
   }
 }
 
+import { useState } from 'react'
+
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [currentUser, setCurrentUser] = useState<UserKey | null>(null)
@@ -44,9 +40,8 @@ export default function Home() {
     setIsLoggedIn(false)
     setCurrentUser(null)
   }
-
   if (!isLoggedIn) {
-    return <LoginPage onLogin={handleLogin} />
+    return <div>Please log in</div>
   }
 
   // สร้าง user object ให้ตรงกับ Dashboard ตัวเต็ม
@@ -60,10 +55,12 @@ export default function Home() {
     : null;
 
   return (
-    <Dashboard
-      user={userObj}
-      username={currentUser || ""}
-      onLogout={handleLogout}
-    />
+    <div>
+      <h1>Dashboard</h1>
+      <p>Welcome, {currentUser || "User"}!</p>
+      <p>Role: {userObj?.role || "Unknown"}</p>
+      <p>Group: {userObj?.group || "Unknown"}</p>
+      <button onClick={handleLogout}>Logout</button>
+    </div>
   )
 }

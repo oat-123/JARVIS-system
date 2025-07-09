@@ -1,3 +1,10 @@
+"use client";
+import { useState } from 'react'
+import { LoginPage } from '../components/login-page'
+import { Dashboard } from '../components/dashboard'
+
+// force rebuild: 2025-07-06
+
 type UserKey = "oat" | "time" | "chai"
 
 interface User {
@@ -20,7 +27,6 @@ const users: Record<UserKey, User> = {
   }
 }
 
-import { useState } from 'react'
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -40,13 +46,15 @@ export default function Home() {
     setIsLoggedIn(false)
     setCurrentUser(null)
   }
+  
   if (!isLoggedIn) {
-    return <div>Please log in</div>
+    return <LoginPage onLogin={handleLogin} />
   }
 
   // สร้าง user object ให้ตรงกับ Dashboard ตัวเต็ม
   const userObj = currentUser
     ? {
+        username: currentUser,
         displayName: currentUser,
         role: currentUser === "oat" ? "ผู้ดูแลระบบ" : "ผู้ใช้งาน",
         group: users[currentUser].sheet_name,
@@ -54,13 +62,5 @@ export default function Home() {
       }
     : null;
 
-  return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>Welcome, {currentUser || "User"}!</p>
-      <p>Role: {userObj?.role || "Unknown"}</p>
-      <p>Group: {userObj?.group || "Unknown"}</p>
-      <button onClick={handleLogout}>Logout</button>
-    </div>
-  )
+  return <Dashboard user={userObj} username={currentUser} onLogout={handleLogout} />
 }

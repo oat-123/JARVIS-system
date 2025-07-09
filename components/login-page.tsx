@@ -89,7 +89,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-white/90 font-medium drop-shadow-sm">
-                  Email/Username
+                  Email / Username
                 </Label>
                 <Input
                   id="email"

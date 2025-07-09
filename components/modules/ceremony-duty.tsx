@@ -316,149 +316,164 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   }
 
   // Export to real .xlsx with exceljs (merge cell, font, layout)
-  const exportToExcelXlsx = async () => {
-    if (selectedPersons.length === 0) {
-      toast({ title: "ไม่มีข้อมูลให้ส่งออก", variant: "destructive" });
-      return;
-    }
+  // Export to real .xlsx with exceljs (merge cell, font, layout)
+  // Export to real .xlsx with exceljs (merge cell, font, layout)
+const exportToExcelXlsx = async () => {
+  if (selectedPersons.length === 0) {
+    toast({ title: "ไม่มีข้อมูลให้ส่งออก", variant: "destructive" });
+    return;
+  }
 
-    const workbook = new ExcelJS.Workbook();
-    const ws = workbook.addWorksheet("ยอดพิธี");
+  const workbook = new ExcelJS.Workbook();
+  const ws = workbook.addWorksheet("ยอดพิธี");
 
-    // ฟอนต์หลัก
-    const mainFont = { name: "TH Sarabun New", size: 14 };
+  // ฟอนต์หลัก
+  const mainFont = { name: "TH Sarabun New", size: 14 };
 
-    // กำหนด border style
-    const thick: { style: BorderStyle } = { style: 'medium' };
-    const thin: { style: BorderStyle } = { style: 'thin' };
+  // กำหนด border style - ใช้เส้นบางทั้งหมด
+  const thin: { style: BorderStyle } = { style: 'thin' };
 
-    // แถว 1: ชื่อยอด (merge A1:J1)
-    ws.mergeCells("A1:J1");
-    ws.getCell("A1").value = dutyName;
-    ws.getCell("A1").font = { ...mainFont, bold: true };
-    ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+  // แถว 1: ชื่อยอด (merge A1:J1)
+  ws.mergeCells("A1:J1");
+  ws.getCell("A1").value = dutyName;
+  ws.getCell("A1").font = { ...mainFont, bold: true };
+  ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+  // เพิ่มเส้นขอบให้แถว 1
+  ws.getCell("A1").border = {
+    top: thin,
+    left: thin,
+    right: thin,
+    bottom: thin,
+  };
 
-    // แถว 2: เว้นว่าง (merge A2:J2)
-    ws.mergeCells("A2:J2");
-    ws.getCell("A2").value = "";
+  // แถว 2: เว้นว่าง (merge A2:J2)
+  ws.mergeCells("A2:J2");
+  ws.getCell("A2").value = "";
+  // เพิ่มเส้นขอบให้แถว 2
+  ws.getCell("A2").border = {
+    top: thin,
+    left: thin,
+    right: thin,
+    bottom: thin,
+  };
 
-    // แถว 3: หัวตาราง (merge B3:D3)
-    ws.mergeCells("B3:D3");
-    ws.getCell("B3").value = "ยศ ชื่อ-สกุล";
-    ws.getCell("B3").font = mainFont;
-    ws.getCell("B3").alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell("A3").value = "ลำดับ";
-    ws.getCell("A3").font = mainFont;
-    ws.getCell("A3").alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell("E3").value = "ชั้นปีที่";
-    ws.getCell("E3").font = mainFont;
-    ws.getCell("E3").alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell("F3").value = "ตอน";
-    ws.getCell("F3").font = mainFont;
-    ws.getCell("F3").alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell("G3").value = "ตำแหน่ง";
-    ws.getCell("G3").font = mainFont;
-    ws.getCell("G3").alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell("H3").value = "สังกัด";
-    ws.getCell("H3").font = mainFont;
-    ws.getCell("H3").alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell("I3").value = "เบอร์โทรศัพท์";
-    ws.getCell("I3").font = mainFont;
-    ws.getCell("I3").alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell("J3").value = "หมายเหตุ";
-    ws.getCell("J3").font = mainFont;
-    ws.getCell("J3").alignment = { horizontal: "center", vertical: "middle" };
+  // แถว 3: หัวตาราง (merge B3:D3)
+  ws.mergeCells("B3:D3");
+  ws.getCell("B3").value = "ยศ ชื่อ-สกุล";
+  ws.getCell("B3").font = mainFont;
+  ws.getCell("B3").alignment = { horizontal: "center", vertical: "middle" };
+  ws.getCell("A3").value = "ลำดับ";
+  ws.getCell("A3").font = mainFont;
+  ws.getCell("A3").alignment = { horizontal: "center", vertical: "middle" };
+  ws.getCell("E3").value = "ชั้นปีที่";
+  ws.getCell("E3").font = mainFont;
+  ws.getCell("E3").alignment = { horizontal: "center", vertical: "middle" };
+  ws.getCell("F3").value = "ตอน";
+  ws.getCell("F3").font = mainFont;
+  ws.getCell("F3").alignment = { horizontal: "center", vertical: "middle" };
+  ws.getCell("G3").value = "ตำแหน่ง";
+  ws.getCell("G3").font = mainFont;
+  ws.getCell("G3").alignment = { horizontal: "center", vertical: "middle" };
+  ws.getCell("H3").value = "สังกัด";
+  ws.getCell("H3").font = mainFont;
+  ws.getCell("H3").alignment = { horizontal: "center", vertical: "middle" };
+  ws.getCell("I3").value = "เบอร์โทรศัพท์";
+  ws.getCell("I3").font = mainFont;
+  ws.getCell("I3").alignment = { horizontal: "center", vertical: "middle" };
+  ws.getCell("J3").value = "หมายเหตุ";
+  ws.getCell("J3").font = mainFont;
+  ws.getCell("J3").alignment = { horizontal: "center", vertical: "middle" };
 
-    // หัวตาราง (row 3)
+  // หัวตาราง (row 3) - ใช้เส้นบางทั้งหมด
+  for (let col = 1; col <= 10; col++) {
+    const cell = ws.getCell(3, col);
+    cell.border = {
+      top: thin,
+      left: thin,
+      right: thin,
+      bottom: thin,
+    };
+  }
+
+  // ข้อมูล
+  selectedPersons.forEach((person, idx) => {
+    const rowIdx = idx + 4;
+    // คอลัมน์ A: เลขไทย
+    ws.getCell(`A${rowIdx}`).value = toThaiNumber(idx + 1);
+    ws.getCell(`A${rowIdx}`).font = mainFont;
+    ws.getCell(`A${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+    // คอลัมน์ B: ยศ
+    ws.getCell(`B${rowIdx}`).value = person.ยศ;
+    ws.getCell(`B${rowIdx}`).font = mainFont;
+    ws.getCell(`B${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+    // คอลัมน์ C: ชื่อ
+    ws.getCell(`C${rowIdx}`).value = person.ชื่อ;
+    ws.getCell(`C${rowIdx}`).font = mainFont;
+    ws.getCell(`C${rowIdx}`).alignment = { horizontal: "left", vertical: "middle" };
+    // คอลัมน์ D: สกุล
+    ws.getCell(`D${rowIdx}`).value = person.สกุล;
+    ws.getCell(`D${rowIdx}`).font = mainFont;
+    ws.getCell(`D${rowIdx}`).alignment = { horizontal: "left", vertical: "middle" };
+    // คอลัมน์ E: ชั้นปีที่ (กึ่งกลาง)
+    ws.getCell(`E${rowIdx}`).value = person.ชั้นปีที่;
+    ws.getCell(`E${rowIdx}`).font = mainFont;
+    ws.getCell(`E${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+    // คอลัมน์ F: ตอน (กึ่งกลาง)
+    ws.getCell(`F${rowIdx}`).value = person.ตอน;
+    ws.getCell(`F${rowIdx}`).font = mainFont;
+    ws.getCell(`F${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+    // คอลัมน์ G: ตำแหน่ง (กึ่งกลาง)
+    ws.getCell(`G${rowIdx}`).value = person.ตำแหน่ง;
+    ws.getCell(`G${rowIdx}`).font = mainFont;
+    ws.getCell(`G${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+    // คอลัมน์ H: สังกัด (กึ่งกลาง)
+    ws.getCell(`H${rowIdx}`).value = person.สังกัด;
+    ws.getCell(`H${rowIdx}`).font = mainFont;
+    ws.getCell(`H${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+    // คอลัมน์ I: เบอร์โทรศัพท์ (กึ่งกลาง)
+    ws.getCell(`I${rowIdx}`).value = person.เบอร์โทรศัพท์;
+    ws.getCell(`I${rowIdx}`).font = mainFont;
+    ws.getCell(`I${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+    // คอลัมน์ J: หมายเหตุ (กึ่งกลาง)
+    ws.getCell(`J${rowIdx}`).value = "";
+    ws.getCell(`J${rowIdx}`).font = mainFont;
+    ws.getCell(`J${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+    
+    // ใส่ border รอบ cell ทุก cellที่มีข้อมูล (A-J)
     for (let col = 1; col <= 10; col++) {
-      const cell = ws.getCell(3, col);
-      cell.border = {
-        top: thick,
-        left: col === 1 ? thick : thin,
-        right: col === 10 ? thick : thin,
-        bottom: thick,
+      ws.getCell(rowIdx, col).border = {
+        top: thin,
+        left: thin,
+        right: thin,
+        bottom: thin,
       };
     }
+  });
 
-    // ข้อมูล
-    selectedPersons.forEach((person, idx) => {
-      const rowIdx = idx + 4;
-      // คอลัมน์ A: เลขไทย
-      ws.getCell(`A${rowIdx}`).value = toThaiNumber(idx + 1);
-      ws.getCell(`A${rowIdx}`).font = mainFont;
-      ws.getCell(`A${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-      // คอลัมน์ B: ยศ
-      ws.getCell(`B${rowIdx}`).value = person.ยศ;
-      ws.getCell(`B${rowIdx}`).font = mainFont;
-      ws.getCell(`B${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-      // คอลัมน์ C: ชื่อ
-      ws.getCell(`C${rowIdx}`).value = person.ชื่อ;
-      ws.getCell(`C${rowIdx}`).font = mainFont;
-      ws.getCell(`C${rowIdx}`).alignment = { horizontal: "left", vertical: "middle" };
-      // คอลัมน์ D: สกุล
-      ws.getCell(`D${rowIdx}`).value = person.สกุล;
-      ws.getCell(`D${rowIdx}`).font = mainFont;
-      ws.getCell(`D${rowIdx}`).alignment = { horizontal: "left", vertical: "middle" };
-      // คอลัมน์ E: ชั้นปีที่ (กึ่งกลาง)
-      ws.getCell(`E${rowIdx}`).value = person.ชั้นปีที่;
-      ws.getCell(`E${rowIdx}`).font = mainFont;
-      ws.getCell(`E${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-      // คอลัมน์ F: ตอน (กึ่งกลาง)
-      ws.getCell(`F${rowIdx}`).value = person.ตอน;
-      ws.getCell(`F${rowIdx}`).font = mainFont;
-      ws.getCell(`F${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-      // คอลัมน์ G: ตำแหน่ง (กึ่งกลาง)
-      ws.getCell(`G${rowIdx}`).value = person.ตำแหน่ง;
-      ws.getCell(`G${rowIdx}`).font = mainFont;
-      ws.getCell(`G${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-      // คอลัมน์ H: สังกัด (กึ่งกลาง)
-      ws.getCell(`H${rowIdx}`).value = person.สังกัด;
-      ws.getCell(`H${rowIdx}`).font = mainFont;
-      ws.getCell(`H${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-      // คอลัมน์ I: เบอร์โทรศัพท์ (กึ่งกลาง)
-      ws.getCell(`I${rowIdx}`).value = person.เบอร์โทรศัพท์;
-      ws.getCell(`I${rowIdx}`).font = mainFont;
-      ws.getCell(`I${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-      // คอลัมน์ J: หมายเหตุ (กึ่งกลาง)
-      ws.getCell(`J${rowIdx}`).value = "";
-      ws.getCell(`J${rowIdx}`).font = mainFont;
-      ws.getCell(`J${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-      // ใส่ border ให้ทุก cell (A-J)
-      for (let col = 1; col <= 10; col++) {
-        const cell = ws.getCell(rowIdx, col);
-        cell.border = {
-          top: thin,
-          left: col === 1 ? thick : thin,
-          right: col === 10 ? thick : thin,
-          bottom: idx === selectedPersons.length - 1 ? thick : thin,
-        };
-      }
-    });
+  // ปรับความกว้างคอลัมน์
+  ws.getColumn(1).width = 6;
+  ws.getColumn(2).width = 5;
+  ws.getColumn(3).width = 15;
+  ws.getColumn(4).width = 15;
+  ws.getColumn(5).width = 8;
+  ws.getColumn(6).width = 8;
+  ws.getColumn(7).width = 20;
+  ws.getColumn(8).width = 15;
+  ws.getColumn(9).width = 15;
+  ws.getColumn(10).width = 15;
 
-    // ปรับความกว้างคอลัมน์
-    ws.getColumn(1).width = 6;
-    ws.getColumn(2).width = 5;
-    ws.getColumn(3).width = 15;
-    ws.getColumn(4).width = 15;
-    ws.getColumn(5).width = 8;
-    ws.getColumn(6).width = 8;
-    ws.getColumn(7).width = 20;
-    ws.getColumn(8).width = 15;
-    ws.getColumn(9).width = 15;
-    ws.getColumn(10).width = 15;
+  // สร้างไฟล์และดาวน์โหลด
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${dutyName}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 
-    // สร้างไฟล์และดาวน์โหลด
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `${dutyName}.xlsx`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast({ title: "ส่งออกไฟล์ .xlsx สำเร็จ", description: `ไฟล์ ${dutyName}.xlsx ถูกดาวน์โหลดแล้ว` });
-  };
+  toast({ title: "ส่งออกไฟล์ .xlsx สำเร็จ", description: `ไฟล์ ${dutyName}.xlsx ถูกดาวน์โหลดแล้ว` });
+};
 
   const createReport = () => {
     if (selectedPersons.length === 0) {
@@ -821,39 +836,39 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="bg-slate-700/30 rounded-lg overflow-hidden border border-slate-600">
-                      <Table>
+                      <Table className="min-w-full border-separate border-spacing-0">
                         <TableHeader>
-                          <TableRow className="border-slate-600 bg-slate-700/50">
-                            <TableHead className="text-white font-semibold text-center">ลำดับ</TableHead>
-                            <TableHead className="text-white font-semibold">ยศ ชื่อ-สกุล</TableHead>
-                            <TableHead className="text-white font-semibold text-center">ชั้นปีที่</TableHead>
-                            <TableHead className="text-white font-semibold text-center">ตอน</TableHead>
-                            <TableHead className="text-white font-semibold">ตำแหน่ง</TableHead>
-                            <TableHead className="text-white font-semibold">สังกัด</TableHead>
-                            <TableHead className="text-white font-semibold">เบอร์โทรศัพท์</TableHead>
-                            <TableHead className="text-white font-semibold text-center">สถิติโดนยอด</TableHead>
+                          <TableRow className="bg-slate-700/80">
+                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ลำดับ</TableHead>
+                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ยศ ชื่อ-สกุล</TableHead>
+                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ชั้นปีที่</TableHead>
+                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ตอน</TableHead>
+                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ตำแหน่ง</TableHead>
+                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">สังกัด</TableHead>
+                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">เบอร์โทรศัพท์</TableHead>
+                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">สถิติโดนยอด</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {selectedPersons.map((person, index) => (
                             <TableRow
                               key={person.ลำดับ}
-                              className="border-slate-600 hover:bg-slate-700/30 transition-colors"
+                              className={index % 2 === 0 ? "bg-slate-800/60" : "bg-slate-900/60"}
                             >
-                              <TableCell className="text-white text-center font-medium">
+                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">
                                 {toThaiNumber(index + 1)}
                               </TableCell>
-                              <TableCell className="text-white font-medium">
+                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-left text-white border-b border-slate-700">
                                 {person.ยศ} {person.ชื่อ} {person.สกุล}
                               </TableCell>
-                              <TableCell className="text-white text-center">
+                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">
                                 {person.ชั้นปีที่}
                               </TableCell>
-                              <TableCell className="text-white text-center">{person.ตอน}</TableCell>
-                              <TableCell className="text-white">{person.ตำแหน่ง}</TableCell>
-                              <TableCell className="text-white">{person.สังกัด}</TableCell>
-                              <TableCell className="text-white font-mono">{person.เบอร์โทรศัพท์}</TableCell>
-                              <TableCell className="text-center">
+                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตอน}</TableCell>
+                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตำแหน่ง}</TableCell>
+                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.สังกัด}</TableCell>
+                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.เบอร์โทรศัพท์}</TableCell>
+                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">
                                 <Badge className="bg-blue-600 text-white">{(person.สถิติโดนยอด || "").replace(/^'/, "")}</Badge>
                               </TableCell>
                             </TableRow>

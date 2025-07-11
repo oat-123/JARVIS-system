@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 // In-memory state สำหรับจำ userId กับ step (mock, ไม่เหมาะกับ production จริง)
-const userState: Record<string, { step: string }> = {}
+const userState: Record<string, { step: string, name?: string }> = {}
 
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN!
 
@@ -13,21 +13,34 @@ export async function POST(req: NextRequest) {
     const userId = event.source.userId
     if (event.type === "message" && event.message.type === "text") {
       const text = event.message.text.trim()
-      if (text === "เวรรักษาการณ์") {
-        // 1. ถามชื่อชีท
-        userState[userId] = { step: "waiting_sheet_name" }
-        await replyText(event.replyToken, "กรุณาพิมพ์ชื่อชีทที่ต้องการดู")
-      } else if (userState[userId]?.step === "waiting_sheet_name") {
-        // 2. ได้ชื่อชีทแล้ว
+      // 1. ถ้ายังไม่มี state ให้ถามชื่อก่อน
+      if (!userState[userId]) {
+        userState[userId] = { step: "waiting_name" }
+        await replyText(event.replyToken, "คุณคือใคร? กรุณาพิมพ์ชื่อของคุณ")
+      } else if (userState[userId].step === "waiting_name") {
+        // 2. ได้ชื่อแล้ว บันทึกชื่อและแสดงเมนูฟังก์ชัน
+        userState[userId].name = text
+        userState[userId].step = "menu"
+        await replyMenu(event.replyToken, text)
+      } else if (userState[userId].step === "menu") {
+        // 3. เลือกฟังก์ชัน
+        if (text === "เวรรักษาการณ์") {
+          userState[userId].step = "waiting_sheet_name"
+          await replyText(event.replyToken, "กรุณาพิมพ์ชื่อชีทที่ต้องการดู")
+        } else if (text === "เวรเตรียมการ" || text === "จัดยอดพิธี" || text === "ยอดปล่อย" || text === "สถิติโดนยอด") {
+          await replyText(event.replyToken, `คุณเลือกฟังก์ชัน: ${text}\n(ฟังก์ชันนี้ยังไม่เปิดใช้งานในเดโม)`)
+        } else {
+          await replyMenu(event.replyToken, userState[userId].name || "")
+        }
+      } else if (userState[userId].step === "waiting_sheet_name") {
+        // 4. ได้ชื่อชีทแล้ว
         const sheetName = text
-        // 3. mock ดึงข้อมูลจาก API
         const data = await fetchSheetData(sheetName)
-        // 4. mock สร้างภาพจากข้อมูล
         const imageUrl = await generateImageFromData(data)
-        // 5. ส่งภาพกลับใน LINE
         await replyImage(event.replyToken, imageUrl)
-        // 6. reset state
-        delete userState[userId]
+        // reset state กลับไปที่เมนู
+        userState[userId].step = "menu"
+        await replyMenu(event.replyToken, userState[userId].name || "")
       }
     }
   }
@@ -46,6 +59,52 @@ async function replyText(replyToken: string, text: string) {
       replyToken,
       messages: [{ type: "text", text }],
     }),
+  })
+}
+
+// ฟังก์ชันส่งเมนูฟังก์ชัน (Flex Message)
+async function replyMenu(replyToken: string, name: string) {
+  const menu = {
+    replyToken,
+    messages: [
+      {
+        type: "flex",
+        altText: `สวัสดีคุณ ${name}! เลือกฟังก์ชัน JARVIS`,
+        contents: {
+          type: "bubble",
+          body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              { type: "text", text: `สวัสดีคุณ ${name}!`, weight: "bold", size: "lg", margin: "md" },
+              { type: "text", text: "เลือกฟังก์ชัน JARVIS", size: "md", margin: "sm" },
+              {
+                type: "box",
+                layout: "vertical",
+                margin: "lg",
+                spacing: "sm",
+                contents: [
+                  { type: "button", style: "primary", action: { type: "message", label: "เวรรักษาการณ์", text: "เวรรักษาการณ์" } },
+                  { type: "button", style: "primary", action: { type: "message", label: "เวรเตรียมการ", text: "เวรเตรียมการ" } },
+                  { type: "button", style: "primary", action: { type: "message", label: "จัดยอดพิธี", text: "จัดยอดพิธี" } },
+                  { type: "button", style: "primary", action: { type: "message", label: "ยอดปล่อย", text: "ยอดปล่อย" } },
+                  { type: "button", style: "primary", action: { type: "message", label: "สถิติโดนยอด", text: "สถิติโดนยอด" } },
+                  { type: "button", style: "secondary", action: { type: "uri", label: "เข้าชมเว็บไซต์", uri: "https://jarvis-6374.vercel.app/" } },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    ],
+  }
+  await fetch("https://api.line.me/v2/bot/message/reply", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify(menu),
   })
 }
 

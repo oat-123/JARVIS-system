@@ -182,7 +182,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
             </div>
           </div>
           <h2 className="text-3xl font-bold mb-2">
-            ยินดีต้อนรับ, <span className="text-blue-400">{user?.displayName || "ผู้ใช้"}</span>
+            ยินดีต้อนรับ <span className="text-blue-400">{user?.displayName || "ผู้ใช้"}</span>
           </h2>
           <p className="text-slate-400">เลือกฟังก์ชันที่ต้องการใช้งานจากด้านล่าง</p>
         </div>

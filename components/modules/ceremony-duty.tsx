@@ -336,7 +336,7 @@ const exportToExcelXlsx = async () => {
   // แถว 1: ชื่อยอด (merge A1:J1)
   ws.mergeCells("A1:J1");
   ws.getCell("A1").value = dutyName;
-  ws.getCell("A1").font = { ...mainFont, bold: true };
+  ws.getCell("A1").font = mainFont;
   ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
   // เพิ่มเส้นขอบให้แถว 1
   ws.getCell("A1").border = {
@@ -529,31 +529,31 @@ const exportToExcelXlsx = async () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
           <Button
             onClick={onBack}
             variant="outline"
-            className="text-white border-white/30 hover:bg-white/10 hover:text-white bg-transparent backdrop-blur-sm"
+            className="text-white border-white/30 hover:bg-white/10 hover:text-white bg-transparent backdrop-blur-sm w-full sm:w-auto"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             กลับหน้าหลัก
           </Button>
-          <div className="text-center">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent flex items-center justify-center gap-2">
-              <Award className="h-8 w-8 text-yellow-400" />
+          <div className="text-center order-first sm:order-none">
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent flex items-center justify-center gap-2">
+              <Award className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400" />
               จัดยอดพิธี
             </h1>
-            <p className="text-slate-300 mt-2">ระบบจัดการเวรพิธีและงานพิเศษ - เชื่อมต่อ Google Sheets</p>
+            <p className="text-slate-300 mt-2 text-sm sm:text-base">ระบบจัดการเวรพิธีและงานพิเศษ - เชื่อมต่อ Google Sheets</p>
           </div>
           <Button
             onClick={refreshData}
             variant="outline"
             size="sm"
             disabled={isLoadingData}
-            className="text-white border-white/30 hover:bg-white/10 bg-transparent backdrop-blur-sm"
+            className="text-white border-white/30 hover:bg-white/10 bg-transparent backdrop-blur-sm w-full sm:w-auto"
           >
             <Database className={`h-4 w-4 mr-2 ${isLoadingData ? "animate-spin" : ""}`} />
             รีเฟรชข้อมูล
@@ -561,9 +561,9 @@ const exportToExcelXlsx = async () => {
         </div>
 
         {/* Status Bar */}
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
               <Badge
                 className={`${
                   connectionStatus === "connected"
@@ -571,7 +571,7 @@ const exportToExcelXlsx = async () => {
                     : connectionStatus === "error"
                       ? "bg-red-600"
                       : "bg-yellow-600"
-                } text-white`}
+                } text-white text-xs`}
               >
                 {connectionStatus === "connected" ? (
                   <Wifi className="h-3 w-3 mr-1" />
@@ -584,14 +584,14 @@ const exportToExcelXlsx = async () => {
                     ? "เชื่อมต่อล้มเหลว"
                     : "กำลังเชื่อมต่อ"}
               </Badge>
-              <span className="text-slate-300 text-sm">
+              <span className="text-slate-300 text-xs sm:text-sm">
                 ฐานข้อมูล: {sheetName} | ข้อมูลทั้งหมด: {allPersons.length} คน
               </span>
               {lastUpdated && (
-                <span className="text-slate-400 text-sm">อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString("th-TH")}</span>
+                <span className="text-slate-400 text-xs sm:text-sm">อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString("th-TH")}</span>
               )}
             </div>
-            <div className="text-slate-400 text-sm">Google Sheets Integration</div>
+            <div className="text-slate-400 text-xs sm:text-sm">Google Sheets Integration</div>
           </div>
         </div>
 
@@ -605,12 +605,12 @@ const exportToExcelXlsx = async () => {
 
         {/* Loading State */}
         {isLoadingData && (
-          <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm mb-6">
-            <CardContent className="p-12 text-center">
+          <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm mb-4 sm:mb-6">
+            <CardContent className="p-8 sm:p-12 text-center">
               <div className="text-slate-400 mb-4">
-                <Database className="h-16 w-16 mx-auto mb-4 animate-pulse" />
-                <h3 className="text-xl font-semibold mb-2">กำลังโหลดข้อมูล</h3>
-                <p className="text-slate-500">กำลังเชื่อมต่อกับ Google Sheets...</p>
+                <Database className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 animate-pulse" />
+                <h3 className="text-lg sm:text-xl font-semibold mb-2">กำลังโหลดข้อมูล</h3>
+                <p className="text-slate-500 text-sm sm:text-base">กำลังเชื่อมต่อกับ Google Sheets...</p>
               </div>
             </CardContent>
           </Card>
@@ -618,9 +618,9 @@ const exportToExcelXlsx = async () => {
 
         {/* Main Content - only show when data is loaded */}
         {!isLoadingData && allPersons.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Configuration Panel */}
-            <div className="lg:col-span-1 space-y-6">
+            <div className="lg:col-span-1 space-y-4 sm:space-y-6">
               {/* Basic Information */}
               <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                 <CardHeader>
@@ -631,7 +631,7 @@ const exportToExcelXlsx = async () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="duty-name" className="text-white font-medium">
+                    <Label htmlFor="duty-name" className="text-white font-medium text-sm sm:text-base">
                       ชื่อยอด
                     </Label>
                     <Input
@@ -639,11 +639,11 @@ const exportToExcelXlsx = async () => {
                       value={dutyName}
                       onChange={(e) => setDutyName(e.target.value)}
                       placeholder="กรอกชื่อยอด"
-                      className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2"
+                      className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 text-sm sm:text-base"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="person-count" className="text-white font-medium">
+                    <Label htmlFor="person-count" className="text-white font-medium text-sm sm:text-base">
                       จำนวนคน
                     </Label>
                     <Input
@@ -665,7 +665,7 @@ const exportToExcelXlsx = async () => {
                           setPersonCount(1);
                         }
                       }}
-                      className="bg-slate-700/50 border-slate-600 text-white focus:border-blue-400 mt-2"
+                      className="bg-slate-700/50 border-slate-600 text-white focus:border-blue-400 mt-2 text-sm sm:text-base"
                     />
                   </div>
                 </CardContent>
@@ -700,7 +700,7 @@ const exportToExcelXlsx = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                     {positions.map((position) => (
                       <div key={position} className="flex items-center space-x-2">
                         <Checkbox
@@ -709,7 +709,7 @@ const exportToExcelXlsx = async () => {
                           onCheckedChange={(checked) => handlePositionChange(position, checked as boolean)}
                           className="border-slate-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
                         />
-                        <Label htmlFor={`position-${position}`} className="text-white text-sm cursor-pointer">
+                        <Label htmlFor={`position-${position}`} className="text-white text-xs sm:text-sm cursor-pointer">
                           {position}
                         </Label>
                       </div>
@@ -754,7 +754,7 @@ const exportToExcelXlsx = async () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                     {clubs.map((club) => (
                       <div key={club} className="flex items-center space-x-2">
                         <Checkbox
@@ -763,7 +763,7 @@ const exportToExcelXlsx = async () => {
                           onCheckedChange={(checked) => handleClubChange(club, checked as boolean)}
                           className="border-slate-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                         />
-                        <Label htmlFor={`club-${club}`} className="text-white text-sm cursor-pointer">
+                        <Label htmlFor={`club-${club}`} className="text-white text-xs sm:text-sm cursor-pointer">
                           {club}
                         </Label>
                       </div>
@@ -779,24 +779,24 @@ const exportToExcelXlsx = async () => {
             </div>
 
             {/* Results Panel */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
               {/* Action Buttons */}
               <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                <CardContent className="p-6">
-                  <div className="flex flex-wrap gap-4 justify-center">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center">
                     <Button
                       onClick={generateDutyAssignment}
-                      className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-medium shadow-lg"
+                      className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto"
                       disabled={!dutyName.trim() || isLoading || connectionStatus !== "connected"}
                     >
                       {isLoading ? (
                         <>
-                          <Shuffle className="mr-2 h-5 w-5 animate-spin" />
+                          <Shuffle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                           กำลังจัดยอด...
                         </>
                       ) : (
                         <>
-                          <Users className="mr-2 h-5 w-5" />
+                          <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                           จัดยอดและสร้างรายชื่อ
                         </>
                       )}
@@ -806,17 +806,17 @@ const exportToExcelXlsx = async () => {
                       <>
                         <Button
                           onClick={createReport}
-                          className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-6 py-3 rounded-lg font-medium shadow-lg"
+                          className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto"
                         >
-                          <FileText className="mr-2 h-5 w-5" />
+                          <FileText className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                           สร้างรายงาน
                         </Button>
 
                         <Button
                           onClick={exportToExcelXlsx}
-                          className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-6 py-3 rounded-lg font-medium shadow-lg"
+                          className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto"
                         >
-                          <Download className="mr-2 h-5 w-5" />
+                          <Download className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                           ดาวน์โหลด Excel
                         </Button>
                       </>
@@ -829,24 +829,24 @@ const exportToExcelXlsx = async () => {
               {selectedPersons.length > 0 && (
                 <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                   <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-white text-xl">รายชื่อที่ถูกสุ่ม - {dutyName}</CardTitle>
-                      <Badge className="bg-blue-600 text-white px-3 py-1">{selectedPersons.length} คน</Badge>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                      <CardTitle className="text-white text-lg sm:text-xl">รายชื่อที่ถูกสุ่ม - {dutyName}</CardTitle>
+                      <Badge className="bg-blue-600 text-white px-2 sm:px-3 py-1 text-xs sm:text-sm">{selectedPersons.length} คน</Badge>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="bg-slate-700/30 rounded-lg overflow-hidden border border-slate-600">
+                    <div className="bg-slate-700/30 rounded-lg overflow-x-auto border border-slate-600">
                       <Table className="min-w-full border-separate border-spacing-0">
                         <TableHeader>
                           <TableRow className="bg-slate-700/80">
-                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ลำดับ</TableHead>
-                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ยศ ชื่อ-สกุล</TableHead>
-                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ชั้นปีที่</TableHead>
-                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ตอน</TableHead>
-                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ตำแหน่ง</TableHead>
-                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">สังกัด</TableHead>
-                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">เบอร์โทรศัพท์</TableHead>
-                            <TableHead className="px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">สถิติโดนยอด</TableHead>
+                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ลำดับ</TableHead>
+                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ยศ ชื่อ-สกุล</TableHead>
+                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ชั้นปีที่</TableHead>
+                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ตอน</TableHead>
+                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ตำแหน่ง</TableHead>
+                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">สังกัด</TableHead>
+                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">เบอร์โทรศัพท์</TableHead>
+                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">สถิติโดนยอด</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -855,21 +855,21 @@ const exportToExcelXlsx = async () => {
                               key={person.ลำดับ}
                               className={index % 2 === 0 ? "bg-slate-800/60" : "bg-slate-900/60"}
                             >
-                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">
                                 {toThaiNumber(index + 1)}
                               </TableCell>
-                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-left text-white border-b border-slate-700">
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-left text-white border-b border-slate-700">
                                 {person.ยศ} {person.ชื่อ} {person.สกุล}
                               </TableCell>
-                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">
                                 {person.ชั้นปีที่}
                               </TableCell>
-                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตอน}</TableCell>
-                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตำแหน่ง}</TableCell>
-                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.สังกัด}</TableCell>
-                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.เบอร์โทรศัพท์}</TableCell>
-                              <TableCell className="px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">
-                                <Badge className="bg-blue-600 text-white">{(person.สถิติโดนยอด || "").replace(/^'/, "")}</Badge>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตอน}</TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตำแหน่ง}</TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.สังกัด}</TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.เบอร์โทรศัพท์}</TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">
+                                <Badge className="bg-blue-600 text-white text-xs">{(person.สถิติโดนยอด || "").replace(/^'/, "")}</Badge>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -883,11 +883,11 @@ const exportToExcelXlsx = async () => {
               {/* Empty State */}
               {selectedPersons.length === 0 && !isLoading && (
                 <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                  <CardContent className="p-12 text-center">
+                  <CardContent className="p-8 sm:p-12 text-center">
                     <div className="text-slate-400 mb-4">
-                      <Users className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                      <h3 className="text-xl font-semibold mb-2">ยังไม่มีรายชื่อ</h3>
-                      <p className="text-slate-500">กรอกข้อมูลและกดปุ่ม "จัดยอดและสร้างรายชื่อ" เพื่อเริ่มต้น</p>
+                      <Users className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 opacity-50" />
+                      <h3 className="text-lg sm:text-xl font-semibold mb-2">ยังไม่มีรายชื่อ</h3>
+                      <p className="text-slate-500 text-sm sm:text-base">กรอกข้อมูลและกดปุ่ม "จัดยอดและสร้างรายชื่อ" เพื่อเริ่มต้น</p>
                     </div>
                   </CardContent>
                 </Card>

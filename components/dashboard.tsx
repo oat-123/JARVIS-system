@@ -71,7 +71,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Globe className="h-8 w-8 text-blue-400" />
+              
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                 J.A.R.V.I.S
               </h1>

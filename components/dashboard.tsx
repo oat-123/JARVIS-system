@@ -68,7 +68,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
       {/* Header */}
       <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 p-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="max-w-7xl mx-auto flex items-center justify-between flex-col sm:flex-row gap-3 sm:gap-0">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               
@@ -79,7 +79,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
             <Badge className="bg-green-600 text-white">ระบบผู้ช่วย ฝอ.1</Badge>
           </div>
 
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-4 sm:space-x-6">
             {/* 5 ฟังก์ชันหลัก - ขยับมาใกล้โปรไฟล์ */}
             <div className="flex items-center space-x-2 bg-slate-700/50 rounded-lg px-3 py-2 backdrop-blur-sm">
               <BarChart3 className="h-4 w-4 text-yellow-400" />
@@ -116,7 +116,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
 
               {/* Profile Popup */}
               {showProfilePopup && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 backdrop-blur-sm">
+                <div className="fixed sm:absolute inset-0 sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-full sm:w-80 bg-slate-800 border border-slate-700 rounded-none sm:rounded-lg shadow-xl z-50 backdrop-blur-sm">
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold text-white">ข้อมูลผู้ใช้</h3>
@@ -173,22 +173,22 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto p-6">
+      <main className="max-w-7xl mx-auto px-2 sm:px-6 py-6">
         {/* Welcome Section */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <div className="w-24 h-24 rounded-full border-4 border-blue-400/50 shadow-lg overflow-hidden bg-slate-800">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-blue-400/50 shadow-lg overflow-hidden bg-slate-800">
               <img src="/jarvis-robot.png" alt="JARVIS Robot" className="w-full h-full object-cover" />
             </div>
           </div>
-          <h2 className="text-3xl font-bold mb-2">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2">
             ยินดีต้อนรับ <span className="text-blue-400">{user?.displayName || "ผู้ใช้"}</span>
           </h2>
-          <p className="text-slate-400">เลือกฟังก์ชันที่ต้องการใช้งานจากด้านล่าง</p>
+          <p className="text-slate-400 text-sm sm:text-base">เลือกฟังก์ชันที่ต้องการใช้งานจากด้านล่าง</p>
         </div>
 
-        {/* Stats Grid - ลดจาก 4 เป็น 3 อัน */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6 mb-8">
           <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -227,7 +227,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
         </div>
 
         {/* Function Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-6">
           <Card
             className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
             onClick={() => setActiveModule("night-duty")}

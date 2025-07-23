@@ -74,10 +74,10 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   const { toast } = useToast()
 
   // --- State for Excel Exclusion ---
-  const [exclusionFile, setExclusionFile] = useState<File | null>(null)
-  const [exclusionSheetNames, setExclusionSheetNames] = useState<string[]>([])
+  const [exclusionFiles, setExclusionFiles] = useState<File[]>([])
+  const [exclusionSheetNames, setExclusionSheetNames] = useState<{ [filename: string]: string[] }>({})
   const [checkAllSheets, setCheckAllSheets] = useState(true)
-  const [selectedExclusionSheets, setSelectedExclusionSheets] = useState<string[]>([])
+  const [selectedExclusionSheets, setSelectedExclusionSheets] = useState<{ [filename: string]: string[] }>({})
   const [namesToExclude, setNamesToExclude] = useState<Set<string>>(new Set())
   // ------------------------------------
 
@@ -154,53 +154,54 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   }, [allPersons]);
 
   const handleExclusionFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && file.name.endsWith(".xlsx")) {
-      setExclusionFile(file)
+    const files = Array.from(event.target.files || []).filter(f => f.name.endsWith('.xlsx'))
+    if (files.length === 0) {
+      toast({ title: "ไฟล์ไม่ถูกต้อง", description: "กรุณาเลือกไฟล์ .xlsx เท่านั้น", variant: "destructive" })
+      return
+    }
+    // เพิ่มไฟล์ใหม่โดยไม่ซ้ำชื่อ
+    setExclusionFiles(prev => {
+      const existingNames = new Set(prev.map(f => f.name))
+      return [...prev, ...files.filter(f => !existingNames.has(f.name))]
+    })
+    // โหลดชื่อชีทของแต่ละไฟล์
+    for (const file of files) {
       const arrayBuffer = await file.arrayBuffer()
       const workbook = XLSX.read(arrayBuffer, { type: "array" })
-      setExclusionSheetNames(workbook.SheetNames)
-      setSelectedExclusionSheets([]) // Reset selection
-      setNamesToExclude(new Set()) // Reset excluded names
-    } else if (file) {
-      toast({ title: "ไฟล์ไม่ถูกต้อง", description: "กรุณาเลือกไฟล์ .xlsx เท่านั้น", variant: "destructive" })
-      setExclusionFile(null)
-      setExclusionSheetNames([])
-    } else {
-       setExclusionFile(null)
-       setExclusionSheetNames([])
-       setNamesToExclude(new Set())
+      setExclusionSheetNames(prev => ({ ...prev, [file.name]: workbook.SheetNames }))
+      setSelectedExclusionSheets(prev => ({ ...prev, [file.name]: [] }))
     }
+    setNamesToExclude(new Set()) // Reset excluded names (จะประมวลผลใหม่ใน useEffect)
   }
 
   useEffect(() => {
-    const processExclusionFile = async () => {
-      if (!exclusionFile) return
-
-      const arrayBuffer = await exclusionFile.arrayBuffer()
-      const workbook = XLSX.read(arrayBuffer, { type: "array" })
+    const processExclusionFiles = async () => {
+      if (!exclusionFiles.length) {
+        setNamesToExclude(new Set())
+        return
+      }
       const names = new Set<string>()
-      
-      const sheetsToProcess = checkAllSheets ? exclusionSheetNames : selectedExclusionSheets
-
-      for (const sheetName of sheetsToProcess) {
-        const ws = workbook.Sheets[sheetName]
-        if (!ws) continue
-
-        const data = XLSX.utils.sheet_to_json(ws, { header: 1, range: 3 }) as any[][]
-        const filteredData = data.filter(row => row && row.length >= 4 && (row[0] || row[2] || row[3]))
-        
-        filteredData.forEach(row => {
-          const fullName = normalizeName(row[2], row[3]) // คอลัมน์ C, D
-          if (fullName) {
-            names.add(fullName)
-          }
-        })
+      for (const file of exclusionFiles) {
+        const arrayBuffer = await file.arrayBuffer()
+        const workbook = XLSX.read(arrayBuffer, { type: "array" })
+        const sheetsToProcess = checkAllSheets
+          ? exclusionSheetNames[file.name] || []
+          : selectedExclusionSheets[file.name] || []
+        for (const sheetName of sheetsToProcess) {
+          const ws = workbook.Sheets[sheetName]
+          if (!ws) continue
+          const data = XLSX.utils.sheet_to_json(ws, { header: 1, range: 3 }) as any[][]
+          const filteredData = data.filter(row => row && row.length >= 4 && (row[0] || row[2] || row[3]))
+          filteredData.forEach(row => {
+            const fullName = normalizeName(row[2], row[3]) // คอลัมน์ C, D
+            if (fullName) names.add(fullName)
+          })
+        }
       }
       setNamesToExclude(names)
     }
-    processExclusionFile()
-  }, [exclusionFile, checkAllSheets, selectedExclusionSheets, exclusionSheetNames])
+    processExclusionFiles()
+  }, [exclusionFiles, checkAllSheets, selectedExclusionSheets, exclusionSheetNames])
 
 
   const handlePositionChange = (position: string, checked: boolean) => {
@@ -211,9 +212,8 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     setExcludedClubs(prev => checked ? [...prev, club] : prev.filter(c => c !== club))
     }
   
-  const handleExclusionSheetChange = (sheetName: string, checked: boolean) => {
-    setSelectedExclusionSheets(prev => checked ? [...prev, sheetName] : prev.filter(s => s !== sheetName))
-  }
+  // ปรับให้เลือกชีทแบบ per-file
+  // (ฟังก์ชันนี้ไม่ได้ใช้ตรงๆใน UI ใหม่แล้ว, ใช้ inline ใน map exclusionFiles)
 
   const handleSelectAllPositions = () => {
     setExcludedPositions(prev => prev.length === positions.length ? [] : [...positions])
@@ -509,6 +509,11 @@ const exportToExcelXlsx = async () => {
       return
     }
 
+    // รายงาน exclusionFiles
+    let exclusionFilesSummary = 'ไม่มี';
+    if (exclusionFiles.length > 0) {
+      exclusionFilesSummary = exclusionFiles.map(f => `${f.name}`).join(', ') + ` (${namesToExclude.size} คน)`;
+    }
     const reportLines = [
       `รายงานยอด${dutyName}`,
       `วันที่: ${new Date().toLocaleDateString("th-TH")}`,
@@ -518,7 +523,7 @@ const exportToExcelXlsx = async () => {
       "เงื่อนไขการกรอง:",
       `- ยกเว้นหน้าที่: ${excludedPositions.length > 0 ? excludedPositions.join(", ") : "ไม่มี"}`,
       `- ยกเว้นชมรม: ${excludedClubs.length > 0 ? excludedClubs.join(", ") : "ไม่มี"}`,
-      `- ยกเว้นจากไฟล์: ${exclusionFile ? `${exclusionFile.name} (${namesToExclude.size} คน)` : 'ไม่มี'}`,
+      `- ยกเว้นจากไฟล์: ${exclusionFilesSummary}`,
       "",
       "รายชื่อ:",
       ...selectedPersons.map(
@@ -631,7 +636,7 @@ const exportToExcelXlsx = async () => {
                 </CardContent>
               </Card>
 
-              {/* Excel Exclusion Card */}
+              {/* Excel Exclusion Card - รองรับหลายไฟล์, ลบไฟล์, เลือกชีทต่อไฟล์ */}
               <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-white">
@@ -642,31 +647,63 @@ const exportToExcelXlsx = async () => {
                 <CardContent className="space-y-4">
                   <div>
                     <Label htmlFor="exclusion-file" className="text-white font-medium text-sm sm:text-base">อัปโหลดไฟล์ (.xlsx)</Label>
-                    <Input id="exclusion-file" type="file" accept=".xlsx" onChange={handleExclusionFileChange} className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 file:bg-slate-600 file:text-white file:border-0"/>
+                    <Input id="exclusion-file" type="file" accept=".xlsx" multiple onChange={handleExclusionFileChange} className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 file:bg-slate-600 file:text-white file:border-0"/>
                   </div>
-                  {exclusionFile && (
-                    <>
+                  {exclusionFiles.length > 0 && (
+                    <div className="space-y-3">
                       <div className="flex items-center justify-between pt-2">
                         <Label htmlFor="check-all-sheets" className="text-white font-medium text-sm sm:text-base">ตรวจสอบทุกชีทในไฟล์</Label>
                         <Switch id="check-all-sheets" checked={checkAllSheets} onCheckedChange={setCheckAllSheets} />
                       </div>
-                      {!checkAllSheets && (
-                        <div className="space-y-2 pt-2 border-t border-slate-600">
-                          <p className="text-white text-sm">เลือกชีทที่ต้องการใช้:</p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                            {exclusionSheetNames.map(sheet => (
-                              <div key={sheet} className="flex items-center space-x-2">
-                                <Checkbox id={`sheet-${sheet}`} checked={selectedExclusionSheets.includes(sheet)} onCheckedChange={(checked) => handleExclusionSheetChange(sheet, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"/>
-                                <Label htmlFor={`sheet-${sheet}`} className="text-white text-xs sm:text-sm cursor-pointer truncate">{sheet}</Label>
+                      <div className="space-y-2">
+                        {exclusionFiles.map((file) => (
+                          <div key={file.name} className="border border-slate-600 rounded-lg p-2 bg-slate-700/40 flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-green-400" />
+                                <span className="text-white text-xs sm:text-sm font-medium truncate max-w-[120px] sm:max-w-[200px]">{file.name}</span>
+                                <Badge className="bg-green-600 text-xs">{(exclusionSheetNames[file.name] || []).length} ชีท</Badge>
                               </div>
-                            ))}
+                              <Button size="icon" variant="ghost" className="text-red-400 hover:bg-red-500/20" title="ลบไฟล์นี้"
+                                onClick={() => {
+                                  setExclusionFiles(prev => prev.filter(f => f.name !== file.name))
+                                  setExclusionSheetNames(prev => { const cp = { ...prev }; delete cp[file.name]; return cp })
+                                  setSelectedExclusionSheets(prev => { const cp = { ...prev }; delete cp[file.name]; return cp })
+                                }}>
+                                <span className="sr-only">ลบไฟล์</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                              </Button>
+                            </div>
+                            {!checkAllSheets && (
+                              <div className="pl-6 pt-1">
+                                <div className="flex flex-wrap gap-2">
+                                  {(exclusionSheetNames[file.name] || []).map(sheet => (
+                                    <div key={sheet} className="flex items-center space-x-1">
+                                      <Checkbox id={`sheet-${file.name}-${sheet}`}
+                                        checked={(selectedExclusionSheets[file.name] || []).includes(sheet)}
+                                        onCheckedChange={(checked) => {
+                                          setSelectedExclusionSheets(prev => {
+                                            const prevSheets = prev[file.name] || [];
+                                            return {
+                                              ...prev,
+                                              [file.name]: checked ? [...prevSheets, sheet] : prevSheets.filter(s => s !== sheet)
+                                            }
+                                          })
+                                        }}
+                                        className="border-slate-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"/>
+                                      <Label htmlFor={`sheet-${file.name}-${sheet}`} className="text-white text-xs cursor-pointer truncate max-w-[80px]">{sheet}</Label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      )}
+                        ))}
+                      </div>
                       <div className="mt-3 pt-3 border-t border-slate-600">
                         <Badge className="bg-green-600 text-xs">พบ {namesToExclude.size} ชื่อที่จะถูกยกเว้น</Badge>
                       </div>
-                    </>
+                    </div>
                   )}
                 </CardContent>
               </Card>

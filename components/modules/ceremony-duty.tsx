@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -81,11 +81,22 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   const [namesToExclude, setNamesToExclude] = useState<Set<string>>(new Set())
   // ------------------------------------
 
-  const positions = ["ชั้นกรม", "ชั้นพัน", "ฝอ.1", "ฝอ.4", "ฝอ.5", "แซนเฮิร์ท", "อิสลาม", "คริสต์"]
-  const clubs = [
-    "กรีฑา", "จักรยาน", "ไซเบอร์", "ดนตรีไทย", "ดนตรีสากล", "ดาบสากล",
-    "นิเทศ", "สตส", "บาส", "โปโลน้ำ", "ฟุตบอล", "ยูโด", "รักบี้", "แบตมินตัน",
-  ]
+  // สร้าง options จากฐานข้อมูลจริง (อิงคอลัมน์หน้าที่(M) และ ชมรม(K))
+  const positions = useMemo(() => {
+    const set = new Set<string>()
+    allPersons.forEach(p => {
+      if (p.หน้าที่ && p.หน้าที่.trim()) set.add(p.หน้าที่.trim())
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "th"))
+  }, [allPersons])
+
+  const clubs = useMemo(() => {
+    const set = new Set<string>()
+    allPersons.forEach(p => {
+      if (p.ชมรม && p.ชมรม.trim()) set.add(p.ชมรม.trim())
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "th"))
+  }, [allPersons])
 
   const [excludedPositions, setExcludedPositions] = useState<string[]>([])
   const [excludedClubs, setExcludedClubs] = useState<string[]>([])

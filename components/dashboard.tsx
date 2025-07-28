@@ -271,7 +271,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-400 text-sm mb-4">สุ่มเลือกบุคลากรสำหรับงานพิธีต่างๆ</p>
+              <p className="text-slate-400 text-sm mb-4">สุ่มเลือกนนร.สำหรับงานพิธีต่างๆ</p>
               <Badge className="bg-yellow-600 text-white">จัดยอด(สุ่ม)</Badge>
             </CardContent>
           </Card>
@@ -287,7 +287,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-400 text-sm mb-4">สร้างรายงานยอดปล่อยประจำวัน</p>
+              <p className="text-slate-400 text-sm mb-4">สร้างรายงานยอดปล่อยประจำสัปดาห์</p>
               <Badge className="bg-purple-600 text-white">พิมพ์</Badge>
             </CardContent>
           </Card>
@@ -303,7 +303,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-400 text-sm mb-4">ตรวจสอบและอัพเดตสถิติการได้รับมอบหมาย</p>
+              <p className="text-slate-400 text-sm mb-4">ตรวจสอบและอัพเดตสถิติยอดพิธี</p>
               <Badge className="bg-orange-600 text-white">อัพเดต-ตรวจสอบ</Badge>
             </CardContent>
           </Card>

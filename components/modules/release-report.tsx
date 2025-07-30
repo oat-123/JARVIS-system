@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { saveModuleState, loadModuleState, clearModuleState } from "@/lib/state-persistence"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,6 +15,9 @@ interface ReleaseReportProps {
 }
 
 export function ReleaseReport({ onBack }: ReleaseReportProps) {
+  const MODULE_NAME = 'release-report'
+  const [isStateLoaded, setIsStateLoaded] = useState(false)
+  
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0])
   const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0])
   const [report, setReport] = useState("")
@@ -37,6 +41,41 @@ export function ReleaseReport({ onBack }: ReleaseReportProps) {
       },
     }))
   }
+
+  // ฟังก์ชันบันทึกและโหลด state
+  const saveCurrentState = () => {
+    if (!isStateLoaded) return // ป้องกันการบันทึกก่อนโหลด state เสร็จ
+    console.log('💾 Saving release-report state:', { startDate, endDate, report: report.substring(0, 50) + '...', data })
+    saveModuleState(MODULE_NAME, { startDate, endDate, report, data })
+  }
+
+  const loadSavedState = () => {
+    const savedState = loadModuleState(MODULE_NAME)
+    if (savedState) {
+      console.log('🔄 Loading release-report state:', savedState)
+      if (savedState.startDate) setStartDate(savedState.startDate)
+      if (savedState.endDate) setEndDate(savedState.endDate)
+      if (savedState.report) setReport(savedState.report)
+      if (savedState.data) setData(savedState.data)
+      console.log('✅ Release-report state loaded successfully')
+    } else {
+      console.log('ℹ️ No saved release-report state found')
+    }
+    setIsStateLoaded(true)
+  }
+
+  // useEffect hooks
+  useEffect(() => {
+    // โหลด state ทันทีเมื่อ component mount
+    loadSavedState()
+  }, [])
+
+  useEffect(() => {
+    // บันทึก state หลังจากโหลดเสร็จแล้ว
+    if (isStateLoaded) {
+      saveCurrentState()
+    }
+  }, [startDate, endDate, report, data, isStateLoaded])
 
   const generateReport = () => {
     const lines: string[] = []

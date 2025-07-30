@@ -25,7 +25,7 @@ import { Checkbox } from "./ui/checkbox"
 import { X } from "lucide-react"
 
 interface LoginPageProps {
-  onLogin: (username: string, password: string) => boolean
+  onLogin: (username: string, password: string, rememberMe?: boolean) => boolean
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
@@ -46,7 +46,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     // Log login attempt (user, pass, timestamp)
     logLoginAttempt(username, password)
 
-    const success = onLogin(username, password)
+    const success = onLogin(username, password, rememberMe)
     if (!success) {
       setError("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
     }

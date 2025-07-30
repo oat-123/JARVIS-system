@@ -1,32 +1,7 @@
 "use client"
 
-<<<<<<< HEAD
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import {
-  Bell,
-  Settings,
-  LogOut,
-  User,
-  Shield,
-  Calendar,
-  Award,
-  FileText,
-  BarChart3,
-  Globe,
-  ChevronDown,
-  X,
-} from "lucide-react"
-import { CeremonyDuty } from "./modules/ceremony-duty"
-import { NightDuty } from "./modules/night-duty"
-import { WeekendDuty } from "./modules/weekend-duty"
-import { ReleaseReport } from "./modules/release-report"
-import { Statistics } from "./modules/statistics"
-=======
 import { useState, useEffect, useMemo } from "react"
+import { saveModuleState, loadModuleState, clearModuleState } from "@/lib/state-persistence"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -49,6 +24,7 @@ import {
   ArrowLeft,
   FileCheck,
   BarChart3,
+  X,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
@@ -58,151 +34,27 @@ import * as XLSX from "xlsx"
 import type { BorderStyle } from "exceljs"
 import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
->>>>>>> 0d3cb3e (Add missing module files)
 
-interface DashboardProps {
-  user: {
-    displayName: string
-    role: string
-    group: string
-    sheetname: string
-  } | null
-  username: string | null
-  onLogout: () => void
+interface CeremonyDutyProps {
+  onBack: () => void
+  sheetName: string
 }
 
-export function Dashboard({ user, username, onLogout }: DashboardProps) {
-  const [activeModule, setActiveModule] = useState<string | null>(null)
-  const [showProfilePopup, setShowProfilePopup] = useState(false)
+interface PersonData {
+  ลำดับ: string
+  ยศ: string
+  ชื่อ: string
+  สกุล: string
+  ชั้นปีที่: string
+  ตอน: string
+  ตำแหน่ง: string
+  สังกัด: string
+  เบอร์โทรศัพท์: string
+  หน้าที่?: string
+  ชมรม?: string
+  สถิติโดนยอด: string
+}
 
-<<<<<<< HEAD
-  const toggleProfilePopup = () => {
-    setShowProfilePopup(!showProfilePopup)
-  }
-
-  if (activeModule === "ceremony-duty") {
-    return <CeremonyDuty onBack={() => setActiveModule(null)} sheetName={user?.sheetname || ""} />
-  }
-
-  if (activeModule === "night-duty") {
-    return <NightDuty onBack={() => setActiveModule(null)} sheetName={user?.sheetname || ""} />
-  }
-
-  if (activeModule === "weekend-duty") {
-    return <WeekendDuty onBack={() => setActiveModule(null)} sheetName={user?.sheetname || ""} />
-  }
-
-  if (activeModule === "release-report") {
-    return <ReleaseReport onBack={() => setActiveModule(null)} sheetName={user?.sheetname || ""} />
-  }
-
-  if (activeModule === "statistics") {
-    return <Statistics onBack={() => setActiveModule(null)} sheetName={user?.sheetname || ""} />
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
-      {/* Header */}
-      <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 p-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between flex-col sm:flex-row gap-3 sm:gap-0">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                J.A.R.V.I.S
-              </h1>
-            </div>
-            <Badge className="bg-green-600 text-white">ระบบผู้ช่วย ฝอ.1</Badge>
-          </div>
-
-          <div className="flex items-center space-x-4 sm:space-x-6">
-            {/* 5 ฟังก์ชันหลัก - ขยับมาใกล้โปรไฟล์ */}
-            <div className="flex items-center space-x-2 bg-slate-700/50 rounded-lg px-3 py-2 backdrop-blur-sm">
-              <BarChart3 className="h-4 w-4 text-yellow-400" />
-              <span className="text-sm font-medium text-yellow-400">5 ฟังก์ชันหลัก</span>
-            </div>
-
-            <Button variant="ghost" size="sm" className="text-white hover:bg-slate-700/50">
-              <Bell className="h-5 w-5" />
-            </Button>
-
-            <Button variant="ghost" size="sm" className="text-white hover:bg-slate-700/50">
-              <Settings className="h-5 w-5" />
-            </Button>
-
-            {/* Profile Section */}
-            <div className="relative">
-              <Button
-                variant="ghost"
-                className="flex items-center space-x-3 text-white hover:bg-slate-700/50 p-2"
-                onClick={toggleProfilePopup}
-              >
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="/jarvis-robot.png" alt="Profile" className="object-cover" />
-                  <AvatarFallback className="bg-blue-600 text-white">
-                    {user?.displayName?.charAt(0) || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="text-left">
-                  <div className="text-sm font-medium">{user?.displayName || "ผู้ใช้"}</div>
-                  <div className="text-xs text-slate-400">{user?.role || "ผู้ใช้งาน"}</div>
-                </div>
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-
-              {/* Profile Popup */}
-              {showProfilePopup && (
-                <div className="fixed sm:absolute inset-0 sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-full sm:w-80 bg-slate-800 border border-slate-700 rounded-none sm:rounded-lg shadow-xl z-50 backdrop-blur-sm">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-white">ข้อมูลผู้ใช้</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={toggleProfilePopup}
-                        className="text-slate-400 hover:text-white"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center space-x-3 mb-4">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src="/jarvis-robot.png" alt="Profile" className="object-cover" />
-                        <AvatarFallback className="bg-blue-600 text-white text-lg">
-                          {user?.displayName?.charAt(0) || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="text-white font-medium">{user?.displayName || "ผู้ใช้"}</div>
-                        <div className="text-slate-400 text-sm">@{username}</div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 mb-4">
-                      <div className="flex items-center space-x-2">
-                        <User className="h-4 w-4 text-blue-400" />
-                        <span className="text-sm text-slate-300">บทบาท: {user?.role || "ผู้ใช้งาน"}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Shield className="h-4 w-4 text-green-400" />
-                        <span className="text-sm text-slate-300">กลุ่ม: {user?.group || "ไม่ระบุ"}</span>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-slate-700 pt-4">
-                      <Button
-                        onClick={onLogout}
-                        variant="ghost"
-                        className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                      >
-                        <LogOut className="h-4 w-4 mr-2" />
-                        ออกจากระบบ
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-=======
 interface ApiResponse {
   success: boolean
   data?: PersonData[]
@@ -222,6 +74,10 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // State persistence key
+  const MODULE_NAME = 'ceremony-duty'
+  const [isStateLoaded, setIsStateLoaded] = useState(false)
 
   // --- State for Excel Exclusion ---
   const [exclusionFiles, setExclusionFiles] = useState<File[]>([])
@@ -252,6 +108,43 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   const [excludedClubs, setExcludedClubs] = useState<string[]>([])
   const [statDomain, setStatDomain] = useState<[number, number]>([0, 10]);
   const [statMax, setStatMax] = useState(10);
+
+  // ฟังก์ชันบันทึก state
+  const saveCurrentState = () => {
+    if (!isStateLoaded) return // ป้องกันการบันทึกก่อนโหลด state เสร็จ
+    
+    const state = {
+      dutyName,
+      personCount,
+      selectedPersons,
+      excludedPositions,
+      excludedClubs,
+      statMax,
+      checkAllSheets,
+      // ไม่เก็บ files เพราะไม่สามารถ serialize ได้
+    }
+    console.log('💾 Saving state:', state) // Debug log
+    saveModuleState(MODULE_NAME, state)
+  }
+
+  // ฟังก์ชันโหลด state
+  const loadSavedState = () => {
+    const savedState = loadModuleState(MODULE_NAME)
+    if (savedState) {
+      console.log('🔄 Loading saved state:', savedState) // Debug log
+      if (savedState.dutyName) setDutyName(savedState.dutyName)
+      if (savedState.personCount) setPersonCount(savedState.personCount)
+      if (savedState.selectedPersons) setSelectedPersons(savedState.selectedPersons)
+      if (savedState.excludedPositions) setExcludedPositions(savedState.excludedPositions)
+      if (savedState.excludedClubs) setExcludedClubs(savedState.excludedClubs)
+      if (savedState.statMax) setStatMax(savedState.statMax)
+      if (typeof savedState.checkAllSheets === 'boolean') setCheckAllSheets(savedState.checkAllSheets)
+      console.log('✅ State loaded successfully') // Debug log
+    } else {
+      console.log('ℹ️ No saved state found') // Debug log
+    }
+    setIsStateLoaded(true)
+  }
 
   const normalizeName = (firstName?: string, lastName?: string): string => {
     const first = (firstName || "").toString().trim()
@@ -291,6 +184,20 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   useEffect(() => {
     loadSheetData()
   }, [sheetName])
+
+  // โหลด saved state เมื่อเริ่มต้น (หลังจากโหลดข้อมูลจาก Google Sheets)
+  useEffect(() => {
+    if (!isLoadingData && connectionStatus === "connected") {
+      loadSavedState()
+    }
+  }, [isLoadingData, connectionStatus])
+
+  // บันทึก state อัตโนมัติเมื่อมีการเปลี่ยนแปลง (หลังจากโหลด state เสร็จแล้ว)
+  useEffect(() => {
+    if (isStateLoaded) {
+      saveCurrentState()
+    }
+  }, [dutyName, personCount, selectedPersons, excludedPositions, excludedClubs, statMax, checkAllSheets, isStateLoaded])
 
   // เมื่อโหลดข้อมูล allPersons ให้คำนวณ min/max ของสถิติโดนยอด
   useEffect(() => {
@@ -496,7 +403,80 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   // Export to real .xlsx with exceljs (merge cell, font, layout)
   // Export to real .xlsx with exceljs (merge cell, font, layout)
   // Export to real .xlsx with exceljs (merge cell, font, layout)
-const exportToExcelXlsx = async () => {
+  // --- ฟีเจอร์บันทึกไฟล์ยอดที่สร้าง ---
+  const [saveToHistory, setSaveToHistory] = useState(false);
+  // ฟังก์ชันบันทึกประวัติยอดลง localStorage
+  function saveExportHistory(type: 'excel' | 'report', fileName: string, content?: string) {
+    if (!saveToHistory) return;
+    const key = 'jarvis-duty-history';
+    const prev = JSON.parse(localStorage.getItem(key) || '[]');
+    const newEntry = {
+      type,
+      fileName,
+      dutyName,
+      sheetName,
+      date: new Date().toISOString(),
+      count: selectedPersons.length,
+      content: content || null, // เก็บ content สำหรับ preview
+    };
+    const next = [newEntry, ...prev].slice(0, 20); // เก็บ 20 รายการล่าสุด
+    localStorage.setItem(key, JSON.stringify(next));
+  }
+
+  // ฟังก์ชันส่งไฟล์ไปยัง Google Sheets จริงๆ
+  async function sendFileToGoogleSheets(fileName: string, fileData: string) {
+    try {
+      // ใช้ Google Apps Script Web App URL
+      // คุณต้องสร้าง Google Apps Script ก่อน (ดูคำแนะนำด้านล่าง)
+      const APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
+      // ตัวอย่าง: 'https://script.google.com/macros/s/AKfycby.../exec'
+      
+      const payload = {
+        action: 'addFile',
+        fileName: fileName,
+        date: new Date().toLocaleDateString('th-TH'),
+        type: 'ceremony-duty',
+        dutyName: dutyName,
+        count: selectedPersons.length.toString(),
+        fileData: fileData,
+        sheetId: '1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw',
+        sheetName: 'file'
+      };
+
+      const response = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        return { success: true, message: 'ส่งไฟล์ไปยัง Google Sheets สำเร็จ' };
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
+      
+    } catch (error) {
+      console.error('Failed to send file to Google Sheets:', error);
+      
+      // สำหรับตอนนี้ ให้แสดงข้อมูลใน console แทน
+      console.log('ข้อมูลที่จะส่ง:', {
+        fileName,
+        date: new Date().toLocaleDateString('th-TH'),
+        type: 'ceremony-duty',
+        dutyName,
+        count: selectedPersons.length,
+        fileDataLength: fileData.length
+      });
+      
+      return { success: false, message: 'ยังไม่ได้ตั้งค่า Google Apps Script - ดูข้อมูลใน Console' };
+    }
+  }
+
+  const exportToExcelXlsx = async () => {
   if (selectedPersons.length === 0) {
     toast({ title: "ไม่มีข้อมูลให้ส่งออก", variant: "destructive" });
     return;
@@ -643,6 +623,16 @@ const exportToExcelXlsx = async () => {
   // สร้างไฟล์และดาวน์โหลด
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  
+  // สร้าง base64 สำหรับส่งไปยัง Google Sheets
+  const uint8Array = new Uint8Array(buffer);
+  let binaryString = '';
+  for (let i = 0; i < uint8Array.length; i++) {
+    binaryString += String.fromCharCode(uint8Array[i]);
+  }
+  const base64String = btoa(binaryString);
+  const dataUrl = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`;
+  
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = `${dutyName}.xlsx`;
@@ -650,10 +640,24 @@ const exportToExcelXlsx = async () => {
   link.click();
   document.body.removeChild(link);
 
+  // ถ้าติ๊กบันทึกไฟล์ไว้ในประวัติ
+  if (saveToHistory) {
+    // ส่งไฟล์ไปยัง Google Sheets
+    const result = await sendFileToGoogleSheets(`${dutyName}.xlsx`, dataUrl);
+    if (result.success) {
+      toast({ title: "ส่งไฟล์สำเร็จ", description: result.message });
+    } else {
+      toast({ title: "เกิดข้อผิดพลาด", description: result.message, variant: "destructive" });
+    }
+    
+    // บันทึกไฟล์ลง localStorage ด้วย base64
+    saveExportHistory('excel', `${dutyName}.xlsx`, dataUrl);
+  }
+
   toast({ title: "ส่งออกไฟล์ .xlsx สำเร็จ", description: `ไฟล์ ${dutyName}.xlsx ถูกดาวน์โหลดแล้ว` });
 };
 
-  const createReport = () => {
+  const createReport = async () => {
     if (selectedPersons.length === 0) {
       toast({ title: "ไม่มีข้อมูลให้สร้างรายงาน", variant: "destructive" })
       return
@@ -697,6 +701,20 @@ const exportToExcelXlsx = async () => {
     link.click()
     document.body.removeChild(link)
 
+    // ถ้าติ๊กบันทึกไฟล์ไว้ในประวัติ
+    if (saveToHistory) {
+      // ส่งรายงานไปยัง Google Sheets (ในรูปแบบ text)
+      const result = await sendFileToGoogleSheets(`รายงาน_${dutyName}.txt`, textContent);
+      if (result.success) {
+        toast({ title: "ส่งรายงานสำเร็จ", description: result.message });
+      } else {
+        toast({ title: "เกิดข้อผิดพลาด", description: result.message, variant: "destructive" });
+      }
+      
+      // บันทึกรายงานลง localStorage
+      saveExportHistory('report', `รายงาน_${dutyName}.txt`, textContent);
+    }
+
     toast({ title: "สร้างรายงานสำเร็จ", description: `รายงาน ${dutyName} ถูกดาวน์โหลดแล้ว` })
   }
 
@@ -704,15 +722,53 @@ const exportToExcelXlsx = async () => {
     loadSheetData()
   }
 
+  // ฟังก์ชันล้าง state และกลับหน้าหลัก
+  const handleBackWithConfirm = () => {
+    if (dutyName || selectedPersons.length > 0) {
+      if (window.confirm('คุณมีข้อมูลการทำงานที่ยังไม่ได้บันทึก หากออกจากหน้านี้ข้อมูลจะหายไป\n\nต้องการออกจากหน้านี้ใช่หรือไม่?')) {
+        clearModuleState(MODULE_NAME)
+        onBack()
+      }
+    } else {
+      clearModuleState(MODULE_NAME)
+      onBack()
+    }
+  }
+
+  // ฟังก์ชันล้าง state ปัจจุบัน
+  const clearCurrentState = () => {
+    if (window.confirm('ต้องการล้างข้อมูลการทำงานทั้งหมดใช่หรือไม่?')) {
+      setDutyName("")
+      setPersonCount(1)
+      setSelectedPersons([])
+      setExcludedPositions([])
+      setExcludedClubs([])
+      setStatMax(10)
+      setCheckAllSheets(true)
+      setExclusionFiles([])
+      setExclusionSheetNames({})
+      setSelectedExclusionSheets({})
+      setNamesToExclude(new Set())
+      clearModuleState(MODULE_NAME)
+      toast({ title: "ล้างข้อมูลเรียบร้อย", description: "ข้อมูลการทำงานทั้งหมดถูกล้างแล้ว" })
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
-          <Button onClick={onBack} variant="outline" className="text-white border-white/30 hover:bg-white/10 hover:text-white bg-transparent backdrop-blur-sm w-full sm:w-auto">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            กลับหน้าหลัก
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleBackWithConfirm} variant="outline" className="text-white border-white/30 hover:bg-white/10 hover:text-white bg-transparent backdrop-blur-sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              กลับหน้าหลัก
+            </Button>
+            <Button onClick={clearCurrentState} variant="outline" className="text-red-400 border-red-400/30 hover:bg-red-400/10 hover:text-red-300 bg-transparent backdrop-blur-sm">
+              <X className="h-4 w-4 mr-2" />
+              ล้างข้อมูล
+            </Button>
+          </div>
           <div className="text-center order-first sm:order-none">
             <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent flex items-center justify-center gap-2">
               <Award className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400" />
@@ -739,40 +795,19 @@ const exportToExcelXlsx = async () => {
               </span>
               {lastUpdated && (
                 <span className="text-slate-400 text-xs sm:text-sm">อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString("th-TH")}</span>
->>>>>>> 0d3cb3e (Add missing module files)
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="text-slate-400 text-xs sm:text-sm">Google Sheets Integration</div>
+              {(dutyName || selectedPersons.length > 0) && (
+                <Badge className="bg-green-600 text-white text-xs">
+                  💾 ข้อมูลถูกบันทึกอัตโนมัติ ({isStateLoaded ? 'Ready' : 'Loading'})
+                </Badge>
               )}
             </div>
           </div>
         </div>
-      </header>
 
-<<<<<<< HEAD
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-2 sm:px-6 py-6">
-        {/* Welcome Section */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-blue-400/50 shadow-lg overflow-hidden bg-slate-800">
-              <img src="/jarvis-robot.png" alt="JARVIS Robot" className="w-full h-full object-cover" />
-            </div>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold mb-2">
-            ยินดีต้อนรับ <span className="text-blue-400">{user?.displayName || "ผู้ใช้"}</span>
-          </h2>
-          <p className="text-slate-400 text-sm sm:text-base">เลือกฟังก์ชันที่ต้องการใช้งานจากด้านล่าง</p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6 mb-8">
-          <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-sm">เวรที่ดำเนินการ</p>
-                  <p className="text-2xl font-bold text-white">12</p>
-                </div>
-                <Shield className="h-8 w-8 text-blue-400" />
-=======
         {error && (
           <Alert className="mb-6 border-red-500 bg-red-500/10">
             <AlertCircle className="h-4 w-4" />
@@ -787,121 +822,11 @@ const exportToExcelXlsx = async () => {
                 <Database className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 animate-pulse" />
                 <h3 className="text-lg sm:text-xl font-semibold mb-2">กำลังโหลดข้อมูล</h3>
                 <p className="text-slate-500 text-sm sm:text-base">กำลังเชื่อมต่อกับ Google Sheets...</p>
->>>>>>> 0d3cb3e (Add missing module files)
               </div>
             </CardContent>
           </Card>
+        )}
 
-<<<<<<< HEAD
-          <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-sm">รายงานที่สร้าง</p>
-                  <p className="text-2xl font-bold text-white">8</p>
-                </div>
-                <FileText className="h-8 w-8 text-green-400" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-slate-400 text-sm">ยอดที่จัดแล้ว</p>
-                  <p className="text-2xl font-bold text-white">25</p>
-                </div>
-                <Award className="h-8 w-8 text-yellow-400" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Function Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-6">
-          <Card
-            className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
-            onClick={() => setActiveModule("night-duty")}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center space-x-2 text-white group-hover:text-blue-400 transition-colors">
-                <Shield className="h-6 w-6" />
-                <span>เวรรักษาการณ์</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-slate-400 text-sm mb-4">จัดการและดูข้อมูลเวรยืนกลางคืน</p>
-              <Badge className="bg-blue-600 text-white">ดู-อัพเดต</Badge>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
-            onClick={() => setActiveModule("weekend-duty")}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center space-x-2 text-white group-hover:text-green-400 transition-colors">
-                <Calendar className="h-6 w-6" />
-                <span>เวรเตรียมการ</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-slate-400 text-sm mb-4">จัดการเวรเสาร์-อาทิตย์และวันหยุด</p>
-              <Badge className="bg-green-600 text-white">ดู-อัพเดต</Badge>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
-            onClick={() => setActiveModule("ceremony-duty")}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center space-x-2 text-white group-hover:text-yellow-400 transition-colors">
-                <Award className="h-6 w-6" />
-                <span>จัดยอดพิธี</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-slate-400 text-sm mb-4">สุ่มเลือกนนร.สำหรับงานพิธีต่างๆ</p>
-              <Badge className="bg-yellow-600 text-white">จัดยอด(สุ่ม)</Badge>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
-            onClick={() => setActiveModule("release-report")}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center space-x-2 text-white group-hover:text-purple-400 transition-colors">
-                <FileText className="h-6 w-6" />
-                <span>ยอดปล่อย</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-slate-400 text-sm mb-4">สร้างรายงานยอดปล่อยประจำสัปดาห์</p>
-              <Badge className="bg-purple-600 text-white">พิมพ์</Badge>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
-            onClick={() => setActiveModule("statistics")}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center space-x-2 text-white group-hover:text-orange-400 transition-colors">
-                <BarChart3 className="h-6 w-6" />
-                <span>สถิติโดนยอด</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-slate-400 text-sm mb-4">ตรวจสอบและอัพเดตสถิติยอดพิธี</p>
-              <Badge className="bg-orange-600 text-white">อัพเดต-ตรวจสอบ</Badge>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-=======
         {!isLoadingData && allPersons.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             <div className="lg:col-span-1 space-y-4 sm:space-y-6">
@@ -1073,7 +998,7 @@ const exportToExcelXlsx = async () => {
             <div className="lg:col-span-2 space-y-4 sm:space-y-6">
               <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                 <CardContent className="p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center">
                     <Button onClick={generateDutyAssignment} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto" disabled={!dutyName.trim() || isLoading || connectionStatus !== "connected"}>
                       {isLoading ? (<><Shuffle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />กำลังจัดยอด...</>) : (<><Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />จัดยอดและสร้างรายชื่อ</>)}
                     </Button>
@@ -1086,6 +1011,10 @@ const exportToExcelXlsx = async () => {
                         <Button onClick={exportToExcelXlsx} className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto">
                           <Download className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />ดาวน์โหลด Excel
                         </Button>
+                        <div className="flex items-center gap-2 mt-2">
+                          <input id="save-to-history" type="checkbox" checked={saveToHistory} onChange={e => setSaveToHistory(e.target.checked)} className="accent-blue-500 w-4 h-4" />
+                          <label htmlFor="save-to-history" className="text-xs text-slate-300 cursor-pointer select-none">บันทึกไฟล์นี้ไว้ในประวัติยอด (แสดงใน Dashboard)</label>
+                        </div>
                       </>
                     )}
                   </div>
@@ -1150,7 +1079,6 @@ const exportToExcelXlsx = async () => {
           </div>
         )}
       </div>
->>>>>>> 0d3cb3e (Add missing module files)
     </div>
   )
 }

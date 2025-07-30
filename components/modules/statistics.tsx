@@ -2,13 +2,13 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
-import { ExternalLink, Upload } from "lucide-react"
+import { ExternalLink, Upload, Clock, FileText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { userSheetMap } from "@/config/auth"
 import * as XLSX from 'xlsx'
@@ -24,17 +24,50 @@ interface SheetData {
   weight: number
 }
 
+interface RecentFile {
+  fileName: string
+  uploadDate: string
+  sheetsCount: number
+  totalUpdated: number
+}
+
 export function Statistics({ onBack, sheetName }: StatisticsProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedSheets, setSelectedSheets] = useState<string[]>([])
   const [sheetSettings, setSheetSettings] = useState<Record<string, number>>({})
   const [sheetPreviews, setSheetPreviews] = useState<Record<string, any[][]>>({})
   const [fullNamesInSheet, setFullNamesInSheet] = useState<string[]>([])
+  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([])
   const { toast } = useToast()
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
   const [updatedDetails, setUpdatedDetails] = useState<any[]>([])
 
   const currentUser = userSheetMap[sheetName as keyof typeof userSheetMap] || userSheetMap["ชั้น4_พัน4"]
+
+  // โหลดประวัติไฟล์ล่าสุดเมื่อ component เริ่มต้น
+  useEffect(() => {
+    const loadRecentFiles = async () => {
+      try {
+        const response = await fetch(`/api/sheets/recent-files?sheetName=${encodeURIComponent(sheetName)}`);
+        
+        // ตรวจสอบว่า response เป็น JSON หรือไม่
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.log('Recent files API not available yet');
+          return;
+        }
+        
+        const result = await response.json();
+        if (result.success) {
+          setRecentFiles(result.recentFiles || []);
+        }
+      } catch (error) {
+        console.log('Recent files feature not implemented yet');
+        // ไม่แสดง error ใน console เพื่อไม่ให้รบกวนผู้ใช้
+      }
+    };
+    loadRecentFiles();
+  }, [sheetName]);
 
   // ✅ ปรับปรุงฟังก์ชัน normalizeName ให้เหมือนกับ Python
   const normalizeName = (firstName: string | undefined, lastName: string | undefined): string => {

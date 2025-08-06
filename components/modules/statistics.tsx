@@ -235,9 +235,14 @@ export function Statistics({ onBack, sheetName }: StatisticsProps) {
                 variant="outline"
                 className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white bg-transparent"
               >
-                <a href={currentUser.url} target="_blank" rel="noopener noreferrer">
+                const SHEET_BASE_URL = "https://docs.google.com/spreadsheets/d/1PfZdCw2iL65CPTZzNsCnkhF7EVJNFZHRvYAXqeOJsSk/edit#gid=0";
+                <a
+                  href={`${SHEET_BASE_URL}&range=${encodeURIComponent(currentUser.sheet_name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  ดูสถิติโดนยอดปัจจุบัน (ชีท: {currentUser.name})
+                  ดูสถิติโดยยอดปัจจุบัน (ชีท: {currentUser.sheet_name})
                 </a>
               </Button>
             </div>

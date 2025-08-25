@@ -11,64 +11,6 @@ function getDutyHistory() {
     return [];
   }
 }
-
-// ฟังก์ชันโหลดไฟล์จาก Google Sheets
-async function loadGoogleSheetsFiles() {
-  try {
-    const SHEET_ID = '1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw';
-    const SHEET_NAME = 'file';
-    
-    // ใช้ Google Sheets API หรือ CSV export
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gid=344324158/export?format=csv`;
-    
-    try {
-      const response = await fetch(csvUrl);
-      const csvData = await response.text();
-      
-      // แปลง CSV เป็น array
-      const rows = csvData.split('\n').map(row => row.split(','));
-      
-      // กรองข้อมูลไฟล์ (สมมติว่าข้อมูลเริ่มจากแถวที่ 2)
-      const files = rows.slice(1).filter(row => row[0] && row[0].trim()).map((row, index) => ({
-        id: `sheet_${index}`,
-        name: row[0]?.replace(/"/g, '') || `ไฟล์ ${index + 1}`,
-        type: 'ceremony-duty',
-        date: row[1]?.replace(/"/g, '') || new Date().toISOString().split('T')[0],
-        sheetUrl: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=344324158#gid=344324158`,
-        lastModified: new Date().toISOString(),
-        source: 'google-sheets'
-      }));
-      
-      return files;
-    } catch (fetchError) {
-      // Fallback ข้อมูล Mock ถ้าไม่สามารถเชื่อมต่อได้
-      console.warn('Cannot fetch from Google Sheets, using mock data:', fetchError);
-      return [
-        {
-          id: 'sheet1',
-          name: 'ยอดพิธีประจำสัปดาห์ 1/2025',
-          type: 'ceremony-duty',
-          date: '2025-01-29',
-          sheetUrl: 'https://docs.google.com/spreadsheets/d/1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw/edit?gid=344324158#gid=344324158',
-          lastModified: new Date().toISOString(),
-          source: 'google-sheets'
-        },
-        {
-          id: 'sheet2', 
-          name: 'ยอดพิธีประจำสัปดาห์ 2/2025',
-          type: 'ceremony-duty',
-          date: '2025-01-22',
-          sheetUrl: 'https://docs.google.com/spreadsheets/d/1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw/edit?gid=344324158#gid=344324158',
-          lastModified: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          source: 'google-sheets'
-        }
-      ];
-    }
-  } catch (error) {
-    console.error('Failed to load Google Sheets files:', error);
-    return [];
-  }
-}
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -86,14 +28,13 @@ import {
   Globe,
   ChevronDown,
   X,
-  Folder,
-  ExternalLink,
 } from "lucide-react"
 import { CeremonyDuty } from "./modules/ceremony-duty"
 import { NightDuty } from "./modules/night-duty"
 import { WeekendDuty } from "./modules/weekend-duty"
 import { ReleaseReport } from "./modules/release-report"
 import { Statistics } from "./modules/statistics"
+import { Duty433 } from "./modules/duty-433"
 
 interface DashboardProps {
   user: {
@@ -118,77 +59,44 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
   
   // Session info state
   const [sessionInfo, setSessionInfo] = useState<{ expiryTime: number, isRemembered: boolean } | null>(null);
-  // ฟังก์ชัน normalizeName เหมือนกับใน statistics.tsx
-  const normalizeName = (firstName: string | undefined, lastName: string | undefined): string => {
-    const first = (firstName || '').toString().trim()
-    const last = (lastName || '').toString().trim()
-    return `${first} ${last}`.trim()
-  }
   const previewExcelFile = async (base64String: any, idx: number) => {
     try {
-      // ✅ ตรวจสอบข้อมูลเบื้องต้น
-      if (!base64String) {
-        throw new Error("No Excel data available for preview");
-      }
-
       const stringValue = String(base64String);
-      
-      // ✅ แปลง base64 เป็น ArrayBuffer
-      let arrayBuffer: ArrayBuffer;
-      
-      if (stringValue.includes(',')) {
-        // กรณีที่เป็น data URL
-        const response = await fetch(stringValue);
-        arrayBuffer = await response.arrayBuffer();
-      } else {
-        // กรณีที่เป็น pure base64 - แปลงเป็น data URL ก่อน
-        const dataUrl = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${stringValue}`;
-        const response = await fetch(dataUrl);
-        arrayBuffer = await response.arrayBuffer();
+      const parts = stringValue.split(",");
+      if (parts.length < 2) {
+        throw new Error("Invalid base64 input: Missing comma separator");
       }
 
-      // ✅ ใช้ XLSX.read เหมือนกับ statistics.tsx
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const raw = parts[1];
+      const data = atob(raw);
+      const bytes = new Uint8Array(data.length);
+      for (let i = 0; i < data.length; ++i) {
+        bytes[i] = data.charCodeAt(i);
+      }
+
+      const workbook = XLSX.read(bytes.buffer, { type: "array" });
       const sheetName = workbook.SheetNames[0];
       const ws = workbook.Sheets[sheetName];
-      
-      if (!ws) {
-        throw new Error("No worksheet found in the Excel file");
-      }
 
-      // ✅ ใช้ logic เดียวกับ statistics.tsx - อ่านจากแถวที่ 4 เป็นต้นไป (skip header 3 rows)
-      // แต่สำหรับไฟล์ที่มาจาก ceremony-duty.tsx ข้อมูลจริงเริ่มที่แถว 4 (row index 3)
-      const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
-      
-      // ✅ กรองข้อมูลเริ่มจากแถว 4 (index 3) เป็นต้นไป และมีข้อมูลครบ
-      const filteredData = data.slice(3).filter(row => {
-        return row && row.length >= 4 && (row[0] || row[1] || row[2] || row[3])
-      });
-
-      // ✅ แสดงข้อมูลทั้งหมด (ไม่จำกัด 20 แถว)
-      const previewData = filteredData;
-
-      // ✅ สร้าง header สำหรับแสดงผล
-      const headerRow = ['ลำดับ', 'ยศ', 'ชื่อ', 'สกุล', 'ชั้นปีที่', 'ตอน', 'ตำแหน่ง', 'สังกัด', 'เบอร์โทรศัพท์', 'หมายเหตุ'];
+      const dataRows = XLSX.utils.sheet_to_json(ws, { header: 1, range: 3 }) as any[][];
+      const filtered = dataRows
+        .filter(row => row && row.length >= 4 && (row[0] || row[2] || row[3]))
+        .slice(0, 20);
 
       setPreviewIdx(idx);
       setExcelPreview({
         sheets: workbook.SheetNames,
         sheetName,
-        data: [headerRow, ...previewData] // เพิ่ม header เข้าไปด้วย
+        data: filtered
       });
-
     } catch (e) {
       console.error("Preview failed:", e);
-      
-      // ✅ แสดงข้อความแจ้งเตือนที่เหมาะสม
-      const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-      alert(`ไม่สามารถแสดงตัวอย่างได้: ${errorMessage}\n\nคุณยังสามารถดาวน์โหลดไฟล์ได้ตามปกติ`);
-      
       setPreviewIdx(null);
       setExcelPreview({ sheets: [], data: [], sheetName: '' });
     }
   }
+
+
 
   // โหลด dutyHistory ทุกครั้งที่เข้า history page
   useEffect(() => {
@@ -200,11 +108,12 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
   // โหลดไฟล์จาก Google Sheets เมื่อเข้าหน้า history
   useEffect(() => {
     if (showHistoryPage) {
-      loadGoogleSheetsFiles().then(setGoogleSheetsFiles);
+      // TODO: Define or import loadGoogleSheetsFiles before using this effect
+      // For now, this effect is disabled to prevent runtime errors
+      // Uncomment and fix the following line when loadGoogleSheetsFiles is available:
+      // loadGoogleSheetsFiles().then(setGoogleSheetsFiles);
     }
   }, [showHistoryPage]);
-
-  // โหลดข้อมูล session และ page state
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SESSION_KEY = 'jarvis-session';
@@ -247,6 +156,11 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
   }, []);
   const [activeModule, setActiveModule] = useState<string | null>(null)
   const [showProfilePopup, setShowProfilePopup] = useState(false)
+  const normalizeName = (firstName: string | undefined, lastName: string | undefined): string => {
+    const first = (firstName || '').toString().trim()
+    const last = (lastName || '').toString().trim()
+    return `${first} ${last}`.trim()
+  }
   
   // ฟังก์ชันบันทึก page state
   const savePageState = (newActiveModule: string | null, newShowHistoryPage: boolean = false) => {
@@ -294,6 +208,9 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
   if (activeModule === "statistics") {
     return <Statistics onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
   }
+  if (activeModule === "duty-433") {
+    return <Duty433 onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} username={username} />
+  }
 
 
   if (showHistoryPage) {
@@ -308,52 +225,11 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
               <Award className="h-6 w-6 text-yellow-400" /> ยอดที่จัดไว้ในระบบ (20 รายการล่าสุด)
             </h2>
           </div>
-          
-          {/* แสดงไฟล์จาก Google Sheets ก่อน */}
-          {googleSheetsFiles.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-green-400 mb-3 flex items-center gap-2">
-                <Folder className="h-5 w-5" /> ไฟล์จาก Google Sheets
-              </h3>
-              <div className="space-y-2">
-                {googleSheetsFiles.map((file, idx) => (
-                  <div key={file.id} className="bg-slate-800/70 border border-green-700/50 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-white flex items-center gap-2">
-                        <span className="text-xs px-2 py-0.5 rounded bg-green-700 text-green-200">Sheet</span>
-                        <span className="truncate max-w-[180px] sm:max-w-[260px]">{file.name}</span>
-                      </div>
-                      <div className="text-xs text-slate-400 mt-1">
-                        ประเภท: <span className="text-green-300">{file.type}</span> | 
-                        วันที่: {new Date(file.date).toLocaleDateString('th-TH')} | 
-                        อัปเดต: {new Date(file.lastModified).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button 
-                        size="sm" 
-                        className="bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700"
-                        onClick={() => window.open(file.sheetUrl, '_blank')}
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        เปิดใน Sheets
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {dutyHistory.length === 0 && googleSheetsFiles.length === 0 ? (
+          {dutyHistory.length === 0 ? (
             <div className="text-slate-400 text-center py-12">ยังไม่มีประวัติยอดที่บันทึกไว้</div>
-          ) : dutyHistory.length > 0 ? (
-            <div>
-              <h3 className="text-lg font-semibold text-yellow-400 mb-3 flex items-center gap-2">
-                <Award className="h-5 w-5" /> ไฟล์ที่สร้างในระบบ
-              </h3>
-              <div className="space-y-2">            
-                {dutyHistory.map((item, idx) => (
+          ) : (
+            <div className="space-y-2">            
+              {dutyHistory.map((item, idx) => (
                 <div key={idx} className="bg-slate-800/70 border border-slate-700 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-white flex items-center gap-2">
@@ -429,45 +305,36 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
                     </div>
                   )}
                   {item.type === 'excel' && previewIdx === idx && excelPreview && (
-                    <div className="mt-2 bg-slate-900/80 border border-slate-700 rounded p-3 text-xs text-slate-200 max-h-80 overflow-auto">
-                      <div className="mb-2">
-                        Sheet: <span className="text-green-300">{excelPreview.sheetName}</span> ({excelPreview.sheets.length} ชีท)
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full border border-slate-700 text-xs">
-                          <thead>
-                            <tr className="bg-slate-800">
-                              {excelPreview.data[0]?.map((header: any, hIdx: number) => (
-                                <th key={hIdx} className="border border-slate-700 px-2 py-1 font-semibold text-blue-300 whitespace-nowrap">
-                                  {header || `Col ${hIdx + 1}`}
-                                </th>
-                              ))}
+                    <div className="mt-2 bg-slate-900/80 border border-slate-700 rounded p-3 text-xs text-slate-200 max-h-60 overflow-x-auto overflow-y-auto">
+                      <div className="mb-2">Sheet: <span className="text-green-300">{excelPreview.sheetName}</span> ({excelPreview.sheets.length} ชีท)</div>
+                      <table className="min-w-full border border-slate-700 text-xs">
+                        <thead>
+                          <tr>
+                            <th className="border border-slate-700 px-2 py-1">ยศ</th>
+                            <th className="border border-slate-700 px-2 py-1">ชื่อ</th>
+                            <th className="border border-slate-700 px-2 py-1">สกุล</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {excelPreview.data.slice(1, 21).map((row, rIdx) => (
+                            <tr key={rIdx}>
+                              <td className="border border-slate-700 px-2 py-1">{row[1] || ''}</td>
+                              <td className="border border-slate-700 px-2 py-1">{row[2] || ''}</td>
+                              <td className="border border-slate-700 px-2 py-1">{row[3] || ''}</td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {excelPreview.data.slice(1).map((row: any[], rIdx: number) => (
-                              <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-slate-900/50' : 'bg-slate-800/50'}>
-                                {row.map((cell: any, cIdx: number) => (
-                                  <td key={cIdx} className="border border-slate-700 px-2 py-1 whitespace-nowrap">
-                                    {cell || ''}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className="text-slate-400 mt-2 text-center">แสดงทั้งหมด {excelPreview.data.length - 1} รายการ</div>
+                          ))}
+                        </tbody>
+                      </table>
+                      {excelPreview.data.length > 21 && <div className="text-slate-400 mt-1">...แสดงสูงสุด 20 แถว</div>}
                     </div>
                   )}
                 </div>
               ))}
-                </div>
-                </div>
-                ) : null}
-                </div>
-                </div>
-                );
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -641,8 +508,6 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
               </div>
             </CardContent>
           </Card>
-
-
         </div>
 
         {/* Function Cards */}
@@ -726,6 +591,24 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
               <Badge className="bg-orange-600 text-white">อัพเดต-ตรวจสอบ</Badge>
             </CardContent>
           </Card>
+
+          {username === 'oat' && (
+            <Card
+              className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
+              onClick={() => setActiveModuleWithSave("duty-433")}
+            >
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center space-x-2 text-white group-hover:text-amber-400 transition-colors">
+                  <Award className="h-6 w-6" />
+                  <span>หน้าที่ 433</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-400 text-sm mb-4">แดชบอร์ดสรุป433 — เฉพาะ admin oat</p>
+                <Badge className="bg-amber-600 text-white">ตรวจสอบ - จัดการ</Badge>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
     </div>

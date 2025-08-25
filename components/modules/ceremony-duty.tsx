@@ -797,14 +797,6 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
                 <span className="text-slate-400 text-xs sm:text-sm">อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString("th-TH")}</span>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <div className="text-slate-400 text-xs sm:text-sm">Google Sheets Integration</div>
-              {(dutyName || selectedPersons.length > 0) && (
-                <Badge className="bg-green-600 text-white text-xs">
-                  💾 ข้อมูลถูกบันทึกอัตโนมัติ ({isStateLoaded ? 'Ready' : 'Loading'})
-                </Badge>
-              )}
-            </div>
           </div>
         </div>
 

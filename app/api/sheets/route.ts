@@ -1,190 +1,85 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getSheetsService, validateGoogleAuthConfig, getMockData } from "@/lib/google-auth"
+import { type NextRequest, NextResponse } from "next/server"
+import { google } from "googleapis"
 
-// Type definitions for the data structure
-interface PersonData {
-  ลำดับ: string
-  ยศ: string
-  ชื่อ: string
-  สกุล: string
-  ชั้นปีที่: string
-  ตอน: string
-  ตำแหน่ง: string
-  สังกัด: string
-  เบอร์โทรศัพท์: string
-  หน้าที่: string
-  ชมรม: string
-  สถิติโดนยอด: string
+// Google Sheets configuration
+const GOOGLE_SHEETS_CREDENTIALS = {
+  type: "service_account",
+  project_id: "oat-assist",
+  private_key_id: "6e9fd4d2776efa9d1c49e0c39ac3e0337d9219bb",
+  private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDEFaLot9VdrGgi\nXdzlGHwjM/WEhaoazbLgQdz+0lfemzewKSfcmNRyyOW8CEkRboYn+u2LSb8+1H06\nEIGkFTbQ8+3ZTZQLMJuUBeApcV8DIwf6ACIEhFL/WnnSYUUQJNB3Kcw99ZG7qvCN\nu3+36XkTdQf2NE+EmBLnMqZD5OP+uMCuzAbixXavYvbmcHMo7o1PLwoYddPbXR/r\nQiRasJeqtLb6yHSzlZepVBo4BPq5ng2+Zo7bKk9JmsKymXATN7UhGtidCm9WDeHM\n+cuzrn2U0kz1+tBT5e3FHzHwrBDcoTytiedpMBbCdTWPakLeV1kO6JTKqxk+YjBU\nnLQ4URyFAgMBAAECggEAXi2aKjYpZ61n8qGsd+hzryDEmlrsoaUMdgOMVmPGymc4\nrwaFW8GXwG3XUaGVHqc8DjXKI+1OyqmaX+oPqjR6OJAAPC+znFBDWSwdRyppnQMV\nULEBpbO8fWMCQdZwKlnUOne73kJ1NXLbyOc2Z6neekbqhQkI7EFyStMb4l4sV2mj\n/f7CW1zXZo7txP9atz7RJWujOoXfspEUIXJBbiUV0Azna1k9/QasUrcyzEMf++iJ\n7oUG10NL8yx8fZNumHtsHaraHt6tIwVhitnCUVpl70inri7gQWZSAou96k3v+Vph\nOSkeI0P/Me47+B9/pEBCrcV4CZy2dWYd7/gTXACQvQKBgQDikUcx50DvWinYoLmV\nEskZ1niS7im62fsG/Z3yFa2QSrqBMPv0zAEFuWohFHT/kGO4RExKfk2QfWqcTk/u\niBrzU49VjqZu5HIqkWYbTdQSJFedOE6ur23uYRq4XGuKhzX2mfb68j6xSsEnO4bM\nr9cHFuc86rRfmXDE1b+DzmIxqwKBgQDdjp4IdGuL1dWgI7F8YX5VJFXfpcdRWtbK\nf40PKBAEdlQ2naPKpvFQqL8kHApEBgx5QNKhG7VU2KC+sDd7aXEfhJGKR8+LFpJ/\nHy6zgPRULop03jUq51Mm80fq4OPIYwwEKbFUi/DpqzjPe1Ao+lRQQraL3B5yH1ro\nyFQfT0QajwKBgArLBOs5qvw7/VZWgcC6Pl4+u0u0kMRX8f9pQYbwxW3kQXI6FSaa\nOUo+hPHCebha9oUmq8O4tJU3hEah7Gjejvocdu2KeB88PrwMZSLT2FBs7seMkSL9\nNG1wrsctj+nvewCeYQefVqE3gHAQA+HoVoP98VITlDghpR+bVx4+TKs1AoGANGj7\nS0a29iJEYZhv8NtjNiLdSYV+y+jwLIDVzoMMnvGa5DyQNW0eYpU4egNEDmlb5AcI\njGHwmDyScelfhosf3nPOteZc2ysgxn+K3Z2grpU/3Xt/GkIUcn9UQOSoHYwImKeA\nMl7UQ4JkcvhZswfckAvoANe2QArYx340IB/xHVMCgYEAtXRKoGX+07+VThdazkl/\nVsHQGZ8EuB0JWSyMxkNgrIWwM0egLmlDrgWUeDM+Q0SSTRSFrN6pHlEQ4kPBtGBk\nxQ5RJFCEwaVtFc2iW9chWvVX+lbbw9NVGbPCcai8s3msV8gGZCzvVuadGMYx6UsU\nPQMFGMIGH/0EBzLT+LFEeYE=\n-----END PRIVATE KEY-----\n",
+  client_email: "oatmultitools-oatdev-com@oat-assist.iam.gserviceaccount.com",
+  client_id: "106726004126140712061",
+  auth_uri: "https://accounts.google.com/o/oauth2/auth",
+  token_uri: "https://oauth2.googleapis.com/token",
+  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+  client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/oatmultitools-oatdev-com%40oat-assist.iam.gserviceaccount.com",
+  universe_domain: "googleapis.com"
 }
 
-interface UpdateRequest {
-  selectedPersons: string[]
-  dutyName: string
-  sheetName: string
+// Spreadsheet ID - replace with your actual spreadsheet ID
+const SPREADSHEET_ID = "1PfZdCw2iL65CPTZzNsCnkhF7EVJNFZHRvYAXqeOJsSk"
+
+// Initialize Google Sheets client
+const getGoogleSheetsClient = () => {
+  const auth = new google.auth.GoogleAuth({
+    credentials: GOOGLE_SHEETS_CREDENTIALS,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+  })
+  
+  return google.sheets({ version: "v4", auth })
 }
 
-// Convert sheet data to PersonData format
-const convertSheetDataToPersonData = (values: any[][]): PersonData[] => {
-  if (!values || values.length === 0) return []
+// Helper function to convert array data to objects with Thai headers
+const convertToObjects = (data: any[][]) => {
+  if (!data || data.length === 0) return []
+  
+  const headers = data[0]
+  return data.slice(1).map((row, index) => {
+    const obj: any = { ลำดับ: (index + 1).toString() }
+    headers.forEach((header, i) => {
+      obj[header] = row[i] || ""
+    })
+    return obj
+  })
+}
 
-  const headers = values[0]
-  const data: PersonData[] = []
-
-  for (let i = 1; i < values.length; i++) {
-    const row = values[i]
-    const person: PersonData = {
-      ลำดับ: row[0] || '',
-      ยศ: row[1] || '',
-      ชื่อ: row[2] || '',
-      สกุล: row[3] || '',
-      ชั้นปีที่: row[4] || '',
-      ตอน: row[5] || '',
-      ตำแหน่ง: row[6] || '',
-      สังกัด: row[7] || '',
-      เบอร์โทรศัพท์: row[8] || '',
-      หน้าที่: row[9] || '',
-      ชมรม: row[10] || '',
-      สถิติโดนยอด: row[11] || '0',
-    }
-    data.push(person)
-  }
-
-  return data
+// Helper function to find column index by header name
+const findColumnIndex = (headers: string[], columnName: string): number => {
+  return headers.findIndex(header => header === columnName)
 }
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    let sheetName = searchParams.get("sheetName") || "ชั้น4_พัน4"
+    const sheetName = searchParams.get("sheetName") || "ชั้น4_พัน4"
     
-    console.log('Original sheet name from request:', sheetName)
+    const sheets = getGoogleSheetsClient()
     
-    // Clean and validate sheet name - preserve Thai characters
-    sheetName = sheetName.replace(/[^\w\s\u0E00-\u0E7F-]/g, '').trim()
-    
-    console.log('Cleaned sheet name:', sheetName)
-    
-    // Common sheet name mappings based on actual Google Sheets
-    const sheetNameMappings: { [key: string]: string } = {
-      'ชั้น4พัน4': 'ชั้น4_พัน4',
-      'ชั้น4พัน3': 'ชั้น4_พัน3', 
-      'ชั้น4พัน1': 'ชั้น4_พัน1',
-      'ชั้น4_พัน4': 'ชั้น4_พัน4',
-      'ชั้น4_พัน3': 'ชั้น4_พัน3',
-      'ชั้น4_พัน1': 'ชั้น4_พัน1',
-      'ชั้น4': 'รวมชั้น4', // Main sheet - updated based on actual sheet name
-      '4': 'รวมชั้น4', // Fallback for numeric sheet names
-      '44': 'ชั้น4_พัน4', // Fallback for numeric sheet names
-      '43': 'ชั้น4_พัน3',
-      '41': 'ชั้น4_พัน1'
-    }
-    
-    // Use mapped name if available
-    if (sheetNameMappings[sheetName]) {
-      console.log('Mapping sheet name from', sheetName, 'to', sheetNameMappings[sheetName])
-      sheetName = sheetNameMappings[sheetName]
-    } else {
-      console.log('No mapping found for sheet name:', sheetName)
-    }
-    
-    console.log('Final sheet name:', sheetName)
-    
-    // Check if we're in development mode and environment variables are not set
-    const isDevelopment = process.env.NODE_ENV === 'development'
-    const hasGoogleConfig = process.env.GOOGLE_PROJECT_ID && process.env.GOOGLE_PRIVATE_KEY
-
-    if (isDevelopment && !hasGoogleConfig) {
-      console.log('Development mode: Using mock data')
-      const mockData = getMockData()
-      
-      return NextResponse.json({
-        success: true,
-        data: mockData,
-        timestamp: new Date().toISOString(),
-        sheetName: sheetName,
-        mode: 'mock'
-      })
-    }
-
-    // Validate configuration for production
-    try {
-      validateGoogleAuthConfig()
-    } catch (error) {
-      console.error('Configuration validation failed:', error)
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Google Sheets configuration is missing",
-          details: error instanceof Error ? error.message : "Unknown error",
-        },
-        { status: 500 }
-      )
-    }
-
-    const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID
-
-    if (!spreadsheetId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Google Spreadsheet ID not configured",
-        },
-        { status: 500 }
-      )
-    }
-
-    // Get Google Sheets service
-    const sheets = await getSheetsService()
-
-    // First, try to get sheet metadata to validate sheet name
-    try {
-      const spreadsheet = await sheets.spreadsheets.get({
-        spreadsheetId,
-        ranges: [`${sheetName}!A1`],
-        includeGridData: false
-      })
-      
-      console.log('Available sheets:', spreadsheet.data.sheets?.map(s => s.properties?.title))
-    } catch (metadataError) {
-      console.log('Could not get sheet metadata, proceeding with direct access')
-    }
-
-    // Read data from the specified sheet
+    // Get data from the specified sheet
     const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `${sheetName}!A:L`, // Adjust range based on your sheet structure
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A:L`, // Adjust range as needed
     })
-
+    
     const values = response.data.values
-    const data = convertSheetDataToPersonData(values || [])
-
+    if (!values || values.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: "No data found in the sheet",
+      })
+    }
+    
+    // Convert to objects with proper Thai headers
+    const data = convertToObjects(values)
+    
     return NextResponse.json({
       success: true,
       data: data,
-      timestamp: new Date().toISOString(),
       sheetName: sheetName,
-      mode: 'production'
+      timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error('Error fetching data from Google Sheets:', error)
-    
-    // Return mock data in development if Google Sheets fails
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Falling back to mock data due to Google Sheets error')
-      const mockData = getMockData()
-      const { searchParams } = new URL(request.url)
-      const fallbackSheetName = searchParams.get("sheetName") || "ชั้น4_พัน4"
-      
-      return NextResponse.json({
-        success: true,
-        data: mockData,
-        timestamp: new Date().toISOString(),
-        sheetName: fallbackSheetName,
-        mode: 'mock-fallback',
-        warning: 'Using mock data due to Google Sheets error'
-      })
-    }
-
+    console.error("Error fetching data from Google Sheets:", error)
     return NextResponse.json(
       {
         success: false,
@@ -197,142 +92,116 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // อ่าน body แค่ครั้งเดียว
-  const body = await request.json();
-  // ประกาศตัวแปรให้ทุก scope เห็น
-  const selectedPersons = body.selectedPersons || [];
-  const selectedSheets = body.data?.sheets || [];
-  const sheetSettings = body.data?.settings || {};
-
-  // Check if we're in development mode and environment variables are not set
-  const isDevelopment = process.env.NODE_ENV === 'development'
-  const hasGoogleConfig = process.env.GOOGLE_PROJECT_ID && process.env.GOOGLE_PRIVATE_KEY
-
-  if (isDevelopment && !hasGoogleConfig) {
-    console.log('Development mode: Mock update operation')
+  try {
+    const body = await request.json()
+    const { selectedPersons, dutyName, sheetName } = body
+    
+    if (!selectedPersons || !Array.isArray(selectedPersons) || selectedPersons.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No persons selected for update",
+        },
+        { status: 400 }
+      )
+    }
+    
+    const sheets = getGoogleSheetsClient()
+    
+    // First, get the current data to find the correct rows and column
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A:L`,
+    })
+    
+    const values = response.data.values
+    if (!values || values.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No data found in the sheet",
+        },
+        { status: 404 }
+      )
+    }
+    
+    const headers = values[0]
+    const statsColumnIndex = findColumnIndex(headers, "สถิติโดนยอด")
+    const nameColumnIndex = findColumnIndex(headers, "ชื่อ")
+    const surnameColumnIndex = findColumnIndex(headers, "สกุล")
+    
+    if (statsColumnIndex === -1) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Stats column not found in the sheet",
+        },
+        { status: 400 }
+      )
+    }
+    
+    // Prepare batch update requests
+    const batchUpdateRequests = []
+    
+    for (const person of selectedPersons) {
+      // Find the row for this person
+      const rowIndex = values.findIndex((row, index) => {
+        if (index === 0) return false // Skip header row
+        const firstName = row[nameColumnIndex] || ""
+        const lastName = row[surnameColumnIndex] || ""
+        const fullName = `${firstName} ${lastName}`.trim()
+        return fullName === person.name || 
+               firstName === person.name ||
+               `${person.rank}${firstName} ${lastName}` === person.name
+      })
+      
+      if (rowIndex > 0) { // Found the person (rowIndex 0 is header)
+        const currentStats = parseInt(values[rowIndex][statsColumnIndex] || "0")
+        const newStats = currentStats + 1
+        
+        // Create update request for this cell
+        batchUpdateRequests.push({
+          range: `${sheetName}!${String.fromCharCode(65 + statsColumnIndex)}${rowIndex + 1}`,
+          values: [[newStats.toString()]]
+        })
+      }
+    }
+    
+    if (batchUpdateRequests.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No matching persons found in the sheet",
+        },
+        { status: 404 }
+      )
+    }
+    
+    // Execute batch update
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        valueInputOption: "USER_ENTERED",
+        data: batchUpdateRequests
+      }
+    })
     
     return NextResponse.json({
       success: true,
-      message: `Mock update for ${selectedPersons.length} people in ${selectedSheets[0]}`,
-      updatedCount: selectedPersons.length,
+      message: `Updated stats for ${batchUpdateRequests.length} people in ${sheetName}`,
+      updatedCount: batchUpdateRequests.length,
+      dutyName: dutyName,
       timestamp: new Date().toISOString(),
-      mode: 'mock'
     })
-  }
-
-  // Validate configuration for production
-  try {
-    validateGoogleAuthConfig()
   } catch (error) {
-    console.error('Configuration validation failed:', error)
+    console.error("Error updating Google Sheets:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Google Sheets configuration is missing",
+        error: "Failed to update Google Sheets",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     )
-  }
-
-  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID
-
-  if (!spreadsheetId) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Google Spreadsheet ID not configured",
-      },
-      { status: 500 }
-    )
-  }
-
-  // Get Google Sheets service
-  const sheets = await getSheetsService()
-
-  // First, get current data to find the rows to update
-  const currentDataResponse = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${selectedSheets[0]}!A:L`,
-  })
-
-  const currentValues = currentDataResponse.data.values || []
-  const updates: any[] = []
-
-  // Find rows to update based on selectedPersons
-  for (let i = 1; i < currentValues.length; i++) {
-    const row = currentValues[i]
-    const personId = row[0] // ลำดับ
-    
-    if (selectedPersons.includes(personId)) {
-      // Update สถิติโดนยอด (column L, index 11)
-      const currentStats = parseInt(row[11] || '0')
-      const newStats = currentStats + 1
-      
-      updates.push({
-        range: `${selectedSheets[0]}!L${i + 1}`, // L column for สถิติโดนยอด
-        values: [[newStats.toString()]],
-      })
-    }
-  }
-
-  // Batch update the statistics
-  if (updates.length > 0) {
-    await sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-        valueInputOption: 'RAW',
-        data: updates,
-      },
-    })
-  }
-
-  // Log the update for audit purposes
-  const logEntry = {
-    timestamp: new Date().toISOString(),
-    dutyName: sheetSettings.dutyName || '',
-    updatedPersons: selectedPersons,
-    sheetName: selectedSheets[0],
-  }
-
-  // Optionally, you can add the log to a separate sheet
-  // await logUpdateToSheet(sheets, spreadsheetId, logEntry)
-
-  return NextResponse.json({
-    success: true,
-    message: `Updated stats for ${selectedPersons.length} people in ${selectedSheets[0]}`,
-    updatedCount: updates.length,
-    timestamp: new Date().toISOString(),
-    mode: 'production'
-  })
-}
-
-// Optional: Function to log updates to a separate sheet
-async function logUpdateToSheet(
-  sheets: any,
-  spreadsheetId: string,
-  logEntry: {
-    timestamp: string
-    dutyName: string
-    updatedPersons: string[]
-    sheetName: string
-  }
-) {
-  try {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: 'Logs!A:D',
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [[
-          logEntry.timestamp,
-          logEntry.dutyName,
-          logEntry.updatedPersons.join(', '),
-          logEntry.sheetName
-        ]]
-      }
-    })
-  } catch (error) {
-    console.error('Error logging to sheet:', error)
   }
 }

@@ -22,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="th">
+    <html lang="th" className="dark">
       <head>
         <link rel="icon" href="/jarvis-favicon.png" type="image/png" />
       </head>

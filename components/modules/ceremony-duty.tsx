@@ -797,6 +797,8 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
                 <span className="text-slate-400 text-xs sm:text-sm">อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString("th-TH")}</span>
               )}
             </div>
+
+            <div className="text-slate-400 text-xs sm:text-sm">Database from Google Sheets</div>
           </div>
         </div>
 

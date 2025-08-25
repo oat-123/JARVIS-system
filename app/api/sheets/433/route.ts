@@ -47,6 +47,8 @@ export async function GET(request: NextRequest) {
     // Find column indexes by header names (best-effort)
     const idxOf = (name: string) => headers.findIndex(h => h.includes(name))
   const idxReport = idxOf('ถวายรายงาน')
+  const idxDutyOfficer = idxOf('น.กำกับยาม')
+  const idxDate = idxOf('วันที่')
   const idx433Cols = [idxOf('433 ครั้งที่ 1'), idxOf('433 ครั้งที่ 2'), idxOf('433 ครั้งที่ 3'), idxOf('433 ครั้งที่ 4')]
   const idxAdminCols = [idxOf('ธุรการ ครั้งที่ 1'), idxOf('ธุรการ ครั้งที่ 2'), idxOf('ธุรการ ครั้งที่ 3'), idxOf('ธุรการ ครั้งที่ 4'), idxOf('ธุรการ ครั้งที่ 5')]
   // extra columns we want to surface into each person row
@@ -76,6 +78,8 @@ export async function GET(request: NextRequest) {
   ส่วนสูง: get(idxHeight),
   นักกีฬา: get(idxSport),
         ถวายรายงาน: get(idxReport),
+        "น.กำกับยาม": get(idxDutyOfficer),
+        "วันที่": get(idxDate),
         _433_dates: idx433Cols.map(c => safeParseDateCell(get(c))),
         _admin_dates: idxAdminCols.map(c => safeParseDateCell(get(c))),
       }

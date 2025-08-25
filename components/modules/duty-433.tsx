@@ -24,6 +24,7 @@ interface PersonData {
   "ตำแหน่ง ทกท."?: string
   "ธุรการ ฝอ."?: string
   "ธุรการ"?: string
+  "คัดเกรด"?: string
 }
 
 interface Duty433Props {
@@ -33,7 +34,7 @@ interface Duty433Props {
 }
 
 // Small, dependency-free pie chart using SVG
-function Pie({ data, onSliceClick }: { data: { label: string; value: number; color: string }[]; onSliceClick?: (label: string) => void }) {
+function Pie({ data, onSliceClick, selectedLabel }: { data: { label: string; value: number; color: string }[]; onSliceClick?: (label: string) => void; selectedLabel?: string }) {
   const total = data.reduce((s, d) => s + d.value, 0)
   let acc = 0
   return (
@@ -49,14 +50,20 @@ function Pie({ data, onSliceClick }: { data: { label: string; value: number; col
         const y2 = 16 + 16 * Math.sin(end)
         const large = value / total > 0.5 ? 1 : 0
         const path = `M16 16 L ${x1} ${y1} A 16 16 0 ${large} 1 ${x2} ${y2} Z`
+        const isSelected = selectedLabel && selectedLabel === d.label
+        const mid = (start + end) / 2
+        const explode = isSelected ? 1.5 : 0
+        const dx = explode * Math.cos(mid)
+        const dy = explode * Math.sin(mid)
         return (
           <path
             key={i}
             d={path}
             fill={d.color}
             stroke="#0f172a"
-            strokeWidth={0.2}
-            style={{ cursor: onSliceClick ? 'pointer' : 'default' }}
+            strokeWidth={isSelected ? 0.6 : 0.2}
+            transform={`translate(${dx}, ${dy})`}
+            style={{ cursor: onSliceClick ? 'pointer' : 'default', filter: isSelected ? 'drop-shadow(0 0 2px rgba(255,255,255,0.6))' : undefined }}
             onClick={() => onSliceClick && onSliceClick(d.label)}
           >
             <title>{`${d.label}: ${d.value}`}</title>
@@ -199,15 +206,6 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
 
   const [nextStart, nextEnd] = useMemo(() => nextWeekendRange(new Date()), [])
   const nextWeekendText = useMemo(() => formatThaiRange(nextStart, nextEnd), [nextStart, nextEnd])
-
-  // helper: count valid 433 entries
-  const countValid433Entries = (person: any) => {
-    if (!Array.isArray(person.enter433)) return 0
-    return person.enter433.filter(entry => 
-      entry && (entry.date || entry.note) && 
-      (entry.date !== '' || entry.note !== '')
-    ).length
-  }
 
   // helper: read position from common column names (prefer 'ตำแหน่ง ทกท.')
   const getPositionFrom = (obj: any) => {
@@ -610,7 +608,6 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
     setPrevView(previous as any)
     setSelectedPerson(postProcessPerson(p))
     setView("detail")
-    setSelectedOverviewItem(null) // รีเซ็ตเมื่อเปิด detail
   }
 
   const handleDetailBack = () => {
@@ -621,7 +618,6 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
       setView('dashboard')
     }
     setSelectedPerson(null)
-    setSelectedOverviewItem(null) // รีเซ็ตเมื่อกลับจาก detail
   }
 
   // Mobile-friendly layout: use stacked sections under 420px wide
@@ -631,10 +627,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Button onClick={() => {
-                setView("dashboard")
-                setSelectedOverviewItem(null) // รีเซ็ตเมื่อกลับไป dashboard
-              }} className="bg-white text-slate-900">← ย้อนกลับ</Button>
+              <Button onClick={() => setView("dashboard")} className="bg-white text-slate-900">← ย้อนกลับ</Button>
             </div>
           </div>
           
@@ -676,7 +669,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
                     <th className="px-3 py-2 text-center font-semibold border-b border-slate-700">สังกัด</th>
                     <th className="px-3 py-2 text-center font-semibold border-b border-slate-700">คัดเกรด</th>
                     <th className="px-3 py-2 text-center font-semibold border-b border-slate-700">ธุรการ ฝอ.</th>
-                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700">จำนวนครั้งเข้า433</th>
+                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700">สถิติ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -689,9 +682,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
                       <td className="px-3 py-2 text-center border-b border-slate-700">{p.สังกัด}</td>
                       <td className="px-3 py-2 text-center border-b border-slate-700">{p.คัดเกรด || '-'}</td>
                       <td className="px-3 py-2 text-center border-b border-slate-700">{p['ธุรการ ฝอ.'] || p['ธุรการ'] || '-'}</td>
-                      <td className="px-3 py-2 text-center font-bold border-b border-slate-700">
-                        {countValid433Entries(p)}
-                      </td>
+                      <td className="px-3 py-2 text-center font-bold border-b border-slate-700">{p.stat}</td>
                     </tr>
                   ))}
                   {filtered.length === 0 && (
@@ -834,59 +825,14 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
               </div>
 
               <div className="grid grid-cols-2 items-center px-6 py-6">
-                <div className="text-sm text-slate-300">จำนวนครั้งเข้า433</div>
-                <div className="text-lg font-semibold text-white text-right">
-                  {countValid433Entries(selectedPerson)}
-                </div>
+                <div className="text-sm text-slate-300">สถิติได้รับหน้าที่พิเศษ</div>
+                <div className="text-lg font-semibold text-white text-right">{selectedPerson.สถิติโดนยอด || '0'}</div>
               </div>
             </div>
           </div>
         </div>
       </div>
     )
-  }
-
-  // helper: handle overview item click
-  const handleOverviewItemClick = (item: string) => {
-    if (selectedOverviewItem === item) {
-      setSelectedOverviewItem(null)
-    } else {
-      setSelectedOverviewItem(item)
-    }
-    setSelectedPie(null) // รีเซ็ตเมื่อคลิก overview item
-  }
-
-  // helper: get overview item data
-  const getOverviewItemData = (item: string) => {
-    if (!aggData) return { count: 0, percentage: 0 }
-    
-    let count = 0
-    let total = people.length
-    
-    switch (item) {
-      case 'ถวายรายงาน':
-        count = people.filter(p => Array.isArray(p.reportHistory) && p.reportHistory.length > 0).length
-        break
-      case 'เข้า433':
-        // นับคนที่มีประวัติเข้า433 ที่ถูกต้อง
-        count = people.filter(p => countValid433Entries(p) > 0).length
-        break
-      case 'ธุรการ':
-        count = people.filter(p => p['ธุรการ ฝอ.'] || p['ธุรการ']).length
-        break
-      case 'ไม่เคยเข้า':
-        count = people.filter(p => 
-          (!Array.isArray(p.reportHistory) || p.reportHistory.length === 0) &&
-          (!Array.isArray(p.enter433) || p.enter433.length === 0) &&
-          !p['ธุรการ ฝอ.'] && !p['ธุรการ']
-        ).length
-        break
-    }
-    
-    return {
-      count,
-      percentage: total > 0 ? Math.round((count / total) * 100) : 0
-    }
   }
 
   // helper: find person by name (exact or partial)
@@ -944,12 +890,7 @@ const findPersonByName = (name: string) => {
               <div className="text-slate-400">กำลังโหลด...</div>
             ) : (
               <div className="flex flex-col items-center">
-                <Pie data={pieData} onSliceClick={(label) => { 
-                  setPieDetailLabel(label); 
-                  setShowPieDetail(true); 
-                  setSelectedPie(label)
-                  setSelectedOverviewItem(null) // รีเซ็ตเมื่อคลิกกราฟ
-                }} />
+                <Pie data={pieData} selectedLabel={selectedOverviewItem || undefined} />
                 {selectedPie && (
                   <div className="mt-3 bg-slate-700/60 border border-slate-500 rounded-lg p-3 shadow-lg transform -translate-y-2">
                     <div className="text-sm font-semibold">{selectedPie}</div>
@@ -965,7 +906,7 @@ const findPersonByName = (name: string) => {
                     ? 'bg-blue-600 text-white shadow-lg transform scale-105' 
                     : 'hover:bg-slate-700/50'
                 }`}
-                onClick={() => handleOverviewItemClick('ถวายรายงาน')}
+                onClick={() => setSelectedOverviewItem(prev => prev === 'ถวายรายงาน' ? null : 'ถวายรายงาน')}
               >
                 ถวายรายงาน
               </span>
@@ -976,7 +917,7 @@ const findPersonByName = (name: string) => {
                     ? 'bg-green-600 text-white shadow-lg transform scale-105' 
                     : 'hover:bg-slate-700/50'
                 }`}
-                onClick={() => handleOverviewItemClick('เข้า433')}
+                onClick={() => setSelectedOverviewItem(prev => prev === 'เข้า433' ? null : 'เข้า433')}
               >
                 เข้า433
               </span>
@@ -987,7 +928,7 @@ const findPersonByName = (name: string) => {
                     ? 'bg-yellow-600 text-white shadow-lg transform scale-105' 
                     : 'hover:bg-slate-700/50'
                 }`}
-                onClick={() => handleOverviewItemClick('ธุรการ')}
+                onClick={() => setSelectedOverviewItem(prev => prev === 'ธุรการ' ? null : 'ธุรการ')}
               >
                 ธุรการ
               </span>
@@ -998,19 +939,43 @@ const findPersonByName = (name: string) => {
                     ? 'bg-red-600 text-white shadow-lg transform scale-105' 
                     : 'hover:bg-slate-700/50'
                 }`}
-                onClick={() => handleOverviewItemClick('ไม่เคยเข้า')}
+                onClick={() => setSelectedOverviewItem(prev => prev === 'ไม่เคยเข้า' ? null : 'ไม่เคยเข้า')}
               >
                 ไม่เคยเข้า
               </span>
             </div>
-            
-            {/* แสดงรายละเอียดเมื่อคลิก */}
             {selectedOverviewItem && (
               <div className="mt-3 bg-slate-700/60 border border-slate-500 rounded-lg p-3 shadow-lg transform -translate-y-2">
                 <div className="text-sm font-semibold text-center mb-2">{selectedOverviewItem}</div>
                 <div className="text-xs text-slate-300 text-center">
-                  จำนวน: {getOverviewItemData(selectedOverviewItem).count} คน 
-                  ({getOverviewItemData(selectedOverviewItem).percentage}%)
+                  {/* compute count and percentage from people */}
+                  {
+                    (() => {
+                      const total = people.length || 0
+                      let count = 0
+                      switch (selectedOverviewItem) {
+                        case 'ถวายรายงาน':
+                          count = people.filter(p => Array.isArray((p as any).reportHistory) && (p as any).reportHistory.length > 0).length
+                          break
+                        case 'เข้า433':
+                          count = people.filter(p => Array.isArray((p as any).enter433) && (p as any).enter433.length > 0).length
+                          break
+                        case 'ธุรการ':
+                          count = people.filter(p => (p as any)['ธุรการ ฝอ.'] || (p as any)['ธุรการ']).length
+                          break
+                        case 'ไม่เคยเข้า':
+                          count = people.filter(p => 
+                            (!Array.isArray((p as any).reportHistory) || (p as any).reportHistory.length === 0) &&
+                            (!Array.isArray((p as any).enter433) || (p as any).enter433.length === 0) &&
+                            !(p as any)['ธุรการ ฝอ.'] && !(p as any)['ธุรการ']
+                          ).length
+                          break
+                      }
+                      const pct = total > 0 ? ((count / total) * 100) : 0
+                      const pctText = pct.toFixed(2)
+                      return <span>จำนวน: {count} คน ({pctText}%)</span>
+                    })()
+                  }
                 </div>
               </div>
             )}
@@ -1093,7 +1058,7 @@ const findPersonByName = (name: string) => {
               <div className="flex items-center gap-3">
               <Button onClick={onBack} className="bg-yellow-400 text-black px-4 py-2 rounded-md shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>กลับไป Dashboard</Button>
               <Button onClick={() => setView("list")} className="bg-indigo-600"><List className="mr-2"/>ไปหน้ารายชื่อทั้งหมด</Button>
-              <Button onClick={() => router.push('/create-files')} className="bg-emerald-600"><FileText className="mr-2"/>สร้างไฟล์จาก Drive</Button>
+              <Button onClick={() => router.push('/create-files')} className="bg-emerald-600"><FileText className="mr-2"/>สร้างไฟล์จาก Drive (for PC)</Button>
             </div>
           </div>
         </div>

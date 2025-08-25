@@ -59,6 +59,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
   
   // Session info state
   const [sessionInfo, setSessionInfo] = useState<{ expiryTime: number, isRemembered: boolean } | null>(null);
+  
   const previewExcelFile = async (base64String: any, idx: number) => {
     try {
       const stringValue = String(base64String);
@@ -96,8 +97,6 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
     }
   }
 
-
-
   // โหลด dutyHistory ทุกครั้งที่เข้า history page
   useEffect(() => {
     if (showHistoryPage) {
@@ -114,6 +113,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
       // loadGoogleSheetsFiles().then(setGoogleSheetsFiles);
     }
   }, [showHistoryPage]);
+  
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SESSION_KEY = 'jarvis-session';
@@ -154,8 +154,10 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
       }
     }
   }, []);
+  
   const [activeModule, setActiveModule] = useState<string | null>(null)
   const [showProfilePopup, setShowProfilePopup] = useState(false)
+  
   const normalizeName = (firstName: string | undefined, lastName: string | undefined): string => {
     const first = (firstName || '').toString().trim()
     const last = (lastName || '').toString().trim()
@@ -211,7 +213,6 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
   if (activeModule === "duty-433") {
     return <Duty433 onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} username={username} />
   }
-
 
   if (showHistoryPage) {
     return (
@@ -425,15 +426,6 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
                         <Shield className="h-4 w-4 text-green-400" />
                         <span className="text-sm text-slate-300">กลุ่ม: {user?.group || "ไม่ระบุ"}</span>
                       </div>
-                      {sessionInfo && (
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="h-4 w-4 text-yellow-400" />
-                          <span className="text-xs text-slate-400">
-                            Session หมดอายุ: {new Date(sessionInfo.expiryTime).toLocaleString('th-TH')}
-                            {sessionInfo.isRemembered && " (จำการเข้าสู่ระบบ)"}
-                          </span>
-                        </div>
-                      )}
                     </div>
 
                     <div className="border-t border-slate-700 pt-4">

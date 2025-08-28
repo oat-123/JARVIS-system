@@ -26,6 +26,7 @@ interface RequestBody {
   date: string
   folderLabel?: string
   highlightSection?: string
+  rootFolderId?: string
 }
 
 interface ChartHighlightData {
@@ -42,8 +43,8 @@ interface ChartHighlightData {
 // POST { name, date, highlightSection }
 export async function POST(req: Request) {
   try {
-    const { name, date, folderLabel, highlightSection }: RequestBody = await req.json()
-    const baseFolderUrl = 'https://drive.google.com/drive/folders/1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_'
+    const { name, date, folderLabel, highlightSection, rootFolderId }: RequestBody = await req.json()
+    const baseFolderUrl = `https://drive.google.com/drive/folders/${rootFolderId || '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_'}`
     
     // Candidates (for diagnostics/matching hints)
     const candidates = [name, `ประวัติ ${name}`, 'ประวัติ ฉก. 2 หน้า', 'ประวัติ 2 หน้า', 'ประวัติ']
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
       return results
     }
 
-    // extract subfolder ids and traverse one level deep
+    // extract subfolder ids
     const extractSubfolderIds = (html: string): string[] => {
       const set = new Set<string>()
       const subRe = /\/drive\/folders\/([a-zA-Z0-9_-]+)/g
@@ -128,22 +129,32 @@ export async function POST(req: Request) {
       return Array.from(set)
     }
 
+    // traverse up to depth 3 to find files nested in person folders
     let allEntries: { label: string; downloadUrl: string }[] = []
+    const visited = new Set<string>()
+    const queue: { id: string; depth: number }[] = []
     if (folderHtml) {
+      // seed from base page
       allEntries.push(...extractEntriesFromHtml(folderHtml))
-      const subfolders = extractSubfolderIds(folderHtml).slice(0, 10)
-      diagnostics.subfolders = subfolders
-      for (const fid of subfolders) {
-        try {
-          const subUrl = `https://drive.google.com/drive/folders/${fid}`
-          const subRes = await fetch(subUrl)
-          const subHtml = await subRes.text()
-          allEntries.push(...extractEntriesFromHtml(subHtml))
-        } catch (e) {
-          // ignore subfolder fetch errors
+      extractSubfolderIds(folderHtml).forEach(id => queue.push({ id, depth: 1 }))
+    }
+    while (queue.length) {
+      const { id, depth } = queue.shift() as { id: string; depth: number }
+      if (visited.has(id) || depth > 3) continue
+      visited.add(id)
+      try {
+        const url = `https://drive.google.com/drive/folders/${id}`
+        const res2 = await fetch(url)
+        const html2 = await res2.text()
+        allEntries.push(...extractEntriesFromHtml(html2))
+        if (depth < 3) {
+          extractSubfolderIds(html2).forEach(cid => queue.push({ id: cid, depth: depth + 1 }))
         }
+      } catch {
+        // ignore
       }
     }
+    diagnostics.subfolders = Array.from(visited)
 
     diagnostics.docCandidates = allEntries
 

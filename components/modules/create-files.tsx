@@ -24,10 +24,12 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
   const [linkStates, setLinkStates] = useState<Record<number, LinkState>>({})
   const [abortMap, setAbortMap] = useState<Record<number, AbortController>>({})
   const [timerMap, setTimerMap] = useState<Record<number, number>>({})
+  const [stagedTimerMap, setStagedTimerMap] = useState<Record<number, number[]>>({})
   const [processingAll, setProcessingAll] = useState<boolean>(false)
   const [cancelAll, setCancelAll] = useState<boolean>(false)
   const [singleAbort, setSingleAbort] = useState<AbortController | null>(null)
   const [copiedPath, setCopiedPath] = useState<boolean>(false)
+  const ROOT_DRIVE_FOLDER_ID = '1GEqJdprtmielFyfScPQWa0CIBLcDA8wS'
 
   // Next weekend text in Thai format
   const nextWeekendRange = (now: Date = new Date()) => {
@@ -161,6 +163,24 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     }, 250)
     setTimerMap(t => ({ ...t, [idx]: timer as unknown as number }))
 
+    // staged logs to show live step hints while waiting
+    const staged: number[] = []
+    const stage = (ms: number, text: string) => {
+      const h = window.setTimeout(() => {
+        setLinkStates(s => {
+          const cur = s[idx] || { status: 'loading', percent: 5 }
+          if (cur.status !== 'loading') return s
+          return { ...s, [idx]: { ...cur, message: text } }
+        })
+      }, ms)
+      staged.push(h as unknown as number)
+    }
+    stage(1500, 'กำลังเข้าถึงโฟลเดอร์หลักบน Drive...')
+    stage(4000, 'กำลังอ่านรายชื่อโฟลเดอร์ย่อย (ชั้น 1)...')
+    stage(8000, 'กำลังค้นหาในโฟลเดอร์ย่อย (ชั้น 2)...')
+    stage(12000, 'กำลังค้นหาเชิงลึก (ชั้น 3)...')
+    setStagedTimerMap(m => ({ ...m, [idx]: staged }))
+
     try {
       // สร้างชื่อโฟลเดอร์ตามรูปแบบ "นนร.ยศ ชื่อ สกุล" โดยใช้ position จากข้อมูล
       const rank = person.position || '' // ยศจากคอลัมน์ตำแหน่ง ทกท.
@@ -179,20 +199,28 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
           folderName: personFolderName, // Use the new variable name
           date, 
           folderLabel,
-          rootFolderId: '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_' // ID ของโฟลเดอร์หลัก
+          rootFolderId: ROOT_DRIVE_FOLDER_ID // ID ของโฟลเดอร์หลัก
         })
       })
       const json = await res.json()
       clearInterval(timer)
       setTimerMap(t => { const { [idx]: _, ...rest } = t; return rest })
+      // clear staged timers
+      const stagedTimers = stagedTimerMap[idx] || []
+      stagedTimers.forEach(id => { try { clearTimeout(id) } catch {} })
+      setStagedTimerMap(m => { const { [idx]: _, ...rest } = m; return rest })
       if (json.ok && json.downloadUrl) {
         setLinkStates(s => ({ ...s, [idx]: { status: 'ok', url: json.downloadUrl, filename: json.filename, percent: 100, message: 'พร้อมดาวน์โหลด' } }))
       } else {
-        setLinkStates(s => ({ ...s, [idx]: { status: 'error', percent: 100, message: (json && json.message) ? json.message : 'ไม่พบไฟล์' } }))
+        const diag = json && json.diagnostics ? ` (${(json.diagnostics.reason || json.message || '').toString()})` : ''
+        setLinkStates(s => ({ ...s, [idx]: { status: 'error', percent: 100, message: (json && json.message ? json.message : 'ไม่พบไฟล์') + diag } }))
       }
     } catch (e:any) {
       clearInterval(timer)
       setTimerMap(t => { const { [idx]: _, ...rest } = t; return rest })
+      const stagedTimers = stagedTimerMap[idx] || []
+      stagedTimers.forEach(id => { try { clearTimeout(id) } catch {} })
+      setStagedTimerMap(m => { const { [idx]: _, ...rest } = m; return rest })
       const isAbort = e && (e.name === 'AbortError' || e.message === 'AbortError')
       setLinkStates(s => ({ ...s, [idx]: { status: 'error', percent: 100, message: isAbort ? 'ยกเลิกแล้ว' : 'เกิดข้อผิดพลาด' } }))
     } finally {
@@ -217,14 +245,19 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     if (c) try { c.abort() } catch {}
     const tm = timerMap[idx]
     if (tm) try { clearInterval(tm) } catch {}
+    const stagedTimers = stagedTimerMap[idx] || []
+    stagedTimers.forEach(id => { try { clearTimeout(id) } catch {} })
+    setStagedTimerMap(m => { const { [idx]: _, ...rest } = m; return rest })
   }
 
   const cancelAllLinks = () => {
     setCancelAll(true)
     Object.values(abortMap).forEach(c => { try { c.abort() } catch {} })
     Object.values(timerMap).forEach(tm => { try { clearInterval(tm) } catch {} })
+    Object.values(stagedTimerMap).forEach(list => list.forEach(id => { try { clearTimeout(id) } catch {} }))
     setAbortMap({})
     setTimerMap({})
+    setStagedTimerMap({})
   }
 
   const downloadDocx = async () => {
@@ -237,6 +270,11 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     setProgress(5)
     setProgressText('กำลังค้นหาไฟล์บน Drive...')
     timer = window.setInterval(() => setProgress(p => Math.min(p + 3, 90)), 250)
+    // staged progress text for single download
+    window.setTimeout(() => setProgressText('กำลังเข้าถึงโฟลเดอร์หลักบน Drive...'), 1500)
+    window.setTimeout(() => setProgressText('กำลังอ่านโฟลเดอร์ย่อย (ชั้น 1)...'), 4000)
+    window.setTimeout(() => setProgressText('กำลังค้นหาในโฟลเดอร์ย่อย (ชั้น 2)...'), 8000)
+    window.setTimeout(() => setProgressText('กำลังค้นหาเชิงลึก (ชั้น 3)...'), 12000)
     const controller = new AbortController()
     setSingleAbort(controller)
     try {
@@ -245,7 +283,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({ name: chosen.full, nameNorm: chosen.fullNorm || '', date, folderLabel })
+        body: JSON.stringify({ name: chosen.full, nameNorm: chosen.fullNorm || '', date, folderLabel, rootFolderId: ROOT_DRIVE_FOLDER_ID })
       })
       const json = await res.json()
       if (json.ok) {

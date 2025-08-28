@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PieChart, List, Users, X, FileText } from "lucide-react"
 import { ProfileDetail } from "@/components/profile-detail"
+import { useToast } from "@/components/ui/use-toast"
 
 interface PersonData {
   [key: string]: any
@@ -77,12 +78,16 @@ function Pie({ data, onSliceClick, selectedLabel }: { data: { label: string; val
 }
 
 export function Duty433({ onBack, sheetName, username }: Duty433Props) {
+  const { toast } = useToast()
   const [people, setPeople] = useState<PersonData[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [filterDuty, setFilterDuty] = useState<string | "">("")
   const [minCount, setMinCount] = useState<number>(0)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [debouncedQuery, setDebouncedQuery] = useState<string>("")
+  const [downloadLinks, setDownloadLinks] = useState<{ [key: string]: string | null }>({});
+  const [loadingLinks, setLoadingLinks] = useState<{ [key: string]: boolean }>({});
+  const [errorLinks, setErrorLinks] = useState<{ [key: string]: string | null }>({});
 
   // debounce the search input for a smoother typing/search experience
   useEffect(() => {
@@ -660,6 +665,52 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
     setSelectedPerson(null)
   }
 
+  // ฟังก์ชันสำหรับสร้างลิงก์ดาวน์โหลด
+  const handleCreateDriveLink = async (person: any) => {
+    const key = `${person.ชื่อ || ''} ${person.นามสกุล || ''}`.trim();
+    setLoadingLinks((prev) => ({ ...prev, [key]: true }));
+    setErrorLinks((prev) => ({ ...prev, [key]: null }));
+    setDownloadLinks((prev) => ({ ...prev, [key]: null }));
+    try {
+      // สร้างชื่อโฟลเดอร์ตามที่อยู่ใน Drive: "<สังกัด/ตำแหน่ง> <ชื่อ> <สกุล>"
+      const positionPart = (person['ตำแหน่ง ทกท.'] || person.ตำแหน่ง || '').toString().trim();
+      const unitPart = (person.สังกัด || '').toString().trim();
+      const prefix = unitPart && !/^นนร\./.test(unitPart) ? 'นนร.' : '';
+      const computedFolderName = `${prefix}${positionPart ? positionPart + ' ' : ''}${unitPart ? unitPart + ' ' : ''}${key}`.replace(/\s+/g, ' ').trim();
+
+      const payload = {
+        personName: key,
+        folderName: person.folderName || computedFolderName,
+        // รองรับโฟลเดอร์ root เฉพาะงาน 433 หากมีให้ส่งมา มิฉะนั้นใช้ค่าเริ่มต้นฝั่ง API
+        rootFolderId: person.rootFolderId || '1GEqJdprtmielFyfScPQWa0CIBLcDA8wS',
+      };
+      console.log('[สร้างลิงก์] ส่งไป API:', payload);
+      toast({ title: 'กำลังค้นหาไฟล์บน Drive', description: `${payload.folderName} → ${payload.personName}` })
+      const res = await fetch('/api/drive-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      console.log('[สร้างลิงก์] ผลลัพธ์จาก API:', data);
+      if (data.success && data.link) {
+        setDownloadLinks((prev) => ({ ...prev, [key]: data.link }));
+        toast({ title: 'เจอลิงก์ดาวน์โหลดแล้ว', description: data.fileName || data.link })
+      } else {
+        // แสดงข้อความ error ตรง ๆ จากเซิร์ฟเวอร์ เพื่อหลีกเลี่ยง () เปล่า ๆ
+        const msg = typeof data.error === 'string' && data.error.trim().length > 0 ? data.error : 'ไม่พบไฟล์';
+        setErrorLinks((prev) => ({ ...prev, [key]: msg }));
+        toast({ title: 'ไม่พบไฟล์', description: msg })
+      }
+    } catch (e: any) {
+      setErrorLinks((prev) => ({ ...prev, [key]: e?.message || 'เกิดข้อผิดพลาด' }));
+      console.log('[สร้างลิงก์] ERROR:', e);
+      toast({ title: 'เกิดข้อผิดพลาด', description: e?.message || 'ไม่ทราบสาเหตุ' })
+    } finally {
+      setLoadingLinks((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
   // Mobile-friendly layout: use stacked sections under 420px wide
   if (view === "list") {
     return (
@@ -932,7 +983,14 @@ const findPersonByName = (name: string) => {
                   count = p.count
                 }
                 return (
-                  <div key={i} className="flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-3 py-2">
+                  <div
+                    key={i}
+                    className="flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-3 py-2 cursor-pointer hover:bg-slate-800/60 transition-colors"
+                    onClick={() => { if (person) openPersonDetail(person) }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (person) openPersonDetail(person) } }}
+                  >
                     <div>
                       <div className="font-medium">{displayName || 'ไม่ระบุ'}</div>
                       <div className="text-xs text-slate-400">{pos ? `ตำแหน่ง: ${pos}` : ''}</div>
@@ -952,7 +1010,7 @@ const findPersonByName = (name: string) => {
 
         {/* Bottom: actions only - full list moved to the 'list' view */}
         <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-          {/* Top 5 on overview (bottom) */}
+          {/* Top 6 on overview (bottom) */}
           <div className="mb-4">
             <h4 className="text-lg font-semibold mb-3">อันดับ Top 5</h4>
             <div className="flex items-center gap-3 mb-3">
@@ -985,7 +1043,7 @@ const findPersonByName = (name: string) => {
                       }
                       return topMetric === '_433' ? (aggData.topBy433Person || []) : (aggData.topByAdminPerson || [])
                     })()
-                    return source.slice(0,5).map((r: any, i: number) => {
+                    return source.slice(0,6).map((r: any, i: number) => {
                       const displayName = r.fullName || r.name || ''
                       const person = r.personRef || findPersonByName(displayName)
                       const pos = getPositionFrom(r) || (person ? getPositionFrom(person) : '')

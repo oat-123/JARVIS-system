@@ -164,7 +164,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     try {
       // สร้างชื่อโฟลเดอร์ตามรูปแบบ "นนร.ยศ ชื่อ สกุล" โดยใช้ position จากข้อมูล
       const rank = person.position || '' // ยศจากคอลัมน์ตำแหน่ง ทกท.
-      const folderName = `นนร.${rank} ${person.first || ''} ${person.last || ''}`.trim()
+      const personFolderName = `นนร.${rank} ${person.first || ''} ${person.last || ''}`.trim()
       
       const res = await fetch('/api/fetch-docx', {
         method: 'POST',
@@ -176,7 +176,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
           firstName: person.first || '',
           lastName: person.last || '',
           position: rank,
-          folderName: folderName,
+          folderName: personFolderName, // Use the new variable name
           date, 
           folderLabel,
           rootFolderId: '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_' // ID ของโฟลเดอร์หลัก

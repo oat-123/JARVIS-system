@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID_433,
-      range: `${sheetTitle}!A:Z`,
+      // Extend range to include AA และ AB (น.กำกับยาม, วันที่)
+      range: `${sheetTitle}!A:AB`,
     })
 
     const values = response.data.values || []

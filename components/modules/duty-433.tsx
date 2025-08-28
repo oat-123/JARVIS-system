@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 // Card wrapper removed from detail view to simplify layout (no grey frame)
 import { Badge } from "@/components/ui/badge"
 import { PieChart, List, Users, X, FileText } from "lucide-react"
+import { ProfileDetail } from "@/components/profile-detail"
 
 interface PersonData {
   [key: string]: any
@@ -538,14 +539,38 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
 
   const duties = useMemo(() => {
     const s = new Set<string>()
-    people.forEach(p => { if (p.หน้าที่) s.add(p.หน้าที่) })
+    people.forEach(p => { 
+      // เพิ่มการกรองคอลัมภ์ ธุรการ ฝอ. ตามที่ต้องการ
+      if (p.หน้าที่) s.add(p.หน้าที่)
+      if (p['ธุรการ ฝอ.']) s.add(p['ธุรการ ฝอ.'])
+      if (p.ธุรการ) s.add(p.ธุรการ)
+    })
     return Array.from(s).filter(Boolean)
   }, [people])
 
-  // compute top people by สถิติโดนยอด
+  // compute top people by จำนวนครั้งที่เข้า 433
   const ranked = useMemo(() => {
     return [...people]
-      .map(p => ({ ...p, stat: parseInt((p.สถิติโดนยอด || "0").toString() || "0", 10) || 0 }))
+      .map(p => {
+        // คำนวณจำนวนครั้งที่เข้า 433 - ตรวจสอบข้อมูลจาก Google Sheets ก่อน
+        let count = 0
+        if (p['433 ครั้งที่ 1']) count++
+        if (p['433 ครั้งที่ 2']) count++
+        if (p['433 ครั้งที่ 3']) count++
+        if (p['433 ครั้งที่ 4']) count++
+        
+        // ถ้ามีข้อมูลจาก Google Sheets ให้ใช้ข้อมูลนั้น ไม่ใช้ enter433 array
+        if (count > 0) {
+          return { ...p, stat: count }
+        }
+        
+        // ถ้าไม่มีข้อมูลจาก Google Sheets ให้ใช้ข้อมูล enter433 array
+        if (Array.isArray(p.enter433) && p.enter433.length > 0) {
+          return { ...p, stat: p.enter433.length }
+        }
+        
+        return { ...p, stat: 0 }
+      })
       .sort((a, b) => b.stat - a.stat)
   }, [people])
 
@@ -567,9 +592,24 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
 
   const filtered = useMemo(() => {
     const q = (debouncedSearch || '').toString().trim().toLowerCase()
-    return ranked.filter(p => {
-      if (filterDuty && p.หน้าที่ !== filterDuty) return false
-      if ((p.stat || 0) < minCount) return false
+    // ใช้ลำดับเดิมจาก people และคำนวณจำนวนครั้ง 433 แบบไดนามิก
+    const get433Count = (pp: any) => {
+      const dates = Array.isArray(pp._433_dates) ? pp._433_dates : []
+      let c = dates.filter((d:any) => d && d.toString().trim()).length
+      if (c === 0 && Array.isArray(pp.enter433)) c = pp.enter433.length
+      return c
+    }
+    return people.filter(p => {
+      // กรองตามหน้าที่ - ตรวจสอบทั้ง หน้าที่, ธุรการ ฝอ., และ ธุรการ
+      if (filterDuty && filterDuty !== '') {
+        const hasDuty = p.หน้าที่ === filterDuty || 
+                        p['ธุรการ ฝอ.'] === filterDuty || 
+                        p.ธุรการ === filterDuty
+        if (!hasDuty) return false
+      }
+      
+      const stat = get433Count(p)
+      if (stat < minCount) return false
       if (q) {
         const name = ((p.ชื่อ || '') + ' ' + (p.สกุล || '')).toLowerCase()
         const pos = (p['ตำแหน่ง ทกท.'] || p.ตำแหน่ง || '').toString().toLowerCase()
@@ -577,7 +617,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
       }
       return true
     })
-  }, [ranked, filterDuty, minCount, debouncedSearch])
+  }, [people, filterDuty, minCount, debouncedSearch])
 
   // List view - fetch specific sheet tabs and display names
   const openSheetList = async (sheetTabName: string) => {
@@ -669,22 +709,23 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
                     <th className="px-3 py-2 text-center font-semibold border-b border-slate-700">สังกัด</th>
                     <th className="px-3 py-2 text-center font-semibold border-b border-slate-700">คัดเกรด</th>
                     <th className="px-3 py-2 text-center font-semibold border-b border-slate-700">ธุรการ ฝอ.</th>
-                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700">สถิติ</th>
+                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700">สถิติเข้า433</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((p, i) => (
-                    <tr key={i} className={`cursor-pointer hover:bg-slate-700/50 odd:bg-slate-900/30 even:bg-slate-800/50`} onClick={() => openPersonDetail(p)}>
-                      <td className="px-3 py-2 text-center border-b border-slate-700">{p.ลำดับ || i + 1}</td>
-                      <td className="px-3 py-2 text-center border-b border-slate-700">{p.ชื่อ}</td>
-                      <td className="px-3 py-2 text-center border-b border-slate-700">{p.สกุล}</td>
-                      <td className="px-3 py-2 text-center border-b border-slate-700">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
-                      <td className="px-3 py-2 text-center border-b border-slate-700">{p.สังกัด}</td>
-                      <td className="px-3 py-2 text-center border-b border-slate-700">{p.คัดเกรด || '-'}</td>
-                      <td className="px-3 py-2 text-center border-b border-slate-700">{p['ธุรการ ฝอ.'] || p['ธุรการ'] || '-'}</td>
-                      <td className="px-3 py-2 text-center font-bold border-b border-slate-700">{p.stat}</td>
-                    </tr>
-                  ))}
+                  // ใช้ลำดับตามข้อมูลเดิม: ไม่จัดเรียงใหม่
+                   <tr key={i} className={`cursor-pointer hover:bg-slate-700/50 odd:bg-slate-900/30 even:bg-slate-800/50`} onClick={() => openPersonDetail(p)}>
+                     <td className="px-3 py-2 text-center border-b border-slate-700">{p.ลำดับ || i + 1}</td>
+                     <td className="px-3 py-2 text-left border-b border-slate-700">{p.ชื่อ}</td>
+                     <td className="px-3 py-2 text-left border-b border-slate-700">{p.สกุล}</td>
+                     <td className="px-3 py-2 text-center border-b border-slate-700">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
+                     <td className="px-3 py-2 text-center border-b border-slate-700">{p.สังกัด}</td>
+                     <td className="px-3 py-2 text-center border-b border-slate-700">{p.คัดเกรด || '-'}</td>
+                     <td className="px-3 py-2 text-center border-b border-slate-700">{p['ธุรการ ฝอ.'] || p['ธุรการ'] || '-'}</td>
+                     <td className="px-3 py-2 text-center font-bold border-b border-slate-700">{(Array.isArray(p._433_dates) ? p._433_dates.filter((d:any)=>d&&d.toString().trim()).length : (Array.isArray(p.enter433)?p.enter433.length:0))}</td>
+                   </tr>
+                   ))}
                   {filtered.length === 0 && (
                     <tr><td colSpan={8} className="p-4 text-center text-slate-400">ไม่มีข้อมูล</td></tr>
                   )}
@@ -700,138 +741,11 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
   }
 
   if (view === "detail" && selectedPerson) {
-    const fullName = `${(selectedPerson.ยศ || '').trim()} ${(selectedPerson.ชื่อ || '').trim()} ${(selectedPerson.สกุล || '').trim()}`.replace(/\s+/g, ' ').trim()
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="relative mb-6 py-2">
-            <button onClick={handleDetailBack} className="absolute left-4 top-4 bg-white text-slate-900 px-3 py-2 rounded-md shadow">← ย้อนกลับ</button>
-            <h2 className="text-3xl font-extrabold text-center tracking-tight">รายละเอียด</h2>
-          </div>
-
-          <div className="rounded-lg p-6 shadow-md border border-slate-700/20 bg-gradient-to-tr from-blue-800/20 via-slate-800/10 to-transparent">
-            <div className="flex flex-col items-center -mt-12 mb-6">
-              <div className="w-48 h-48 rounded-full bg-gradient-to-br from-slate-700/60 to-slate-700/40 flex items-center justify-center overflow-hidden ring-4 ring-white/6 shadow-2xl">
-                {!selectedPerson.avatarUrl ? (
-                  <div className="text-slate-200">รูปภาพ</div>
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={selectedPerson.avatarUrl} alt={fullName} className="w-full h-full object-cover" />
-                )}
-              </div>
-              <div className="text-center mt-4">
-                <div className="text-2xl font-semibold text-white">{fullName}</div>
-                <div className="text-sm text-slate-300 mt-1">{selectedPerson['ตำแหน่ง ทกท.'] || selectedPerson.ตำแหน่ง || selectedPerson['ทกท.'] || ''}</div>
-              </div>
-            </div>
-
-            <div className="divide-y divide-slate-500/40 bg-transparent rounded-md overflow-hidden">
-              <div className="grid grid-cols-2 items-center px-6 py-4">
-                <div className="text-sm text-slate-300">ลำดับ</div>
-                <div className="text-base font-medium text-white text-right">{selectedPerson.ลำดับ || '-'}</div>
-              </div>
-
-              <div className="grid grid-cols-2 items-center px-6 py-4">
-                <div className="text-sm text-slate-300">ชั้นปีที่</div>
-                <div className="text-base font-medium text-white text-right">{selectedPerson.ชั้นปีที่ || '-'}</div>
-              </div>
-
-              <div className="grid grid-cols-2 items-center px-6 py-4">
-                <div className="text-sm text-slate-300">ตอน</div>
-                <div className="text-base font-medium text-white text-right">{selectedPerson.ตอน || '-'}</div>
-              </div>
-
-              <div className="grid grid-cols-2 items-center px-6 py-4">
-                <div className="text-sm text-slate-300">สังกัด</div>
-                <div className="text-base font-medium text-white text-right">{selectedPerson.สังกัด || '-'}</div>
-              </div>
-
-              <div className="grid grid-cols-2 items-center px-6 py-4">
-                <div className="text-sm text-slate-300">เบอร์โทรศัพท์</div>
-                <div className="text-base font-medium text-white text-right">{selectedPerson.เบอร์โทรศัพท์ || '-'}</div>
-              </div>
-
-              <div className="grid grid-cols-2 items-center px-6 py-4">
-                <div className="text-sm text-slate-300">คัดเกรด</div>
-                <div className="text-base font-medium text-white text-right">{selectedPerson.คัดเกรด || '-'}</div>
-              </div>
-
-              <div className="grid grid-cols-2 items-center px-6 py-4">
-                <div className="text-sm text-slate-300">ธุรการ ฝอ.</div>
-                <div className="text-base font-medium text-white text-right">{selectedPerson['ธุรการ ฝอ.'] || selectedPerson.ธุรการ || '-'}</div>
-              </div>
-
-              <div className="grid grid-cols-2 items-center px-6 py-4">
-                <div className="text-sm text-slate-300">ตัวชน</div>
-                <div className="text-base font-medium text-white text-right">{selectedPerson.ตัวชน || '-'}</div>
-              </div>
-
-              <div className="grid grid-cols-2 items-center px-6 py-4">
-                <div className="text-sm text-slate-300">ส่วนสูง</div>
-                <div className="text-base font-medium text-white text-right">{selectedPerson.ส่วนสูง || '-'}</div>
-              </div>
-
-              <div className="grid grid-cols-2 items-center px-6 py-4">
-                <div className="text-sm text-slate-300">นักกีฬา</div>
-                <div className="text-base font-medium text-white text-right">{selectedPerson.นักกีฬา || '-'}</div>
-              </div>
-
-              {/* ประวัติถวายรายงาน */}
-              <div className="grid grid-cols-2 items-start px-6 py-4">
-                <div className="text-sm text-slate-300">ประวัติถวายรายงาน</div>
-                <div className="text-base font-medium text-white text-right space-y-1">
-                  {Array.isArray(selectedPerson.reportHistory) && selectedPerson.reportHistory.length > 0 ? (
-                    selectedPerson.reportHistory.map((r:any, i:number) => {
-                      const to = (r.to || '').toString().trim()
-                      const partner = (r.partner || '').toString().trim()
-                      const date = r.date ? toThaiShortDate(r.date) : ''
-                      const parts = [] as string[]
-                      if (to) parts.push(to)
-                      if (partner) parts.push(partner)
-                      const left = parts.join('-')
-                      return (<div key={i}>{left || to || '-'}{date ? ` เมื่อ ${date}` : ''}</div>)
-                    })
-                  ) : ('-')}
-                </div>
-              </div>
-
-              {/* ประวัติเข้า433 */}
-              <div className="grid grid-cols-2 items-start px-6 py-4">
-                <div className="text-sm text-slate-300">ประวัติเข้า433</div>
-                <div className="text-base font-medium text-white text-right space-y-1">
-                  {Array.isArray(selectedPerson.enter433) && selectedPerson.enter433.length > 0 ? (
-                    selectedPerson.enter433.map((e:any, i:number) => {
-                      const idxLabel = e.idx ? `ครั้งที่ ${e.idx}` : 'เข้า 433'
-                      const date = e.date ? ` เมื่อ ${toThaiShortDate(e.date)}` : ''
-                      const note = e.note ? ` ${e.note}` : ''
-                      return (<div key={i}>{idxLabel}{date}{note}</div>)
-                    })
-                  ) : ('-')}
-                </div>
-              </div>
-
-              {/* ประวัติเข้าชป. */}
-              <div className="grid grid-cols-2 items-start px-6 py-4">
-                <div className="text-sm text-slate-300">ประวัติเข้าชป.</div>
-                <div className="text-base font-medium text-white text-right space-y-1">
-                  {Array.isArray(selectedPerson.enterChp) && selectedPerson.enterChp.length > 0 ? (
-                    selectedPerson.enterChp.map((c:any, i:number) => {
-                      const date = c.date ? ` เมื่อ ${toThaiShortDate(c.date)}` : ''
-                      const note = c.note ? c.note : ''
-                      return (<div key={i}>{note || '-'}{date}</div>)
-                    })
-                  ) : ('-')}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 items-center px-6 py-6">
-                <div className="text-sm text-slate-300">สถิติได้รับหน้าที่พิเศษ</div>
-                <div className="text-lg font-semibold text-white text-right">{selectedPerson.สถิติโดนยอด || '0'}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ProfileDetail 
+        person={selectedPerson} 
+        onBack={handleDetailBack} 
+      />
     )
   }
 
@@ -955,20 +869,37 @@ const findPersonByName = (name: string) => {
                       let count = 0
                       switch (selectedOverviewItem) {
                         case 'ถวายรายงาน':
-                          count = people.filter(p => Array.isArray((p as any).reportHistory) && (p as any).reportHistory.length > 0).length
+                          count = people.filter(p => (p as any).ถวายรายงาน || (Array.isArray((p as any).reportHistory) && (p as any).reportHistory.length > 0)).length
                           break
                         case 'เข้า433':
-                          count = people.filter(p => Array.isArray((p as any).enter433) && (p as any).enter433.length > 0).length
+                          count = people.filter(p => {
+                            // ตรวจสอบข้อมูลจาก Google Sheets ก่อน
+                            if (p['433 ครั้งที่ 1'] || p['433 ครั้งที่ 2'] || p['433 ครั้งที่ 3'] || p['433 ครั้งที่ 4']) {
+                              return true
+                            }
+                            // ถ้าไม่มีข้อมูลจาก Google Sheets ให้ตรวจสอบข้อมูลจาก enter433 array
+                            if (Array.isArray((p as any).enter433) && (p as any).enter433.length > 0) {
+                              return true
+                            }
+                            return false
+                          }).length
                           break
                         case 'ธุรการ':
                           count = people.filter(p => (p as any)['ธุรการ ฝอ.'] || (p as any)['ธุรการ']).length
                           break
                         case 'ไม่เคยเข้า':
-                          count = people.filter(p => 
-                            (!Array.isArray((p as any).reportHistory) || (p as any).reportHistory.length === 0) &&
-                            (!Array.isArray((p as any).enter433) || (p as any).enter433.length === 0) &&
-                            !(p as any)['ธุรการ ฝอ.'] && !(p as any)['ธุรการ']
-                          ).length
+                          count = people.filter(p => {
+                            // ตรวจสอบข้อมูลจาก Google Sheets ก่อน
+                            const has433 = p['433 ครั้งที่ 1'] || p['433 ครั้งที่ 2'] || p['433 ครั้งที่ 3'] || p['433 ครั้งที่ 4']
+                            const hasReport = p.ถวายรายงาน
+                            const hasAdmin = (p as any)['ธุรการ ฝอ.'] || (p as any)['ธุรการ']
+                            
+                            // ถ้าไม่มีข้อมูลจาก Google Sheets ให้ตรวจสอบข้อมูลจาก arrays
+                            const hasReportHistory = !hasReport && Array.isArray((p as any).reportHistory) && (p as any).reportHistory.length > 0
+                            const hasEnter433 = !has433 && Array.isArray((p as any).enter433) && (p as any).enter433.length > 0
+                            
+                            return !has433 && !hasReport && !hasAdmin && !hasReportHistory && !hasEnter433
+                          }).length
                           break
                       }
                       const pct = total > 0 ? ((count / total) * 100) : 0
@@ -987,26 +918,35 @@ const findPersonByName = (name: string) => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {(aggData && aggData.topByReportPerson ? aggData.topByReportPerson : []).slice(0, 8).map((p: any, i: number) => {
+              {(aggData && Array.isArray(aggData.topByReportPerson) ? aggData.topByReportPerson : []).slice(0, 6).map((p: any, i: number) => {
                 const displayName = p.fullName || p.name || ''
-                const pos = getPositionFrom(p) || (findPersonByName(displayName) ? getPositionFrom(findPersonByName(displayName)) : '')
-                const count = p.count != null ? p.count : (p.report || 0)
+                const person = findPersonByName(displayName)
+                const pos = getPositionFrom(p) || (person ? getPositionFrom(person) : '')
+                // นับจากประวัติถวายรายงานเท่านั้น
+                let count = 0
+                if (person) {
+                  const hasReportFromSheet = !!(person as any).ถวายรายงาน && !!(person as any)['น.กำกับยาม'] && !!(person as any).วันที่
+                  if (hasReportFromSheet) count = 1
+                  else if (Array.isArray((person as any).reportHistory)) count = (person as any).reportHistory.length
+                } else if (p.count != null) {
+                  count = p.count
+                }
                 return (
-                <div key={i} className="flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-3 py-2 cursor-pointer hover:bg-slate-800" onClick={() => {
-                  const found = findPersonByName(displayName)
-                  if (found) openPersonDetail(found)
-                }}>
-                  <div>
-                    <div className="font-medium">{displayName || 'ไม่ระบุ'}</div>
-                    <div className="text-xs text-slate-400">{pos ? `ตำแหน่ง: ${pos}` : `จำนวนครั้ง: ${count}`}</div>
+                  <div key={i} className="flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-3 py-2">
+                    <div>
+                      <div className="font-medium">{displayName || 'ไม่ระบุ'}</div>
+                      <div className="text-xs text-slate-400">{pos ? `ตำแหน่ง: ${pos}` : ''}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-yellow-300">{count}</div>
+                      <div className="text-xs text-slate-400">ครั้ง</div>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-yellow-300">{count}</div>
-                    <div className="text-xs text-slate-400">ครั้ง</div>
-                  </div>
-                </div>
-              )})}
+                )
+              })}
+              {/* ลบตาราง/รายการตามคำขอ - คงไว้เฉพาะหัวข้อ */}
             </div>
+            {/* ตารางล่างถูกนำออกตามคำขอ */}
           </div>
         </div>
 
@@ -1035,20 +975,46 @@ const findPersonByName = (name: string) => {
                     </tr>
                 </thead>
                 <tbody>
-                  {(aggData ? (topMetric === 'report' ? aggData.topByReportPerson : topMetric === '_433' ? aggData.topBy433Person : aggData.topByAdminPerson) : []).slice(0,5).map((r: any, i: number) => {
-                    const displayName = r.fullName || r.name || ''
-                    const person = findPersonByName(displayName)
-                    const pos = getPositionFrom(r) || (person ? getPositionFrom(person) : '')
-                    const count = r.count != null ? r.count : (r.report || r._433 || r.admin || 0)
-                    const nameWithRank = person ? `${person.ยศ || ''} ${person.ชื่อ || ''} ${person.สกุล || ''}`.trim() : (displayName || 'ไม่ระบุ')
+                  {(() => {
+                    const source = ((): any[] => {
+                      if (!aggData) return []
+                      if (topMetric === 'report') {
+                        // ใช้เฉพาะคนที่มีข้อมูลจากชีตครบ 3 ช่องเท่านั้น
+                        return people.filter((pp: any) => !!pp.ถวายรายงาน && !!pp['น.กำกับยาม'] && !!pp.วันที่)
+                          .map((pp: any) => ({ fullName: `${pp.ยศ || ''} ${pp.ชื่อ || ''} ${pp.สกุล || ''}`.trim(), personRef: pp, count: 1 }))
+                      }
+                      return topMetric === '_433' ? (aggData.topBy433Person || []) : (aggData.topByAdminPerson || [])
+                    })()
+                    return source.slice(0,5).map((r: any, i: number) => {
+                      const displayName = r.fullName || r.name || ''
+                      const person = r.personRef || findPersonByName(displayName)
+                      const pos = getPositionFrom(r) || (person ? getPositionFrom(person) : '')
+                      let count = 0
+                      if (topMetric === 'report') {
+                        // นับจากชีตเท่านั้น => 1
+                        count = 1
+                      } else if (person) {
+                        if (topMetric === '_433') {
+                          const dates = Array.isArray((person as any)._433_dates) ? (person as any)._433_dates : []
+                          count = dates.filter((d:any)=>d && d.toString().trim()).length
+                          if (count === 0 && Array.isArray((person as any).enter433)) count = (person as any).enter433.length
+                        } else {
+                          const dates = Array.isArray((person as any)._admin_dates) ? (person as any)._admin_dates : []
+                          count = dates.filter((d:any)=>d && d.toString().trim()).length
+                        }
+                      }
+                      if (count === 0) count = r.count != null ? r.count : (r.report || r._433 || r.admin || 0)
+                      const nameWithRank = person ? `${person.ยศ || ''} ${person.ชื่อ || ''} ${person.สกุล || ''}`.trim() : (displayName || 'ไม่ระบุ')
                       return (
-                      <tr key={i} className="cursor-pointer hover:bg-slate-800/30" onClick={() => { if (person) openPersonDetail(person) }}>
-                        <td className="p-3 border-b border-slate-700 text-center">{i+1}</td>
-                        <td className="p-3 border-b border-slate-700 text-center">{nameWithRank}</td>
-                        <td className="p-3 border-b border-slate-700 text-center">{pos || '-'}</td>
-                        <td className="p-3 border-b border-slate-700 font-semibold text-center">{count}</td>
-                      </tr>
-                  )})}
+                        <tr key={i} className="cursor-pointer hover:bg-slate-800/30" onClick={() => { if (person) openPersonDetail(person) }}>
+                          <td className="p-3 border-b border-slate-700 text-center">{i+1}</td>
+                          <td className="p-3 border-b border-slate-700 text-left">{nameWithRank}</td>
+                          <td className="p-3 border-b border-slate-700 text-center">{pos || '-'}</td>
+                          <td className="p-3 border-b border-slate-700 font-semibold text-center">{count}</td>
+                        </tr>
+                      )
+                    })
+                  })()}
                 </tbody>
               </table>
             </div>

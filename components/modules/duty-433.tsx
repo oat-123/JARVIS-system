@@ -1093,9 +1093,9 @@ const findPersonByName = (name: string) => {
 
           <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
-              <Button onClick={onBack} className="bg-yellow-400 text-black px-4 py-2 rounded-md shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>กลับไป Dashboard</Button>
-              <Button onClick={() => setView("list")} className="bg-indigo-600"><List className="mr-2"/>ไปหน้ารายชื่อทั้งหมด</Button>
-              <Button onClick={() => router.push('/create-files')} className="bg-emerald-600 hidden md:inline-block"><FileText className="mr-2"/>สร้างไฟล์จาก Drive (for PC)</Button>
+              <Button onClick={onBack} className="bg-yellow-400 text-black px-4 py-2 rounded-md shadow-sm w-full sm:w-auto mb-2 sm:mb-0"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>กลับไป Dashboard</Button>
+              <Button onClick={() => setView("list")} className="bg-indigo-600 w-full sm:w-auto mb-2 sm:mb-0"><List className="mr-2"/>ไปหน้ารายชื่อทั้งหมด</Button>
+              <Button onClick={() => router.push('/create-files')} className="bg-emerald-600 w-full sm:w-auto mb-2 sm:mb-0"><FileText className="mr-2"/>สร้างไฟล์จาก Drive (for PC)</Button>
             </div>
           </div>
         </div>

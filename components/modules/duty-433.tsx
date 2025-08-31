@@ -767,36 +767,32 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
             </div>
 
             <div className="overflow-x-auto w-full max-w-full mb-4">
-              <table className="min-w-full w-full max-w-full text-sm table-auto border-collapse break-words">
+              <table className="w-full table-fixed text-[8px] sm:text-xs">
                 <thead>
                   <tr>
-                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">ลำดับ</th>
-                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">ชื่อ</th>
-                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">สกุล</th>
-                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">ตำแหน่ง</th>
-                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">สังกัด</th>
-                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">คัดเกรด</th>
-                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">ธุรการ ฝอ.</th>
-                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">สถิติเข้า433</th>
+                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[7vw]">ลำดับ</th>
+                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[10vw]">ชื่อ</th>
+                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[10vw]">สกุล</th>
+                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[13vw]">ตำแหน่ง</th>
+                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[10vw]">สังกัด</th>
+                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[7vw]">เกรด</th>
+                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[10vw]">ธุรการ</th>
+                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[7vw]">433</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((p, i) => (
-                  // ใช้ลำดับตามข้อมูลเดิม: ไม่จัดเรียงใหม่
-                   <tr key={i} className={`cursor-pointer hover:bg-slate-700/50 odd:bg-slate-900/30 even:bg-slate-800/50`} onClick={() => openPersonDetail(p)}>
-                     <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[7vw] sm:max-w-[18vw]">{p.ลำดับ || i + 1}</td>
-                     <td className="px-1 py-1 text-left border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[10vw] sm:max-w-[22vw]">{p.ชื่อ}</td>
-                     <td className="px-1 py-1 text-left border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[10vw] sm:max-w-[22vw]">{p.สกุล}</td>
-                     <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[14vw] sm:max-w-[22vw]">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
-                     <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[10vw] sm:max-w-[18vw]">{p.สังกัด}</td>
-                     <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[7vw] sm:max-w-[14vw]">{p.คัดเกรด || '-'}</td>
-                     <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[10vw] sm:max-w-[18vw]">{p['ธุรการ ฝอ.'] || p['ธุรการ'] || '-'}</td>
-                     <td className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[7vw] sm:max-w-[14vw]">{(Array.isArray(p._433_dates) ? p._433_dates.filter((d:any)=>d&&d.toString().trim()).length : (Array.isArray(p.enter433)?p.enter433.length:0))}</td>
-                   </tr>
-                   ))}
-                  {filtered.length === 0 && (
-                    <tr><td colSpan={8} className="p-4 text-center text-slate-400">ไม่มีข้อมูล</td></tr>
-                  )}
+                    <tr key={i} className="cursor-pointer hover:bg-slate-700/50 odd:bg-slate-900/30 even:bg-slate-800/50">
+                      <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[7vw]">{p.ลำดับ || i + 1}</td>
+                      <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.ชื่อ}</td>
+                      <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.สกุล}</td>
+                      <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[13vw]">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
+                      <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.สังกัด}</td>
+                      <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[7vw]">{p.คัดเกรด || '-'}</td>
+                      <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p['ธุรการ ฝอ.'] || p['ธุรการ'] || '-'}</td>
+                      <td className="px-0.5 py-0.5 text-center font-bold border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[7vw]">{(Array.isArray(p._433_dates) ? p._433_dates.filter((d:any)=>d&&d.toString().trim()).length : (Array.isArray(p.enter433)?p.enter433.length:0))}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

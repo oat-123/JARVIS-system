@@ -82,6 +82,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
   const [people, setPeople] = useState<PersonData[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [filterDuty, setFilterDuty] = useState<string | "">("")
+  const [filterGrade, setFilterGrade] = useState<string | "">("") // เพิ่ม state สำหรับ filter คัดเกรด
   const [minCount, setMinCount] = useState<number>(0)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [debouncedQuery, setDebouncedQuery] = useState<string>("")
@@ -553,6 +554,14 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
     return Array.from(s).filter(Boolean)
   }, [people])
 
+  const grades = useMemo(() => {
+    const s = new Set<string>()
+    people.forEach(p => {
+      if (p.คัดเกรด) s.add(p.คัดเกรด)
+    })
+    return Array.from(s).filter(Boolean)
+  }, [people])
+
   // compute top people by จำนวนครั้งที่เข้า 433
   const ranked = useMemo(() => {
     return [...people]
@@ -612,7 +621,10 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
                         p.ธุรการ === filterDuty
         if (!hasDuty) return false
       }
-      
+      // กรองตามคัดเกรด
+      if (filterGrade && filterGrade !== '') {
+        if (p.คัดเกรด !== filterGrade) return false
+      }
       const stat = get433Count(p)
       if (stat < minCount) return false
       if (q) {
@@ -622,7 +634,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
       }
       return true
     })
-  }, [people, filterDuty, minCount, debouncedSearch])
+  }, [people, filterDuty, filterGrade, minCount, debouncedSearch])
 
   // List view - fetch specific sheet tabs and display names
   const openSheetList = async (sheetTabName: string) => {
@@ -724,7 +736,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
           
           {/* Pie detail modal (mobile-friendly drawer) */}
 
-          <div className="overflow-x-auto rounded-lg bg-slate-800/60 border border-slate-700 p-4">
+          <div className="overflow-x-auto w-full max-w-full rounded-lg bg-slate-800/60 border border-slate-700 p-4">
             {/* Filters moved to list view */}
             <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-3">
               <div className="flex items-center gap-3">
@@ -733,7 +745,12 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
                   <option value="">ทั้งหมด</option>
                   {duties.map((d, i) => <option key={i} value={d}>{d}</option>)}
                 </select>
-
+                {/* เพิ่ม filter คัดเกรด */}
+                <label className="text-sm text-slate-300">คัดเกรด</label>
+                <select value={filterGrade} onChange={e => setFilterGrade(e.target.value)} className="bg-slate-700 text-white px-2 py-1 rounded">
+                  <option value="">ทั้งหมด</option>
+                  {grades.map((g, i) => <option key={i} value={g}>{g}</option>)}
+                </select>
                 <label className="text-sm text-slate-300">ขั้นต่ำ (สถิติ)</label>
                 <input type="number" min={0} value={minCount} onChange={e => setMinCount(parseInt(e.target.value || '0', 10))} className="w-20 bg-slate-700 text-white px-2 py-1 rounded" />
               </div>
@@ -749,8 +766,8 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
               </div>
             </div>
 
-            <div className="overflow-x-auto mb-4">
-              <table className="min-w-full text-sm table-auto border-collapse">
+            <div className="overflow-x-auto w-full max-w-full mb-4">
+              <table className="min-w-full w-full max-w-full text-sm table-auto border-collapse break-words">
                 <thead>
                   <tr>
                     <th className="px-3 py-2 text-center font-semibold border-b border-slate-700">ลำดับ</th>
@@ -767,7 +784,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
                   {filtered.map((p, i) => (
                   // ใช้ลำดับตามข้อมูลเดิม: ไม่จัดเรียงใหม่
                    <tr key={i} className={`cursor-pointer hover:bg-slate-700/50 odd:bg-slate-900/30 even:bg-slate-800/50`} onClick={() => openPersonDetail(p)}>
-                     <td className="px-3 py-2 text-center border-b border-slate-700">{p.ลำดับ || i + 1}</td>
+                     <td className="px-3 py-2 text-center border-b border-slate-700 break-words whitespace-pre-line">{p.ลำดับ || i + 1}</td>
                      <td className="px-3 py-2 text-left border-b border-slate-700">{p.ชื่อ}</td>
                      <td className="px-3 py-2 text-left border-b border-slate-700">{p.สกุล}</td>
                      <td className="px-3 py-2 text-center border-b border-slate-700">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
@@ -1022,8 +1039,8 @@ const findPersonByName = (name: string) => {
               </select>
             </div>
 
-            <div className="overflow-x-auto mb-2">
-              <table className="min-w-full text-sm table-auto border-collapse">
+            <div className="overflow-x-auto w-full max-w-full mb-2">
+              <table className="min-w-full w-full max-w-full text-sm table-auto border-collapse break-words">
                 <thead>
                   <tr className="bg-slate-900/40">
                       <th className="p-3 text-center border-b border-slate-700">อันดับ</th>

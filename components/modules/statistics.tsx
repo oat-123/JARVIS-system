@@ -271,8 +271,8 @@ export function Statistics({ onBack, sheetName }: StatisticsProps) {
                   <div key={sheet} className="my-8 flex justify-center">
                     <div className="w-full max-w-2xl">
                       <div className="font-bold text-slate-600 mb-2 text-center text-lg tracking-wide">Preview: {sheet}</div>
-                      <div className="overflow-x-auto rounded-2xl shadow-2xl border border-slate-200 bg-white">
-                        <table className="min-w-full text-base rounded-2xl">
+                      <div className="overflow-x-auto w-full max-w-full rounded-2xl shadow-2xl border border-slate-200 bg-white">
+                        <table className="min-w-full w-full max-w-full text-base rounded-2xl break-words">
                           <thead>
                             <tr>
                               <th className="border-b border-slate-300 px-7 py-3 bg-blue-950 text-white font-bold text-center rounded-tl-2xl text-lg tracking-wide">ลำดับ</th>

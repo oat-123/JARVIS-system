@@ -1024,8 +1024,8 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="bg-slate-700/30 rounded-lg overflow-x-auto border border-slate-600">
-                      <Table className="min-w-full border-separate border-spacing-0">
+                    <div className="overflow-x-auto w-full max-w-full rounded-lg border border-slate-700 p-2">
+                      <Table className="min-w-full w-full max-w-full text-xs table-auto border-collapse break-words">
                         <TableHeader>
                           <TableRow className="bg-slate-700/80">
                             <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ลำดับ</TableHead>
@@ -1041,7 +1041,7 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
                         <TableBody>
                           {selectedPersons.map((person, index) => (
                             <TableRow key={person.ลำดับ} className={index % 2 === 0 ? "bg-slate-800/60" : "bg-slate-900/60"}>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{toThaiNumber(index + 1)}</TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-pre-line break-words text-center text-white border-b border-slate-700">{toThaiNumber(index + 1)}</TableCell>
                               <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-left text-white border-b border-slate-700">{person.ยศ} {person.ชื่อ} {person.สกุล}</TableCell>
                               <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ชั้นปีที่}</TableCell>
                               <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตอน}</TableCell>

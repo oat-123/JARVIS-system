@@ -229,7 +229,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
           {dutyHistory.length === 0 ? (
             <div className="text-slate-400 text-center py-12">ยังไม่มีประวัติยอดที่บันทึกไว้</div>
           ) : (
-            <div className="space-y-2">            
+            <div className="overflow-x-auto w-full max-w-full">
               {dutyHistory.map((item, idx) => (
                 <div key={idx} className="bg-slate-800/70 border border-slate-700 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -308,7 +308,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
                   {item.type === 'excel' && previewIdx === idx && excelPreview && (
                     <div className="mt-2 bg-slate-900/80 border border-slate-700 rounded p-3 text-xs text-slate-200 max-h-60 overflow-x-auto overflow-y-auto">
                       <div className="mb-2">Sheet: <span className="text-green-300">{excelPreview.sheetName}</span> ({excelPreview.sheets.length} ชีท)</div>
-                      <table className="min-w-full border border-slate-700 text-xs">
+                      <table className="min-w-full w-full max-w-full break-words border border-slate-700 text-xs">
                         <thead>
                           <tr>
                             <th className="border border-slate-700 px-2 py-1">ยศ</th>

@@ -770,28 +770,28 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
               <table className="min-w-full w-full max-w-full text-sm table-auto border-collapse break-words">
                 <thead>
                   <tr>
-                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm">ลำดับ</th>
-                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm">ชื่อ</th>
-                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm">สกุล</th>
-                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm">ตำแหน่ง</th>
-                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm">สังกัด</th>
-                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm">คัดเกรด</th>
-                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm">ธุรการ ฝอ.</th>
-                    <th className="px-3 py-2 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm">สถิติเข้า433</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">ลำดับ</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">ชื่อ</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">สกุล</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">ตำแหน่ง</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">สังกัด</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">คัดเกรด</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">ธุรการ ฝอ.</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs">สถิติเข้า433</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((p, i) => (
                   // ใช้ลำดับตามข้อมูลเดิม: ไม่จัดเรียงใหม่
                    <tr key={i} className={`cursor-pointer hover:bg-slate-700/50 odd:bg-slate-900/30 even:bg-slate-800/50`} onClick={() => openPersonDetail(p)}>
-                     <td className="px-3 py-2 text-center border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm overflow-hidden text-ellipsis max-w-[18vw]">{p.ลำดับ || i + 1}</td>
-                     <td className="px-3 py-2 text-left border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm overflow-hidden text-ellipsis max-w-[22vw]">{p.ชื่อ}</td>
-                     <td className="px-3 py-2 text-left border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm overflow-hidden text-ellipsis max-w-[22vw]">{p.สกุล}</td>
-                     <td className="px-3 py-2 text-center border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm overflow-hidden text-ellipsis max-w-[22vw]">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
-                     <td className="px-3 py-2 text-center border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm overflow-hidden text-ellipsis max-w-[18vw]">{p.สังกัด}</td>
-                     <td className="px-3 py-2 text-center border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm overflow-hidden text-ellipsis max-w-[14vw]">{p.คัดเกรด || '-'}</td>
-                     <td className="px-3 py-2 text-center border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm overflow-hidden text-ellipsis max-w-[18vw]">{p['ธุรการ ฝอ.'] || p['ธุรการ'] || '-'}</td>
-                     <td className="px-3 py-2 text-center font-bold border-b border-slate-700 whitespace-nowrap text-xs sm:text-sm overflow-hidden text-ellipsis max-w-[14vw]">{(Array.isArray(p._433_dates) ? p._433_dates.filter((d:any)=>d&&d.toString().trim()).length : (Array.isArray(p.enter433)?p.enter433.length:0))}</td>
+                     <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[7vw] sm:max-w-[18vw]">{p.ลำดับ || i + 1}</td>
+                     <td className="px-1 py-1 text-left border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[10vw] sm:max-w-[22vw]">{p.ชื่อ}</td>
+                     <td className="px-1 py-1 text-left border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[10vw] sm:max-w-[22vw]">{p.สกุล}</td>
+                     <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[14vw] sm:max-w-[22vw]">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
+                     <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[10vw] sm:max-w-[18vw]">{p.สังกัด}</td>
+                     <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[7vw] sm:max-w-[14vw]">{p.คัดเกรด || '-'}</td>
+                     <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[10vw] sm:max-w-[18vw]">{p['ธุรการ ฝอ.'] || p['ธุรการ'] || '-'}</td>
+                     <td className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap text-[10px] sm:text-xs overflow-hidden text-ellipsis max-w-[7vw] sm:max-w-[14vw]">{(Array.isArray(p._433_dates) ? p._433_dates.filter((d:any)=>d&&d.toString().trim()).length : (Array.isArray(p.enter433)?p.enter433.length:0))}</td>
                    </tr>
                    ))}
                   {filtered.length === 0 && (
@@ -1099,7 +1099,7 @@ const findPersonByName = (name: string) => {
               <div className="flex items-center gap-3">
               <Button onClick={onBack} className="bg-yellow-400 text-black px-4 py-2 rounded-md shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>กลับไป Dashboard</Button>
               <Button onClick={() => setView("list")} className="bg-indigo-600"><List className="mr-2"/>ไปหน้ารายชื่อทั้งหมด</Button>
-              <Button onClick={() => router.push('/create-files')} className="bg-emerald-600"><FileText className="mr-2"/>สร้างไฟล์จาก Drive (for PC)</Button>
+              <Button onClick={() => router.push('/create-files')} className="bg-emerald-600 hidden md:inline-block"><FileText className="mr-2"/>สร้างไฟล์จาก Drive (for PC)</Button>
             </div>
           </div>
         </div>

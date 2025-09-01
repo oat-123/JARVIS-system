@@ -29,7 +29,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
   const [cancelAll, setCancelAll] = useState<boolean>(false)
   const [singleAbort, setSingleAbort] = useState<AbortController | null>(null)
   const [copiedPath, setCopiedPath] = useState<boolean>(false)
-  const ROOT_DRIVE_FOLDER_ID = '1GEqJdprtmielFyfScPQWa0CIBLcDA8wS'
+  const ROOT_DRIVE_FOLDER_ID = '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_'
 
   // Next weekend text in Thai format
   const nextWeekendRange = (now: Date = new Date()) => {
@@ -182,24 +182,18 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     setStagedTimerMap(m => ({ ...m, [idx]: staged }))
 
     try {
-      // สร้างชื่อโฟลเดอร์ตามรูปแบบ "นนร.ยศ ชื่อ สกุล" โดยใช้ position จากข้อมูล
-      const rank = person.position || '' // ยศจากคอลัมน์ตำแหน่ง ทกท.
-      const personFolderName = `นนร.${rank} ${person.first || ''} ${person.last || ''}`.trim()
-      
-      const res = await fetch('/api/fetch-docx', {
+      // ใช้รูปแบบโฟลเดอร์ "นนร.ชื่อ สกุล" เพื่อให้ตรงกับโครงสร้างใน Drive
+      const personName = `${person.first || ''} ${person.last || ''}`.trim()
+      const personFolderName = `นนร.${personName}`
+
+      const res = await fetch('/api/drive-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
         body: JSON.stringify({ 
-          name: person.full, 
-          nameNorm: person.fullNorm || '', 
-          firstName: person.first || '',
-          lastName: person.last || '',
-          position: rank,
-          folderName: personFolderName, // Use the new variable name
-          date, 
-          folderLabel,
-          rootFolderId: ROOT_DRIVE_FOLDER_ID // ID ของโฟลเดอร์หลัก
+          personName,
+          folderName: personFolderName,
+          rootFolderId: ROOT_DRIVE_FOLDER_ID
         })
       })
       const json = await res.json()
@@ -209,11 +203,11 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       const stagedTimers = stagedTimerMap[idx] || []
       stagedTimers.forEach(id => { try { clearTimeout(id) } catch {} })
       setStagedTimerMap(m => { const { [idx]: _, ...rest } = m; return rest })
-      if (json.ok && json.downloadUrl) {
-        setLinkStates(s => ({ ...s, [idx]: { status: 'ok', url: json.downloadUrl, filename: json.filename, percent: 100, message: 'พร้อมดาวน์โหลด' } }))
+      if (json.success && json.link) {
+        setLinkStates(s => ({ ...s, [idx]: { status: 'ok', url: json.link, filename: json.fileName, percent: 100, message: 'พร้อมดาวน์โหลด' } }))
       } else {
-        const diag = json && json.diagnostics ? ` (${(json.diagnostics.reason || json.message || '').toString()})` : ''
-        setLinkStates(s => ({ ...s, [idx]: { status: 'error', percent: 100, message: (json && json.message ? json.message : 'ไม่พบไฟล์') + diag } }))
+        const msg = typeof json.error === 'string' && json.error.trim().length > 0 ? json.error : 'ไม่พบไฟล์'
+        setLinkStates(s => ({ ...s, [idx]: { status: 'error', percent: 100, message: msg } }))
       }
     } catch (e:any) {
       clearInterval(timer)
@@ -279,24 +273,29 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     setSingleAbort(controller)
     try {
       const chosen = matches[selectedIndex]
-      const res = await fetch('/api/fetch-docx', {
+      const personName = `${chosen.first || ''} ${chosen.last || ''}`.trim()
+      const folderName = `นนร.${personName}`
+      
+      const res = await fetch('/api/drive-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({ name: chosen.full, nameNorm: chosen.fullNorm || '', date, folderLabel, rootFolderId: ROOT_DRIVE_FOLDER_ID })
+        body: JSON.stringify({ 
+          personName,
+          folderName,
+          rootFolderId: ROOT_DRIVE_FOLDER_ID
+        })
       })
       const json = await res.json()
-      if (json.ok) {
+      if (json.success && json.link) {
         if (timer) clearInterval(timer)
         setProgress(100)
         setProgressText('ลิงก์พร้อมดาวน์โหลด')
-        setMessage('ลิงก์ดาวน์โหลด: ' + (json.url || json.downloadUrl))
+        setMessage('ลิงก์ดาวน์โหลด: ' + json.link)
         setTimeout(() => setShowProgress(false), 1200)
-        // open folder? not possible from browser, but we can provide path
       } else {
-        // show server diagnostics when available
-        const diag = json.diagnostics ? `: ${JSON.stringify(json.diagnostics)}` : ''
-        setMessage(`${json.message || 'ไม่พบไฟล์ที่ต้องการ'}${diag}`)
+        const msg = typeof json.error === 'string' && json.error.trim().length > 0 ? json.error : 'ไม่พบไฟล์'
+        setMessage(msg)
         if (timer) clearInterval(timer)
         setProgressText('ไม่พบไฟล์ที่ต้องการ')
         setTimeout(() => setShowProgress(false), 1200)

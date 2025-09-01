@@ -86,9 +86,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
   const [minCount, setMinCount] = useState<number>(0)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [debouncedQuery, setDebouncedQuery] = useState<string>("")
-  const [downloadLinks, setDownloadLinks] = useState<{ [key: string]: string | null }>({});
-  const [loadingLinks, setLoadingLinks] = useState<{ [key: string]: boolean }>({});
-  const [errorLinks, setErrorLinks] = useState<{ [key: string]: string | null }>({});
+
 
   // debounce the search input for a smoother typing/search experience
   useEffect(() => {
@@ -677,51 +675,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
     setSelectedPerson(null)
   }
 
-  // ฟังก์ชันสำหรับสร้างลิงก์ดาวน์โหลด
-  const handleCreateDriveLink = async (person: any) => {
-    const key = `${person.ชื่อ || ''} ${person.นามสกุล || ''}`.trim();
-    setLoadingLinks((prev) => ({ ...prev, [key]: true }));
-    setErrorLinks((prev) => ({ ...prev, [key]: null }));
-    setDownloadLinks((prev) => ({ ...prev, [key]: null }));
-    try {
-      // สร้างชื่อโฟลเดอร์ตามที่อยู่ใน Drive: "<สังกัด/ตำแหน่ง> <ชื่อ> <สกุล>"
-      const positionPart = (person['ตำแหน่ง ทกท.'] || person.ตำแหน่ง || '').toString().trim();
-      const unitPart = (person.สังกัด || '').toString().trim();
-      const prefix = unitPart && !/^นนร\./.test(unitPart) ? 'นนร.' : '';
-      const computedFolderName = `${prefix}${positionPart ? positionPart + ' ' : ''}${unitPart ? unitPart + ' ' : ''}${key}`.replace(/\s+/g, ' ').trim();
 
-      const payload = {
-        personName: key,
-        folderName: person.folderName || computedFolderName,
-        // รองรับโฟลเดอร์ root เฉพาะงาน 433 หากมีให้ส่งมา มิฉะนั้นใช้ค่าเริ่มต้นฝั่ง API
-        rootFolderId: person.rootFolderId || '1GEqJdprtmielFyfScPQWa0CIBLcDA8wS',
-      };
-      console.log('[สร้างลิงก์] ส่งไป API:', payload);
-      toast({ title: 'กำลังค้นหาไฟล์บน Drive', description: `${payload.folderName} → ${payload.personName}` })
-      const res = await fetch('/api/drive-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      console.log('[สร้างลิงก์] ผลลัพธ์จาก API:', data);
-      if (data.success && data.link) {
-        setDownloadLinks((prev) => ({ ...prev, [key]: data.link }));
-        toast({ title: 'เจอลิงก์ดาวน์โหลดแล้ว', description: data.fileName || data.link })
-      } else {
-        // แสดงข้อความ error ตรง ๆ จากเซิร์ฟเวอร์ เพื่อหลีกเลี่ยง () เปล่า ๆ
-        const msg = typeof data.error === 'string' && data.error.trim().length > 0 ? data.error : 'ไม่พบไฟล์';
-        setErrorLinks((prev) => ({ ...prev, [key]: msg }));
-        toast({ title: 'ไม่พบไฟล์', description: msg })
-      }
-    } catch (e: any) {
-      setErrorLinks((prev) => ({ ...prev, [key]: e?.message || 'เกิดข้อผิดพลาด' }));
-      console.log('[สร้างลิงก์] ERROR:', e);
-      toast({ title: 'เกิดข้อผิดพลาด', description: e?.message || 'ไม่ทราบสาเหตุ' })
-    } finally {
-      setLoadingLinks((prev) => ({ ...prev, [key]: false }));
-    }
-  };
 
   // Mobile-friendly layout: use stacked sections under 420px wide
   if (view === "list") {
@@ -777,21 +731,30 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
                     <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[10vw]">สังกัด</th>
                     <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[6vw] sm:max-w-[14vw]">เกรด</th>
                     <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[7vw] sm:max-w-[18vw]">ธุรการ</th>
-                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[5vw] sm:max-w-[14vw]">สถิติ433</th>
+                    <th className="px-0.5 py-0.5 text-center font-bold border-b border-slate-700 whitespace-nowrap max-w-[5vw] sm:max-w-[14vw]">สถิติ433</th>
+
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((p, i) => (
-                    <tr key={i} className="cursor-pointer hover:bg-slate-700/50 odd:bg-slate-900/30 even:bg-slate-800/50" onClick={() => openPersonDetail(p)}>
-                      <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[5vw] sm:max-w-[18vw]">{p.ลำดับ || i + 1}</td>
-                      <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.ชื่อ}</td>
-                      <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.สกุล}</td>
-                      <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[13vw]">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
-                      <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.สังกัด}</td>
-                      <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[6vw] sm:max-w-[14vw]">{p.คัดเกรด || '-'}</td>
-                      <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[7vw] sm:max-w-[18vw]">{p['ธุรการ ฝอ.'] || p['ธุรการ'] || '-'}</td>
-                      <td className="px-0.5 py-0.5 text-center font-bold border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[5vw] sm:max-w-[14vw]">{(Array.isArray(p._433_dates) ? p._433_dates.filter((d:any)=>d&&d.toString().trim()).length : (Array.isArray(p.enter433)?p.enter433.length:0))}</td>
-                    </tr>
+                      <tr
+                        key={i}
+                        className="cursor-pointer hover:bg-slate-700/50 odd:bg-slate-900/30 even:bg-slate-800/50"
+                        onClick={() => openPersonDetail(p)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPersonDetail(p) } }}
+                      >
+                        <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[5vw] sm:max-w-[18vw]">{p.ลำดับ || i + 1}</td>
+                        <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.ชื่อ}</td>
+                        <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.สกุล}</td>
+                        <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[13vw]">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
+                        <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.สังกัด}</td>
+                        <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[6vw] sm:max-w-[14vw]">{p.เกรด || '-'}</td>
+                        <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[7vw] sm:max-w-[18vw]">{p['ธุรการ ฝอ.'] || p.ธุรการ || '-'}</td>
+                        <td className="px-0.5 py-0.5 text-center font-bold border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[5vw] sm:max-w-[14vw]">{(Array.isArray(p._433_dates) ? p._433_dates.filter((d:any)=>d&&d.toString().trim()).length : (Array.isArray(p.enter433)?p.enter433.length:0))}</td>
+
+                                              </tr>
                   ))}
                 </tbody>
               </table>

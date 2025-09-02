@@ -52,8 +52,10 @@ export async function POST(req: Request) {
     }
 
     const idxTitle = findIdx(['ยศ','title'])
-    const idxFirst = findIdx(['ชื่อ','first','firstname'])
-    const idxLast = findIdx(['สกุล','last','lastname'])
+    // บังคับอ่าน ชื่อ จากคอลัมน์ C (index 2) และ สกุล จากคอลัมน์ D (index 3)
+    // เพื่อให้สอดคล้องกับรูปแบบชีทของคุณเสมอ
+    const idxFirst = 2
+    const idxLast = 3
     const idxPos = findIdx(['ตำแหน่ง ทกท.','ตำแหน่ง','position'])
     const idxPartner = findIdx(['คู่พี่นายทหาร','คู่พี่นาย','คู่พี่','partner'])
     const idxShift = findIdx(['ผลัด','ผัด','shift'])
@@ -64,8 +66,8 @@ export async function POST(req: Request) {
       const r = rows[i]
       if (!r || r.length === 0) continue
       const title = (idxTitle >= 0 ? r[idxTitle] : (r[1] || '')).toString().trim()
-      const first = (idxFirst >= 0 ? r[idxFirst] : (r[2] || '')).toString().trim()
-      const last = (idxLast >= 0 ? r[idxLast] : (r[3] || '')).toString().trim()
+      const first = (r[2] || '').toString().trim()
+      const last = (r[3] || '').toString().trim()
       const position = idxPos >= 0 ? (r[idxPos] || '').toString().trim() : ''
       const partner = idxPartner >= 0 ? (r[idxPartner] || '').toString().trim() : ''
       const shift = idxShift >= 0 ? (r[idxShift] || '').toString().trim() : ''

@@ -45,39 +45,53 @@ export async function GET(request: NextRequest) {
 
     const headers = values[0].map((h: any) => (h || '').toString().trim())
 
-    // Find column indexes by header names (best-effort)
+    // Find column indexes by header names (improved to handle column insertions)
     const idxOf = (name: string) => headers.findIndex(h => h.includes(name))
-  const idxReport = idxOf('ถวายรายงาน')
-  const idxDutyOfficer = idxOf('น.กำกับยาม')
-  const idxDate = idxOf('วันที่')
-  const idx433Cols = [idxOf('433 ครั้งที่ 1'), idxOf('433 ครั้งที่ 2'), idxOf('433 ครั้งที่ 3'), idxOf('433 ครั้งที่ 4')]
-  const idxAdminCols = [idxOf('ธุรการ ครั้งที่ 1'), idxOf('ธุรการ ครั้งที่ 2'), idxOf('ธุรการ ครั้งที่ 3'), idxOf('ธุรการ ครั้งที่ 4'), idxOf('ธุรการ ครั้งที่ 5')]
-  // extra columns we want to surface into each person row
-  const idxGrade = idxOf('คัดเกรด')
-  const idxAdminField = idxOf('ธุรการ ฝอ.') >= 0 ? idxOf('ธุรการ ฝอ.') : idxOf('ธุรการ')
-  const idxTua = idxOf('ตัวชน')
-  const idxHeight = idxOf('ส่วนสูง')
-  const idxSport = idxOf('นักกีฬา')
+    
+    // Main columns - use header names instead of hard-coded positions
+    const idxOrder = idxOf('ลำดับ') >= 0 ? idxOf('ลำดับ') : 0
+    const idxRank = idxOf('ยศ') >= 0 ? idxOf('ยศ') : 1
+    const idxFirstName = idxOf('ชื่อ') >= 0 ? idxOf('ชื่อ') : 2
+    const idxLastName = idxOf('สกุล') >= 0 ? idxOf('สกุล') : 3
+    const idxYear = idxOf('ชั้นปีที่') >= 0 ? idxOf('ชั้นปีที่') : 4
+    const idxClass = idxOf('ตอน') >= 0 ? idxOf('ตอน') : 5
+    const idxPosition = idxOf('ตำแหน่ง') >= 0 ? idxOf('ตำแหน่ง') : 6
+    const idxUnit = idxOf('สังกัด') >= 0 ? idxOf('สังกัด') : 7
+    const idxPhone = idxOf('เบอร์โทรศัพท์') >= 0 ? idxOf('เบอร์โทรศัพท์') : 8
+    
+    // Additional columns
+    const idxReport = idxOf('ถวายรายงาน')
+    const idxDutyOfficer = idxOf('น.กำกับยาม')
+    const idxDate = idxOf('วันที่')
+    const idx433Cols = [idxOf('433 ครั้งที่ 1'), idxOf('433 ครั้งที่ 2'), idxOf('433 ครั้งที่ 3'), idxOf('433 ครั้งที่ 4')]
+    const idxAdminCols = [idxOf('ธุรการ ครั้งที่ 1'), idxOf('ธุรการ ครั้งที่ 2'), idxOf('ธุรการ ครั้งที่ 3'), idxOf('ธุรการ ครั้งที่ 4'), idxOf('ธุรการ ครั้งที่ 5')]
+    
+    // Extra columns we want to surface into each person row
+    const idxGrade = idxOf('คัดเกรด')
+    const idxAdminField = idxOf('ธุรการ ฝอ.') >= 0 ? idxOf('ธุรการ ฝอ.') : idxOf('ธุรการ')
+    const idxTua = idxOf('ตัวชน')
+    const idxHeight = idxOf('ส่วนสูง')
+    const idxSport = idxOf('นักกีฬา')
 
     const people: any[] = []
     for (let i = 1; i < values.length; i++) {
       const row = values[i]
       const get = (j: number) => (j >= 0 && j < row.length ? row[j] : '')
       const person = {
-        ลำดับ: get(0),
-        ยศ: get(1),
-        ชื่อ: get(2),
-        สกุล: get(3),
-        ชั้นปีที่: get(4),
-        ตอน: get(5),
-        ตำแหน่ง: get(6),
-        สังกัด: get(7),
-  เบอร์โทรศัพท์: get(8),
-  คัดเกรด: get(idxGrade),
-  "ธุรการ ฝอ.": get(idxAdminField),
-  ตัวชน: get(idxTua),
-  ส่วนสูง: get(idxHeight),
-  นักกีฬา: get(idxSport),
+        ลำดับ: get(idxOrder),
+        ยศ: get(idxRank),
+        ชื่อ: get(idxFirstName),
+        สกุล: get(idxLastName),
+        ชั้นปีที่: get(idxYear),
+        ตอน: get(idxClass),
+        ตำแหน่ง: get(idxPosition),
+        สังกัด: get(idxUnit),
+        เบอร์โทรศัพท์: get(idxPhone),
+        คัดเกรด: get(idxGrade),
+        "ธุรการ ฝอ.": get(idxAdminField),
+        ตัวชน: get(idxTua),
+        ส่วนสูง: get(idxHeight),
+        นักกีฬา: get(idxSport),
         ถวายรายงาน: get(idxReport),
         "น.กำกับยาม": get(idxDutyOfficer),
         "วันที่": get(idxDate),

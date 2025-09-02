@@ -31,6 +31,25 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
   const [copiedPath, setCopiedPath] = useState<boolean>(false)
   const ROOT_DRIVE_FOLDER_ID = '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_'
 
+  // sanitize helpers to prevent duplicated 'นนร.' tokens and extra spaces
+  const normalizeSpaces = (s: string) => s.replace(/\s+/g, ' ').trim()
+  const stripDuplicatePrefix = (s: string) => {
+    if (!s) return ''
+    let out = s
+      .replace(/(นนร\.?\s*){2,}/gi, 'นนร. ') // collapse repeated นนร.
+    out = out.replace(/\s+/g, ' ').trim()
+    // ensure at most one leading 'นนร.'
+    out = out.replace(/^นนร\.?\s*นนร\.?/i, 'นนร.')
+    return out
+  }
+  const buildPersonName = (first?: string, last?: string) => normalizeSpaces(`${first || ''} ${last || ''}`)
+  const buildFolderName = (first?: string, last?: string) => {
+    const base = buildPersonName(first, last)
+    let name = `นนร. ${base}`
+    name = stripDuplicatePrefix(name)
+    return name
+  }
+
   // Next weekend text in Thai format
   const nextWeekendRange = (now: Date = new Date()) => {
     const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -182,9 +201,9 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     setStagedTimerMap(m => ({ ...m, [idx]: staged }))
 
     try {
-      // ใช้รูปแบบโฟลเดอร์ "นนร.ชื่อ สกุล" เพื่อให้ตรงกับโครงสร้างใน Drive
-      const personName = `${person.first || ''} ${person.last || ''}`.trim()
-      const personFolderName = `นนร.${personName}`
+      // ใช้รูปแบบเต็มสำหรับค้นหาไฟล์และโฟลเดอร์: "นนร. {ชื่อ} {นามสกุล}"
+      const personFolderName = buildFolderName(person.first, person.last)
+      const personName = personFolderName
 
       const res = await fetch('/api/drive-link', {
         method: 'POST',
@@ -273,8 +292,9 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     setSingleAbort(controller)
     try {
       const chosen = matches[selectedIndex]
-      const personName = `${chosen.first || ''} ${chosen.last || ''}`.trim()
-      const folderName = `นนร.${personName}`
+      // ใช้รูปแบบเต็มสำหรับค้นหาไฟล์และโฟลเดอร์: "นนร. {ชื่อ} {นามสกุล}"
+      const folderName = buildFolderName(chosen?.first, chosen?.last)
+      const personName = folderName
       
       const res = await fetch('/api/drive-link', {
         method: 'POST',
@@ -359,9 +379,20 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
                   <tbody>
                     {matches.map((m,i)=> {
                       const st = linkStates[i] || { status: 'idle', percent: 0 }
+                      const displayFirst = (() => {
+                        const first = (m.first || '').toString().trim()
+                        if (first && first !== 'นนร.' && !/^นนร\.?\s*$/i.test(first)) return first
+                        const full = (m.full || '').toString().trim()
+                        if (full) {
+                          const noRank = full.replace(/^นนร\.?\s*/i, '')
+                          const parts = noRank.split(/\s+/).filter(Boolean)
+                          if (parts.length > 0) return parts[0]
+                        }
+                        return first
+                      })()
                       return (
                         <tr key={i} className={`cursor-pointer ${selectedIndex===i ? 'bg-blue-600 text-white' : 'hover:bg-slate-800/60'}`} onClick={()=>setSelectedIndex(i)}>
-                          <td className="p-3">{m.first || ''}</td>
+                          <td className="p-3">{displayFirst}</td>
                           <td className="p-3">{m.last || ''}</td>
                           <td className="p-3">{m.position || '-'}</td>
                           <td className="p-3">{m.partner || '-'}</td>

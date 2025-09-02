@@ -39,6 +39,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   }
 
   const fullName = `${(person.ยศ || '').trim()} ${(person.ชื่อ || '').trim()} ${(person.สกุล || '').trim()}`.replace(/\s+/g, ' ').trim()
+  const displayName = (person.ชื่อ && person.ชื่อ !== "นนร.") ? fullName : "ไม่พบชื่อจริง"
   const position = person['ตำแหน่ง ทกท.'] || person.ตำแหน่ง || person['ทกท.'] || ''
 
   // เรียก API เพื่อ log ข้อมูลใน terminal ทุกครั้งที่เปิดโปรไฟล์
@@ -152,7 +153,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
               )}
             </div>
             <div className="text-center mt-4">
-              <div className="text-2xl font-semibold text-white">{fullName}</div>
+              <div className="text-2xl font-semibold text-white">{displayName}</div>
               <div className="text-sm text-slate-300 mt-1">{position}</div>
             </div>
           </div>

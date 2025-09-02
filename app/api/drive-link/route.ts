@@ -21,10 +21,44 @@ export async function POST(req: NextRequest) {
     const ROOT_ID = rootFolderId || DRIVE_ROOT_ID;
     console.log('[drive-link] ROOT_ID =', ROOT_ID);
     console.log('[drive-link] ค้นหาโฟลเดอร์บุคคล:', folderName);
-    const personFolder = await findFolderByName(ROOT_ID, folderName);
+    let personFolder = await findFolderByName(ROOT_ID, folderName);
     if (!personFolder) {
-      console.log('❌ ไม่พบโฟลเดอร์บุคคล:', folderName);
-      return NextResponse.json({ success: false, error: `ไม่พบโฟลเดอร์บุคคล: ${folderName}` });
+      console.log('❌ ไม่พบโฟลเดอร์บุคคล (exact):', folderName);
+      // Fallback: fuzzy search all first-level folders under ROOT by last name token
+      try {
+        const drive = await getDriveService();
+        const listPersons = await drive.files.list({
+          q: `mimeType = 'application/vnd.google-apps.folder' and '${ROOT_ID}' in parents and trashed = false`,
+          fields: 'files(id, name)',
+          pageSize: 1000,
+        });
+        const candidates = listPersons.data.files || [];
+        const norm = (s: string) => (s || '').replace(/\s+/g, '').toLowerCase();
+        const tokens = (personName || folderName || '').split(/\s+/).filter(Boolean);
+        const lastToken = tokens.length ? tokens[tokens.length - 1] : '';
+        const score = (name: string) => {
+          const n = norm(name);
+          let sc = 0;
+          if (lastToken && n.includes(norm(lastToken))) sc += 80; // must match last name strongly
+          // small bonuses for other tokens
+          tokens.forEach(t => { if (t !== lastToken && t.length >= 2 && n.includes(norm(t))) sc += 10; });
+          if (/^นนร\./.test(name)) sc += 5;
+          return sc;
+        };
+        const ranked = candidates.map(f => ({ f, sc: score(f.name || '') })).sort((a,b)=> b.sc - a.sc);
+        console.log('[drive-link] Fallback ranked folders (top 10):');
+        ranked.slice(0,10).forEach((r,i)=> console.log(` ${i+1}. [${r.sc}]`, r.f.name, r.f.id));
+        if (ranked.length && ranked[0].sc >= 60) {
+          personFolder = ranked[0].f as any;
+          console.log('✅ เลือกโฟลเดอร์แบบ Fallback:', personFolder);
+        } else {
+          console.log('❌ Fallback ไม่พบโฟลเดอร์ที่เหมาะสม สำหรับ:', folderName);
+          return NextResponse.json({ success: false, error: `ไม่พบโฟลเดอร์บุคคล: ${folderName}` });
+        }
+      } catch (e) {
+        console.log('❌ Fallback ค้นหาโฟลเดอร์ล้มเหลว:', e instanceof Error ? e.message : e);
+        return NextResponse.json({ success: false, error: `ไม่พบโฟลเดอร์บุคคล: ${folderName}` });
+      }
     }
     console.log('✅ เจอโฟลเดอร์บุคคล:', personFolder);
 

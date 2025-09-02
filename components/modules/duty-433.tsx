@@ -373,6 +373,20 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
 
   const normalizePeopleArray = (arr: any[]) => Array.isArray(arr) ? arr.map((x:any) => postProcessPerson(normalizePerson(x))) : []
 
+  // --- Name formatting helpers to avoid duplicated prefixes like "นนร." and extra spaces ---
+  const normalizeSpaces = (s: string) => (s || '').replace(/\s+/g, ' ').trim()
+  const stripDuplicateNnr = (s: string) => {
+    if (!s) return ''
+    let out = s
+      .replace(/(นนร\.?\s*){2,}/gi, 'นนร. ') // collapse repeated นนร.
+    out = out.replace(/^นนร\.?\s*นนร\.?/i, 'นนร. ')
+    return normalizeSpaces(out)
+  }
+  const formatDisplayName = (rank?: string, first?: string, last?: string) => {
+    const raw = `${rank || ''} ${first || ''} ${last || ''}`
+    return stripDuplicateNnr(normalizeSpaces(raw))
+  }
+
   // helper: format Thai short date using Thai numerals and short month names (e.g., ๒๓ ส.ค. ๖๘)
   const toThaiShortDate = (input: string) => {
     if (!input) return ''
@@ -746,8 +760,8 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPersonDetail(p) } }}
                       >
                         <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[5vw] sm:max-w-[18vw]">{p.ลำดับ || i + 1}</td>
-                        <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.ชื่อ}</td>
-                        <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.สกุล}</td>
+                        <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.ชื่อ && p.ชื่อ !== "นนร." ? p.ชื่อ : <span className="text-red-400">ไม่พบชื่อ</span>}</td>
+                        <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.สกุล && p.สกุล !== "นนร." ? p.สกุล : <span className="text-red-400">ไม่พบสกุล</span>}</td>
                         <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[13vw]">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
                         <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.สังกัด}</td>
                         <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[6vw] sm:max-w-[14vw]">{p.เกรด || '-'}</td>
@@ -946,8 +960,9 @@ const findPersonByName = (name: string) => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(aggData && Array.isArray(aggData.topByReportPerson) ? aggData.topByReportPerson : []).slice(0, 6).map((p: any, i: number) => {
-                const displayName = p.fullName || p.name || ''
-                const person = findPersonByName(displayName)
+                const rawName = p.fullName || p.name || ''
+                const person = findPersonByName(rawName)
+                const displayName = person ? formatDisplayName(person?.ยศ, person?.ชื่อ, person?.สกุล) : rawName
                 const pos = getPositionFrom(p) || (person ? getPositionFrom(person) : '')
                 // นับจากประวัติถวายรายงานเท่านั้น
                 let count = 0
@@ -1038,7 +1053,7 @@ const findPersonByName = (name: string) => {
                         }
                       }
                       if (count === 0) count = r.count != null ? r.count : (r.report || r._433 || r.admin || 0)
-                      const nameWithRank = person ? `${person.ยศ || ''} ${person.ชื่อ || ''} ${person.สกุล || ''}`.trim() : (displayName || 'ไม่ระบุ')
+                      const nameWithRank = person ? formatDisplayName(person?.ยศ, person?.ชื่อ, person?.สกุล) : (displayName && displayName !== "นนร. นนร. นนร." ? displayName : 'ไม่พบชื่อจริง')
                       return (
                         <tr key={i} className="cursor-pointer hover:bg-slate-800/30" onClick={() => { if (person) openPersonDetail(person) }}>
                           <td className="p-3 border-b border-slate-700 text-center">{i+1}</td>

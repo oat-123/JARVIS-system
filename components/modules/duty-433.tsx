@@ -595,24 +595,13 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
   const ranked = useMemo(() => {
     return [...people]
       .map(p => {
-        // คำนวณจำนวนครั้งที่เข้า 433 - ตรวจสอบข้อมูลจาก Google Sheets ก่อน
+        // คำนวณจำนวนครั้งที่เข้า 433 จาก _433_columns
         let count = 0
-        if (p['433 ครั้งที่ 1']) count++
-        if (p['433 ครั้งที่ 2']) count++
-        if (p['433 ครั้งที่ 3']) count++
-        if (p['433 ครั้งที่ 4']) count++
-        
-        // ถ้ามีข้อมูลจาก Google Sheets ให้ใช้ข้อมูลนั้น ไม่ใช้ enter433 array
-        if (count > 0) {
-          return { ...p, stat: count }
+        if (p._433_columns && Array.isArray(p._433_columns)) {
+          count = p._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
         }
         
-        // ถ้าไม่มีข้อมูลจาก Google Sheets ให้ใช้ข้อมูล enter433 array
-        if (Array.isArray(p.enter433) && p.enter433.length > 0) {
-          return { ...p, stat: p.enter433.length }
-        }
-        
-        return { ...p, stat: 0 }
+        return { ...p, stat: count }
       })
       .sort((a, b) => b.stat - a.stat)
   }, [people])
@@ -637,10 +626,10 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
     const q = (debouncedSearch || '').toString().trim().toLowerCase()
     // ใช้ลำดับเดิมจาก people และคำนวณจำนวนครั้ง 433 แบบไดนามิก
     const get433Count = (pp: any) => {
-      const dates = Array.isArray(pp._433_dates) ? pp._433_dates : []
-      let c = dates.filter((d:any) => d && d.toString().trim()).length
-      if (c === 0 && Array.isArray(pp.enter433)) c = pp.enter433.length
-      return c
+      if (pp._433_columns && Array.isArray(pp._433_columns)) {
+        return pp._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
+      }
+      return 0
     }
     return people.filter(p => {
       // กรองตามหน้าที่ - ตรวจสอบทั้ง หน้าที่, ธุรการ ฝอ., และ ธุรการ
@@ -787,7 +776,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
                         <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ธุรการ ฝอ.'] || p.ธุรการ || '-'}</td>
                         <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ส่วนสูง || '-'}</td>
                         <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.นักกีฬา || '-'}</td>
-                        <td className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap">{(Array.isArray(p._433_dates) ? p._433_dates.filter((d:any)=>d&&d.toString().trim()).length : (Array.isArray(p.enter433)?p.enter433.length:0))}</td>
+                        <td className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap">{(p._433_columns && Array.isArray(p._433_columns) ? p._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length : 0)}</td>
 
                                               </tr>
                   ))}
@@ -961,13 +950,9 @@ const findPersonByName = (name: string) => {
                           break
                         case 'เข้า433':
                           count = people.filter(p => {
-                            // ตรวจสอบข้อมูลจาก Google Sheets ก่อน
-                            if (p['433 ครั้งที่ 1'] || p['433 ครั้งที่ 2'] || p['433 ครั้งที่ 3'] || p['433 ครั้งที่ 4']) {
-                              return true
-                            }
-                            // ถ้าไม่มีข้อมูลจาก Google Sheets ให้ตรวจสอบข้อมูลจาก enter433 array
-                            if (Array.isArray((p as any).enter433) && (p as any).enter433.length > 0) {
-                              return true
+                            // ตรวจสอบข้อมูลจาก _433_columns
+                            if (p._433_columns && Array.isArray(p._433_columns)) {
+                              return p._433_columns.some((col: any) => col.value && col.value.toString().trim() && col.value !== '-')
                             }
                             return false
                           }).length
@@ -977,16 +962,12 @@ const findPersonByName = (name: string) => {
                           break
                         case 'ไม่เคยเข้า':
                           count = people.filter(p => {
-                            // ตรวจสอบข้อมูลจาก Google Sheets ก่อน
-                            const has433 = p['433 ครั้งที่ 1'] || p['433 ครั้งที่ 2'] || p['433 ครั้งที่ 3'] || p['433 ครั้งที่ 4']
+                            // ตรวจสอบข้อมูลจาก _433_columns และ _admin_columns
+                            const has433 = p._433_columns && Array.isArray(p._433_columns) && p._433_columns.some((col: any) => col.value && col.value.toString().trim() && col.value !== '-')
                             const hasReport = p.ถวายรายงาน
-                            const hasAdmin = (p as any)['ธุรการ ฝอ.'] || (p as any)['ธุรการ']
+                            const hasAdmin = p._admin_columns && Array.isArray(p._admin_columns) && p._admin_columns.some((col: any) => col.value && col.value.toString().trim() && col.value !== '-')
                             
-                            // ถ้าไม่มีข้อมูลจาก Google Sheets ให้ตรวจสอบข้อมูลจาก arrays
-                            const hasReportHistory = !hasReport && Array.isArray((p as any).reportHistory) && (p as any).reportHistory.length > 0
-                            const hasEnter433 = !has433 && Array.isArray((p as any).enter433) && (p as any).enter433.length > 0
-                            
-                            return !has433 && !hasReport && !hasAdmin && !hasReportHistory && !hasEnter433
+                            return !has433 && !hasReport && !hasAdmin
                           }).length
                           break
                       }
@@ -1091,12 +1072,15 @@ const findPersonByName = (name: string) => {
                         count = 1
                       } else if (person) {
                         if (topMetric === '_433') {
-                          const dates = Array.isArray((person as any)._433_dates) ? (person as any)._433_dates : []
-                          count = dates.filter((d:any)=>d && d.toString().trim()).length
-                          if (count === 0 && Array.isArray((person as any).enter433)) count = (person as any).enter433.length
+                          // ใช้ _433_columns แทน _433_dates
+                          if (person._433_columns && Array.isArray(person._433_columns)) {
+                            count = person._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
+                          }
                         } else {
-                          const dates = Array.isArray((person as any)._admin_dates) ? (person as any)._admin_dates : []
-                          count = dates.filter((d:any)=>d && d.toString().trim()).length
+                          // ใช้ _admin_columns แทน _admin_dates
+                          if (person._admin_columns && Array.isArray(person._admin_columns)) {
+                            count = person._admin_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
+                          }
                         }
                       }
                       if (count === 0) count = r.count != null ? r.count : (r.report || r._433 || r.admin || 0)

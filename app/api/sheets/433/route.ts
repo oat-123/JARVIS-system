@@ -145,8 +145,10 @@ export async function GET(request: NextRequest) {
     people.forEach(p => {
       const reportCell = (p.ถวายรายงาน || '').toString()
       const hasReport = !!(reportCell && reportCell.toString().trim())
-      const has433 = p._433_dates.some((d: any) => d && d.toString().trim())
-      const hasAdmin = p._admin_dates.some((d: any) => d && d.toString().trim())
+      
+      // แก้ไขการนับ 433 ให้นับจาก _433_columns แทน _433_dates
+      const has433 = p._433_columns && p._433_columns.some((col: any) => col.value && col.value.toString().trim() && col.value !== '-')
+      const hasAdmin = p._admin_columns && p._admin_columns.some((col: any) => col.value && col.value.toString().trim() && col.value !== '-')
 
       if (hasReport) countReport++
       if (has433) count433++
@@ -168,8 +170,9 @@ export async function GET(request: NextRequest) {
     // For top people (by number of report dates), compute counts per person by counting non-empty report date tokens in ถวายรายงาน + 433 + admin depending on metric
     const personStats = people.map((p: any) => {
       const reportDates = (p.ถวายรายงาน || '').toString() ? 1 : 0
-      const num433 = p._433_dates.filter((d: any) => d && d.toString().trim()).length
-      const numAdmin = p._admin_dates.filter((d: any) => d && d.toString().trim()).length
+      // แก้ไขการนับ 433 ให้นับจาก _433_columns แทน _433_dates
+      const num433 = p._433_columns ? p._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length : 0
+      const numAdmin = p._admin_columns ? p._admin_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length : 0
       return {
         fullName: `${p.ยศ || ''} ${p.ชื่อ || ''} ${p.สกุล || ''}`.trim(),
         report: reportDates,

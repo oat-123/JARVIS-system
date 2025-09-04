@@ -795,6 +795,13 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
               </table>
             </div>
 
+            {/* แสดงจำนวนแถวที่เหลือ */}
+            <div className="flex justify-end mt-2">
+              <div className="text-xs text-slate-400">
+                แสดง {filtered.length} จาก {people.length} รายการ
+              </div>
+            </div>
+
             {/* Top-5 removed from list view; available on overview */}
           </div>
         </div>

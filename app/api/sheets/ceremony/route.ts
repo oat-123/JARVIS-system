@@ -27,24 +27,41 @@ interface UpdateRequest {
 const convertSheetDataToPersonData = (values: any[][]): PersonData[] => {
   if (!values || values.length === 0) return []
 
-  const headers = values[0]
+  const headers = values[0] || []
+  const idxOf = (name: string) => headers.findIndex(h => h && h.toString().trim().includes(name))
+  
+  // Find column indexes by header names
+  const idxOrder = idxOf('ลำดับ') >= 0 ? idxOf('ลำดับ') : 0
+  const idxRank = idxOf('ยศ') >= 0 ? idxOf('ยศ') : 1
+  const idxFirstName = idxOf('ชื่อ') >= 0 ? idxOf('ชื่อ') : 2
+  const idxLastName = idxOf('สกุล') >= 0 ? idxOf('สกุล') : 3
+  const idxYear = idxOf('ชั้นปีที่') >= 0 ? idxOf('ชั้นปีที่') : 4
+  const idxClass = idxOf('ตอน') >= 0 ? idxOf('ตอน') : 5
+  const idxPosition = idxOf('ตำแหน่ง') >= 0 ? idxOf('ตำแหน่ง') : 6
+  const idxUnit = idxOf('สังกัด') >= 0 ? idxOf('สังกัด') : 7
+  const idxPhone = idxOf('เบอร์โทรศัพท์') >= 0 ? idxOf('เบอร์โทรศัพท์') : 8
+  const idxDuty = idxOf('หน้าที่') >= 0 ? idxOf('หน้าที่') : 9
+  const idxClub = idxOf('ชมรม') >= 0 ? idxOf('ชมรม') : 10
+  const idxStats = idxOf('สถิติโดนยอด') >= 0 ? idxOf('สถิติโดนยอด') : 13
+  
   const data: PersonData[] = []
 
   for (let i = 1; i < values.length; i++) {
     const row = values[i]
+    const get = (j: number) => (j >= 0 && j < row.length ? row[j] : '')
     const person: PersonData = {
-      ลำดับ: row[0] || '',
-      ยศ: row[1] || '',
-      ชื่อ: row[2] || '',
-      สกุล: row[3] || '',
-      ชั้นปีที่: row[4] || '',
-      ตอน: row[5] || '',
-      ตำแหน่ง: row[6] || '',
-      สังกัด: row[7] || '',
-      เบอร์โทรศัพท์: row[8] || '',
-      หน้าที่: row[9] || '',
-      ชมรม: row[10] || '',
-      สถิติโดนยอด: row[13] || '0',
+      ลำดับ: get(idxOrder),
+      ยศ: get(idxRank),
+      ชื่อ: get(idxFirstName),
+      สกุล: get(idxLastName),
+      ชั้นปีที่: get(idxYear),
+      ตอน: get(idxClass),
+      ตำแหน่ง: get(idxPosition),
+      สังกัด: get(idxUnit),
+      เบอร์โทรศัพท์: get(idxPhone),
+      หน้าที่: get(idxDuty),
+      ชมรม: get(idxClub),
+      สถิติโดนยอด: get(idxStats) || '0',
     }
     data.push(person)
   }
@@ -156,24 +173,44 @@ export async function GET(request: NextRequest) {
     })
 
     const values = response.data.values || []
+    
+    // Use header-based mapping to handle column insertions
+    const headers = values[0] || []
+    const idxOf = (name: string) => headers.findIndex(h => h && h.toString().trim().includes(name))
+    
+    // Find column indexes by header names
+    const idxOrder = idxOf('ลำดับ') >= 0 ? idxOf('ลำดับ') : 0
+    const idxRank = idxOf('ยศ') >= 0 ? idxOf('ยศ') : 1
+    const idxFirstName = idxOf('ชื่อ') >= 0 ? idxOf('ชื่อ') : 2
+    const idxLastName = idxOf('สกุล') >= 0 ? idxOf('สกุล') : 3
+    const idxYear = idxOf('ชั้นปีที่') >= 0 ? idxOf('ชั้นปีที่') : 4
+    const idxClass = idxOf('ตอน') >= 0 ? idxOf('ตอน') : 5
+    const idxPosition = idxOf('ตำแหน่ง') >= 0 ? idxOf('ตำแหน่ง') : 6
+    const idxUnit = idxOf('สังกัด') >= 0 ? idxOf('สังกัด') : 7
+    const idxPhone = idxOf('เบอร์โทรศัพท์') >= 0 ? idxOf('เบอร์โทรศัพท์') : 8
+    const idxNote = idxOf('หมายเหตุ') >= 0 ? idxOf('หมายเหตุ') : 9
+    const idxClub = idxOf('ชมรม') >= 0 ? idxOf('ชมรม') : 10
+    const idxRoom = idxOf('ห้องนอน') >= 0 ? idxOf('ห้องนอน') : 11
+    const idxDuty = idxOf('หน้าที่') >= 0 ? idxOf('หน้าที่') : 12
+    const idxStats = idxOf('สถิติโดนยอด') >= 0 ? idxOf('สถิติโดนยอด') : 13
+    
     const data = values.slice(1).map((row) => {
-      // เติมช่องว่างให้ครบ 14 คอลัมน์ (A-N)
-      while (row.length < 14) row.push('');
+      const get = (j: number) => (j >= 0 && j < row.length ? row[j] : '')
       return {
-        ลำดับ: row[0] || '',
-        ยศ: row[1] || '',
-        ชื่อ: row[2] || '',
-        สกุล: row[3] || '',
-        ชั้นปีที่: row[4] || '',
-        ตอน: row[5] || '',
-        ตำแหน่ง: row[6] || '',
-        สังกัด: row[7] || '',
-        เบอร์โทรศัพท์: row[8] || '',
-        หมายเหตุ: row[9] || '',
-        ชมรม: row[10] || '',
-        ห้องนอน: row[11] || '',
-        หน้าที่: row[12] || '',
-        สถิติโดนยอด: row[13] || '0',
+        ลำดับ: get(idxOrder),
+        ยศ: get(idxRank),
+        ชื่อ: get(idxFirstName),
+        สกุล: get(idxLastName),
+        ชั้นปีที่: get(idxYear),
+        ตอน: get(idxClass),
+        ตำแหน่ง: get(idxPosition),
+        สังกัด: get(idxUnit),
+        เบอร์โทรศัพท์: get(idxPhone),
+        หมายเหตุ: get(idxNote),
+        ชมรม: get(idxClub),
+        ห้องนอน: get(idxRoom),
+        หน้าที่: get(idxDuty),
+        สถิติโดนยอด: get(idxStats) || '0',
       }
     })
 

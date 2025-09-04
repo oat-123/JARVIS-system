@@ -63,8 +63,22 @@ export async function GET(request: NextRequest) {
     const idxReport = idxOf('ถวายรายงาน')
     const idxDutyOfficer = idxOf('น.กำกับยาม')
     const idxDate = idxOf('วันที่')
-    const idx433Cols = [idxOf('433 ครั้งที่ 1'), idxOf('433 ครั้งที่ 2'), idxOf('433 ครั้งที่ 3'), idxOf('433 ครั้งที่ 4')]
-    const idxAdminCols = [idxOf('ธุรการ ครั้งที่ 1'), idxOf('ธุรการ ครั้งที่ 2'), idxOf('ธุรการ ครั้งที่ 3'), idxOf('ธุรการ ครั้งที่ 4'), idxOf('ธุรการ ครั้งที่ 5')]
+    
+    // Dynamic detection of 433 columns (433 ครั้งที่ X)
+    const idx433Cols: number[] = []
+    headers.forEach((header, index) => {
+      if (header && header.toString().trim().match(/^433\s*ครั้งที่\s*\d+$/)) {
+        idx433Cols.push(index)
+      }
+    })
+    
+    // Dynamic detection of admin columns (ธุรการ ครั้งที่ X)
+    const idxAdminCols: number[] = []
+    headers.forEach((header, index) => {
+      if (header && header.toString().trim().match(/^ธุรการ\s*ครั้งที่\s*\d+$/)) {
+        idxAdminCols.push(index)
+      }
+    })
     
     // Extra columns we want to surface into each person row
     const idxGrade = idxOf('คัดเกรด')
@@ -72,6 +86,10 @@ export async function GET(request: NextRequest) {
     const idxTua = idxOf('ตัวชน')
     const idxHeight = idxOf('ส่วนสูง')
     const idxSport = idxOf('นักกีฬา')
+    const idxOtherMission = idxOf('ภารกิจอื่น ๆ')
+    const idxOverseasWork = idxOf('ดูงานต่างประเทศ')
+    const idxMedicalCert = idxOf('เจ็บ (ใบรับรองแพทย์)')
+    const idxNote = idxOf('หมายเหตุ')
 
     const people: any[] = []
     for (let i = 1; i < values.length; i++) {
@@ -92,11 +110,25 @@ export async function GET(request: NextRequest) {
         ตัวชน: get(idxTua),
         ส่วนสูง: get(idxHeight),
         นักกีฬา: get(idxSport),
+        "ภารกิจอื่น ๆ": get(idxOtherMission),
+        "ดูงานต่างประเทศ": get(idxOverseasWork),
+        "เจ็บ (ใบรับรองแพทย์)": get(idxMedicalCert),
+        หมายเหตุ: get(idxNote),
         ถวายรายงาน: get(idxReport),
         "น.กำกับยาม": get(idxDutyOfficer),
         "วันที่": get(idxDate),
         _433_dates: idx433Cols.map(c => safeParseDateCell(get(c))),
         _admin_dates: idxAdminCols.map(c => safeParseDateCell(get(c))),
+        // Store individual 433 columns for detailed view
+        _433_columns: idx433Cols.map((c, index) => ({
+          column: headers[c] || `433 ครั้งที่ ${index + 1}`,
+          value: get(c)
+        })),
+        // Store individual admin columns for detailed view
+        _admin_columns: idxAdminCols.map((c, index) => ({
+          column: headers[c] || `ธุรการ ครั้งที่ ${index + 1}`,
+          value: get(c)
+        }))
       }
       people.push(person)
     }
@@ -151,16 +183,46 @@ export async function GET(request: NextRequest) {
     const topBy433Person = [...personStats].sort((a, b) => b._433 - a._433).slice(0, 5)
     const topByAdminPerson = [...personStats].sort((a, b) => b.admin - a.admin).slice(0, 5)
 
+    const responseData = {
+      totals: { report: countReport, duty433: count433, admin: countAdmin, never: countNever },
+      topReporters,
+      topByReportPerson,
+      topBy433Person,
+      topByAdminPerson,
+      people,
+      // Metadata about detected columns
+      metadata: {
+        detected_433_columns: idx433Cols.map(c => headers[c] || `Column ${c}`),
+        detected_admin_columns: idxAdminCols.map(c => headers[c] || `Column ${c}`),
+        total_433_columns: idx433Cols.length,
+        total_admin_columns: idxAdminCols.length,
+        all_headers: headers
+      }
+    }
+
+    // แสดง log ข้อมูลที่ส่งออกไป
+    console.log('🚀 API 433 - ส่งข้อมูลออกไป:', {
+      timestamp: new Date().toISOString(),
+      summary: {
+        totalPeople: people.length,
+        detected433Columns: idx433Cols.length,
+        detectedAdminColumns: idxAdminCols.length,
+        columnNames: {
+          '433_columns': idx433Cols.map(c => headers[c] || `Column ${c}`),
+          'admin_columns': idxAdminCols.map(c => headers[c] || `Column ${c}`),
+        },
+        totals: responseData.totals,
+        samplePerson: people[0] ? {
+          name: `${people[0].ยศ} ${people[0].ชื่อ} ${people[0].สกุล}`,
+          has433Data: people[0]._433_columns?.length > 0,
+          hasAdminData: people[0]._admin_columns?.length > 0,
+        } : null
+      }
+    })
+
     return NextResponse.json({
       success: true,
-      data: {
-        totals: { report: countReport, duty433: count433, admin: countAdmin, never: countNever },
-        topReporters,
-        topByReportPerson,
-        topBy433Person,
-        topByAdminPerson,
-        people,
-      }
+      data: responseData
     })
   } catch (error) {
     console.error('Error in 433 API:', error)

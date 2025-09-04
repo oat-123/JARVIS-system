@@ -55,15 +55,68 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
         },
         enter433Dates: Array.isArray(person._433_dates) ? person._433_dates : [],
         adminChpDates: Array.isArray(person._admin_dates) ? person._admin_dates : [],
+        // เพิ่มข้อมูลใหม่ทั้งหมด
+        allPersonData: person,
+        detected433Columns: person._433_columns || [],
+        detectedAdminColumns: person._admin_columns || [],
+        metadata: {
+          total433Columns: person._433_columns?.length || 0,
+          totalAdminColumns: person._admin_columns?.length || 0,
+        }
       }
+      
+      // แสดง log ใน console ของ browser
+      console.log('🔍 Profile Detail - ข้อมูลที่ได้รับ:', {
+        timestamp: new Date().toISOString(),
+        personName: fullName,
+        allData: person,
+        summary: {
+          basicInfo: {
+            ลำดับ: person.ลำดับ,
+            ยศ: person.ยศ,
+            ชื่อ: person.ชื่อ,
+            สกุล: person.สกุล,
+            ชั้นปีที่: person.ชั้นปีที่,
+            ตอน: person.ตอน,
+            ตำแหน่ง: person.ตำแหน่ง,
+            สังกัด: person.สังกัด,
+            เบอร์โทรศัพท์: person.เบอร์โทรศัพท์,
+            คัดเกรด: person.คัดเกรด,
+          },
+          additionalInfo: {
+            'ธุรการ ฝอ.': person['ธุรการ ฝอ.'],
+            ตัวชน: person.ตัวชน,
+            ส่วนสูง: person.ส่วนสูง,
+            นักกีฬา: person.นักกีฬา,
+            'ภารกิจอื่น ๆ': person['ภารกิจอื่น ๆ'],
+            'ดูงานต่างประเทศ': person['ดูงานต่างประเทศ'],
+            'เจ็บ (ใบรับรองแพทย์)': person['เจ็บ (ใบรับรองแพทย์)'],
+            หมายเหตุ: person.หมายเหตุ,
+          },
+          reportInfo: {
+            ถวายรายงาน: person.ถวายรายงาน,
+            'น.กำกับยาม': person['น.กำกับยาม'],
+            วันที่: person.วันที่,
+          },
+          dynamicColumns: {
+            '433_columns': person._433_columns || [],
+            'admin_columns': person._admin_columns || [],
+            '433_dates': person._433_dates || [],
+            'admin_dates': person._admin_dates || [],
+          }
+        }
+      })
+      
       fetch('/api/profile-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       }).catch(() => {})
-    } catch (e) {}
+    } catch (e) {
+      console.error('❌ Error logging profile data:', e)
+    }
   // เปลี่ยนเมื่อเป้าหมายเปลี่ยนคน
-  }, [fullName, position, person._433_dates, person._admin_dates, person.ถวายรายงาน, person['น.กำกับยาม'], person.วันที่])
+  }, [fullName, position, person._433_dates, person._admin_dates, person.ถวายรายงาน, person['น.กำกับยาม'], person.วันที่, person._433_columns, person._admin_columns])
 
   // แสดงข้อมูลที่ดึงมาจาก Google Sheets ใน terminal
   console.log('=== ข้อมูลจาก Google Sheets ===')
@@ -210,24 +263,72 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
-              <div className="text-sm text-slate-300">ธุรการ ฝอ.</div>
+              <div className="text-sm text-slate-300 flex items-center">
+                <Award className="h-4 w-4 mr-2" />
+                ธุรการ ฝอ.
+              </div>
               <div className="text-base font-medium text-white text-right">{person['ธุรการ ฝอ.'] || person.ธุรการ || '-'}</div>
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
-              <div className="text-sm text-slate-300">ตัวชน</div>
+              <div className="text-sm text-slate-300 flex items-center">
+                <User className="h-4 w-4 mr-2" />
+                ตัวชน
+              </div>
               <div className="text-base font-medium text-white text-right">{person.ตัวชน || '-'}</div>
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
-              <div className="text-sm text-slate-300">ส่วนสูง</div>
+              <div className="text-sm text-slate-300 flex items-center">
+                <User className="h-4 w-4 mr-2" />
+                ส่วนสูง
+              </div>
               <div className="text-base font-medium text-white text-right">{person.ส่วนสูง || '-'}</div>
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
-              <div className="text-sm text-slate-300">นักกีฬา</div>
+              <div className="text-sm text-slate-300 flex items-center">
+                <Star className="h-4 w-4 mr-2" />
+                นักกีฬา
+              </div>
               <div className="text-base font-medium text-white text-right">{person.นักกีฬา || '-'}</div>
             </div>
+
+            <div className="grid grid-cols-2 items-center px-6 py-4">
+              <div className="text-sm text-slate-300 flex items-center">
+                <Calendar className="h-4 w-4 mr-2" />
+                ภารกิจอื่น ๆ
+              </div>
+              <div className="text-base font-medium text-white text-right">{person['ภารกิจอื่น ๆ'] || '-'}</div>
+            </div>
+
+            <div className="grid grid-cols-2 items-center px-6 py-4">
+              <div className="text-sm text-slate-300 flex items-center">
+                <MapPin className="h-4 w-4 mr-2" />
+                ดูงานต่างประเทศ
+              </div>
+              <div className="text-base font-medium text-white text-right">{person['ดูงานต่างประเทศ'] || '-'}</div>
+            </div>
+
+            <div className="grid grid-cols-2 items-center px-6 py-4">
+              <div className="text-sm text-slate-300 flex items-center">
+                <User className="h-4 w-4 mr-2" />
+                เจ็บ (ใบรับรองแพทย์)
+              </div>
+              <div className="text-base font-medium text-white text-right">{person['เจ็บ (ใบรับรองแพทย์)'] || '-'}</div>
+            </div>
+
+            <div className="grid grid-cols-2 items-center px-6 py-4">
+              <div className="text-sm text-slate-300 flex items-center">
+                <Calendar className="h-4 w-4 mr-2" />
+                หมายเหตุ
+              </div>
+              <div className="text-base font-medium text-white text-right">{person.หมายเหตุ || '-'}</div>
+            </div>
+
+
+
+
 
             {/* Report History */}
             <div className="grid grid-cols-2 items-start px-6 py-4">
@@ -237,21 +338,33 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
               </div>
             </div>
 
-            {/* Enter 433 History */}
-            <div className="grid grid-cols-2 items-start px-6 py-4">
-              <div className="text-sm text-slate-300">ประวัติเข้า433</div>
-              <div className="text-base font-medium text-white text-right whitespace-pre-line">
-                {formatEnter433(person.enter433)}
+            {/* Dynamic 433 Columns */}
+            {person._433_columns && person._433_columns.length > 0 && (
+              <div className="grid grid-cols-2 items-start px-6 py-4">
+                <div className="text-sm text-slate-300">รายละเอียด 433</div>
+                <div className="text-base font-medium text-white text-right">
+                  {person._433_columns.map((col: any, index: number) => (
+                    <div key={index} className="mb-1">
+                      <span className="text-slate-400 text-xs">{col.column}:</span> {col.value || '-'}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Enter ChP History */}
-            <div className="grid grid-cols-2 items-start px-6 py-4">
-              <div className="text-sm text-slate-300">ประวัติเข้าชป.</div>
-              <div className="text-base font-medium text-white text-right whitespace-pre-line">
-                {formatEnterChp(person.enterChp)}
+            {/* Dynamic Admin Columns */}
+            {person._admin_columns && person._admin_columns.length > 0 && (
+              <div className="grid grid-cols-2 items-start px-6 py-4">
+                <div className="text-sm text-slate-300">รายละเอียด ธุรการ</div>
+                <div className="text-base font-medium text-white text-right">
+                  {person._admin_columns.map((col: any, index: number) => (
+                    <div key={index} className="mb-1">
+                      <span className="text-slate-400 text-xs">{col.column}:</span> {col.value || '-'}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Statistics */}
             <div className="grid grid-cols-2 items-center px-6 py-6">

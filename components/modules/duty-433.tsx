@@ -150,6 +150,22 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
           const toStore = { ...json.data, people: normalizedPeople }
           setPeople(normalizedPeople)
           setAggData(toStore)
+          
+          // แสดง log ข้อมูลที่ได้รับจาก API
+          console.log('📊 Duty 433 - ข้อมูลที่ได้รับจาก API:', {
+            timestamp: new Date().toISOString(),
+            metadata: json.data.metadata,
+            totals: json.data.totals,
+            peopleCount: normalizedPeople.length,
+            samplePerson: normalizedPeople[0] || null,
+            detectedColumns: {
+              '433_columns': json.data.metadata?.detected_433_columns || [],
+              'admin_columns': json.data.metadata?.detected_admin_columns || [],
+              'total_433': json.data.metadata?.total_433_columns || 0,
+              'total_admin': json.data.metadata?.total_admin_columns || 0,
+            }
+          })
+          
           try {
             if (typeof window !== 'undefined') {
               window.localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), aggData: toStore }))
@@ -159,6 +175,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
           }
         } else {
           setPeople([])
+          console.error('❌ Failed to fetch data from API:', json)
         }
       } catch (e) {
         setPeople([])
@@ -735,17 +752,19 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
             </div>
 
             <div className="overflow-x-auto w-full max-w-full mb-4">
-              <table className="w-full table-fixed text-[8px] sm:text-xs">
+              <table className="w-full table-auto text-[6px] sm:text-xs min-w-[800px]">
                 <thead>
                   <tr>
-                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[5vw] sm:max-w-[18vw]">No.</th>
-                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[10vw]">ชื่อ</th>
-                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[10vw]">สกุล</th>
-                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[13vw]">ตำแหน่ง</th>
-                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[10vw]">สังกัด</th>
-                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[6vw] sm:max-w-[14vw]">เกรด</th>
-                    <th className="px-0.5 py-0.5 text-center font-semibold border-b border-slate-700 whitespace-nowrap max-w-[7vw] sm:max-w-[18vw]">ธุรการ</th>
-                    <th className="px-0.5 py-0.5 text-center font-bold border-b border-slate-700 whitespace-nowrap max-w-[5vw] sm:max-w-[14vw]">สถิติ433</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap w-12">No.</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap min-w-[60px]">ชื่อ</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap min-w-[60px]">สกุล</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap min-w-[80px]">ตำแหน่ง</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap min-w-[60px]">สังกัด</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap w-12">เกรด</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap min-w-[50px]">ธุรการ</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap min-w-[50px]">ส่วนสูง</th>
+                    <th className="px-1 py-1 text-center font-semibold border-b border-slate-700 whitespace-nowrap min-w-[50px]">นักกีฬา</th>
+                    <th className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap w-12">สถิติ433</th>
 
                   </tr>
                 </thead>
@@ -759,14 +778,16 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
                         tabIndex={0}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPersonDetail(p) } }}
                       >
-                        <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[5vw] sm:max-w-[18vw]">{p.ลำดับ || i + 1}</td>
-                        <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.ชื่อ && p.ชื่อ !== "นนร." ? p.ชื่อ : <span className="text-red-400">ไม่พบชื่อ</span>}</td>
-                        <td className="px-0.5 py-0.5 text-left border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.สกุล && p.สกุล !== "นนร." ? p.สกุล : <span className="text-red-400">ไม่พบสกุล</span>}</td>
-                        <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[13vw]">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
-                        <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[10vw]">{p.สังกัด}</td>
-                        <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[6vw] sm:max-w-[14vw]">{p.เกรด || '-'}</td>
-                        <td className="px-0.5 py-0.5 text-center border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[7vw] sm:max-w-[18vw]">{p['ธุรการ ฝอ.'] || p.ธุรการ || '-'}</td>
-                        <td className="px-0.5 py-0.5 text-center font-bold border-b border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[5vw] sm:max-w-[14vw]">{(Array.isArray(p._433_dates) ? p._433_dates.filter((d:any)=>d&&d.toString().trim()).length : (Array.isArray(p.enter433)?p.enter433.length:0))}</td>
+                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ลำดับ || i + 1}</td>
+                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ชื่อ && p.ชื่อ !== "นนร." ? p.ชื่อ : <span className="text-red-400">ไม่พบชื่อ</span>}</td>
+                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.สกุล && p.สกุล !== "นนร." ? p.สกุล : <span className="text-red-400">ไม่พบสกุล</span>}</td>
+                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
+                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.สังกัด}</td>
+                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.คัดเกรด || '-'}</td>
+                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ธุรการ ฝอ.'] || p.ธุรการ || '-'}</td>
+                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ส่วนสูง || '-'}</td>
+                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.นักกีฬา || '-'}</td>
+                        <td className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap">{(Array.isArray(p._433_dates) ? p._433_dates.filter((d:any)=>d&&d.toString().trim()).length : (Array.isArray(p.enter433)?p.enter433.length:0))}</td>
 
                                               </tr>
                   ))}
@@ -828,6 +849,25 @@ const findPersonByName = (name: string) => {
               // small delay to allow effect to run
               setTimeout(() => { setIsLoading(false); }, 300)
             }}>รีเฟรช</Button>
+            <Button className="text-sm px-2 py-1 bg-red-600 hover:bg-red-700" onClick={() => {
+              try { 
+                window.localStorage.removeItem('duty433_cache_v1')
+                toast({
+                  title: "ล้าง Cache สำเร็จ",
+                  description: "ระบบจะดึงข้อมูลใหม่จาก Google Sheets",
+                })
+              } catch (e) {}
+              // force refetch by toggling view state
+              setView('dashboard')
+              setIsLoading(true)
+              // small delay to allow effect to run
+              setTimeout(() => { setIsLoading(false); }, 300)
+            }}>ล้าง Cache</Button>
+            {aggData?.metadata && (
+              <div className="text-xs text-slate-400">
+                433: {aggData.metadata.total_433_columns} | ธุรการ: {aggData.metadata.total_admin_columns}
+              </div>
+            )}
           </div>
           <div className="hidden md:block text-right">
             <div className="text-sm text-slate-200">เข้าเวรครั้งถัดไปวันที่ {nextWeekendText}</div>
@@ -1014,7 +1054,7 @@ const findPersonByName = (name: string) => {
             </div>
 
             <div className="overflow-x-auto w-full max-w-full mb-2">
-              <table className="min-w-full w-full max-w-full text-sm table-auto border-collapse break-words">
+              <table className="min-w-full w-full max-w-full text-xs sm:text-sm table-auto border-collapse break-words">
                 <thead>
                   <tr className="bg-slate-900/40">
                       <th className="p-3 text-center border-b border-slate-700">อันดับ</th>

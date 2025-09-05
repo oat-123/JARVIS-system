@@ -1088,7 +1088,7 @@ const findPersonByName = (name: string) => {
                       return (
                         <tr key={i} className="cursor-pointer hover:bg-slate-800/30" onClick={() => { if (person) openPersonDetail(person) }}>
                           <td className="p-3 border-b border-slate-700 text-center">{i+1}</td>
-                          <td className="p-3 border-b border-slate-700 text-left">{nameWithRank}</td>
+                          <td className="p-3 border-b border-slate-700 text-center">{nameWithRank}</td>
                           <td className="p-3 border-b border-slate-700 text-center">{pos || '-'}</td>
                           <td className="p-3 border-b border-slate-700 font-semibold text-center">{count}</td>
                         </tr>

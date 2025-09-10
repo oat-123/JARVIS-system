@@ -20,7 +20,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
   const [progressText, setProgressText] = useState<string>('')
 
   // per-person link generation state
-  type LinkState = { status: 'idle' | 'loading' | 'ok' | 'error'; url?: string; filename?: string; percent?: number; message?: string }
+  type LinkState = { status: 'idle' | 'loading' | 'ok' | 'error'; url?: string; filename?: string; percent?: number; message?: string; folderId?: string }
   const [linkStates, setLinkStates] = useState<Record<number, LinkState>>({})
   const [abortMap, setAbortMap] = useState<Record<number, AbortController>>({})
   const [timerMap, setTimerMap] = useState<Record<number, number>>({})
@@ -226,7 +226,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         setLinkStates(s => ({ ...s, [idx]: { status: 'ok', url: json.link, filename: json.fileName, percent: 100, message: 'พร้อมดาวน์โหลด' } }))
       } else {
         const msg = typeof json.error === 'string' && json.error.trim().length > 0 ? json.error : 'ไม่พบไฟล์'
-        setLinkStates(s => ({ ...s, [idx]: { status: 'error', percent: 100, message: msg } }))
+        setLinkStates(s => ({ ...s, [idx]: { status: 'error', percent: 100, message: msg, folderId: json.folderId } }))
       }
     } catch (e:any) {
       clearInterval(timer)
@@ -401,13 +401,15 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
                           <td className="p-3" onClick={e=>e.stopPropagation()}>
                             {st.status === 'ok' && st.url ? (
                               <a href={st.url} target="_blank" download={st.filename || undefined} className="text-emerald-400 underline">ดาวน์โหลด</a>
+                            ) : st.status === 'error' && st.folderId ? (
+                              <a href={`https://drive.google.com/drive/folders/${st.folderId}`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 underline">ตรวจสอบ Drive</a>
                             ) : (
                               <div className="flex items-center gap-2">
                                 <Button size="sm" onClick={() => createLinkForIndex(i)} disabled={st.status==='loading'} className="bg-emerald-600">{st.status==='loading' ? 'กำลังสร้าง...' : 'สร้างลิงก์'}</Button>
                                 {st.status === 'loading' && (
                                   <Button size="sm" variant="ghost" onClick={() => cancelLinkForIndex(i)} className="text-red-400">ยกเลิก</Button>
                                 )}
-                                {(st.status === 'loading' || st.status === 'error') && (
+                                {(st.status === 'loading' || st.status === 'error') && !st.folderId && (
                                   <div className="w-32">
                                     <div className="h-1 bg-slate-700 rounded overflow-hidden">
                                       <div className={`h-1 ${st.status==='error' ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${st.percent || 0}%` }} />

@@ -207,6 +207,23 @@ export const findWordFileByName = async (parentId: string, targetName: string) =
       bestScore = score
     }
   }
+  // ถ้าไม่เจอไฟล์ที่มี 'นนร.' ให้ลองหาไฟล์ที่มีแต่ชื่อ-นามสกุล (ไม่มีนนร.)
+  if (!best) {
+    // ตัด 'นนร.' ออกจาก targetName ถ้ามี
+    const noRank = targetName.replace(/^นนร\.?\s*/i, '').trim()
+    const targetNoRank = norm(noRank)
+    for (const f of files) {
+      const n = norm(f.name || '')
+      let score = 0
+      if (n === targetNoRank) score = 90
+      else if (n.includes(targetNoRank) || targetNoRank.includes(n)) score = 75
+      else if (n.split('.')[0] === targetNoRank.split('.')[0]) score = 65
+      if (score > bestScore) {
+        best = f
+        bestScore = score
+      }
+    }
+  }
   return best
 }
 

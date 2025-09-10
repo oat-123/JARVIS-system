@@ -120,7 +120,8 @@ export async function POST(req: NextRequest) {
       const names = (fileList.data.files || []).map(f => f.name).join(', ');
       console.log('❌ ไม่พบไฟล์ Word ที่ตรงกับชื่อ:', personName, 'ใน', subFolder.name);
       console.log('[drive-link] ไฟล์ที่พบในโฟลเดอร์นี้:', names || '(ไม่มีไฟล์ word)');
-      return NextResponse.json({ success: false, error: `ไม่พบไฟล์: ${personName}` });
+      // เพิ่ม folderId และ folderName ใน response
+      return NextResponse.json({ success: false, error: `ไม่พบไฟล์: ${personName}`, folderId: subFolder.id, folderName: subFolder.name });
     }
     console.log('✅ เจอไฟล์ Word:', wordFile);
 

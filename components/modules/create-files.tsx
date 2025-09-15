@@ -20,7 +20,19 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
   const [progressText, setProgressText] = useState<string>('')
 
   // per-person link generation state
-  type LinkState = { status: 'idle' | 'loading' | 'ok' | 'error'; url?: string; filename?: string; percent?: number; message?: string; folderId?: string }
+  type LinkState = {
+    status: 'idle' | 'loading' | 'ok' | 'error'
+    url?: string
+    filename?: string
+    percent?: number
+    message?: string
+    folderId?: string
+    // image link state (extra)
+    imageStatus?: 'idle' | 'loading' | 'ok' | 'error'
+    imageUrl?: string
+    imageFilename?: string
+    imageFolderId?: string
+  }
   const [linkStates, setLinkStates] = useState<Record<number, LinkState>>({})
   const [abortMap, setAbortMap] = useState<Record<number, AbortController>>({})
   const [timerMap, setTimerMap] = useState<Record<number, number>>({})
@@ -30,6 +42,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
   const [singleAbort, setSingleAbort] = useState<AbortController | null>(null)
   const [copiedPath, setCopiedPath] = useState<boolean>(false)
   const ROOT_DRIVE_FOLDER_ID = '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_'
+  const IMAGE_DRIVE_FOLDER_ID = '17h7HzW7YQqXeVH7-A-EhkJKQOmGNUC5s'
 
   // sanitize helpers to prevent duplicated 'นนร.' tokens and extra spaces
   const normalizeSpaces = (s: string) => s.replace(/\s+/g, ' ').trim()
@@ -84,6 +97,8 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
 
   const importNames = async () => {
     if (!date) { setMessage('กรุณาเลือกวันที่'); return }
+    // cancel any ongoing per-person link generation and clear states before new import
+    try { cancelAllLinks() } catch {}
     setLoading(true)
     setMessage(null)
     try {
@@ -98,6 +113,13 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       setMatches(json.names || [])
       setSelectedIndex(json.names && json.names.length > 0 ? 0 : null)
       setMessage(`พบ ${(json.names || []).length} รายการ`) 
+      // reset all link-related states so old links from previous import are cleared
+      setLinkStates({})
+      setAbortMap({})
+      setTimerMap({})
+      setStagedTimerMap({})
+      setProcessingAll(false)
+      setCancelAll(false)
     } catch (e:any) {
       console.error(e)
       setMessage('เกิดข้อผิดพลาดในการดึงชื่อ')
@@ -168,7 +190,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
   const createLinkForIndex = async (idx: number) => {
     const person = matches[idx]
     if (!person || !date) return
-    setLinkStates(s => ({ ...s, [idx]: { status: 'loading', percent: 5, message: 'กำลังค้นหาไฟล์บน Drive...' } }))
+    setLinkStates(s => ({ ...s, [idx]: { ...(s[idx] || {}), status: 'loading', percent: 5, message: 'กำลังค้นหาไฟล์บน Drive...', imageStatus: 'loading' } }))
     const controller = new AbortController()
     setAbortMap(m => ({ ...m, [idx]: controller }))
 
@@ -205,7 +227,8 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       const personFolderName = buildFolderName(person.first, person.last)
       const personName = personFolderName
 
-      const res = await fetch('/api/drive-link', {
+      // fetch document link and image link in parallel
+      const docPromise = fetch('/api/drive-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -214,20 +237,47 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
           folderName: personFolderName,
           rootFolderId: ROOT_DRIVE_FOLDER_ID
         })
-      })
-      const json = await res.json()
+      }).then(r => r.json())
+
+      const imgPromise = fetch('/api/image-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({ 
+          first: (person.first || '').toString().replace(/^นนร\.?\s*/i, '').trim(),
+          last: (person.last || '').toString().trim(),
+          folderId: IMAGE_DRIVE_FOLDER_ID
+        })
+      }).then(r => r.json())
+
+      const [docRes, imgRes] = await Promise.allSettled([docPromise, imgPromise])
       clearInterval(timer)
       setTimerMap(t => { const { [idx]: _, ...rest } = t; return rest })
       // clear staged timers
       const stagedTimers = stagedTimerMap[idx] || []
       stagedTimers.forEach(id => { try { clearTimeout(id) } catch {} })
       setStagedTimerMap(m => { const { [idx]: _, ...rest } = m; return rest })
-      if (json.success && json.link) {
-        setLinkStates(s => ({ ...s, [idx]: { status: 'ok', url: json.link, filename: json.fileName, percent: 100, message: 'พร้อมดาวน์โหลด' } }))
+      let nextState: LinkState = { status: 'idle' }
+      // document result handling
+      if (docRes.status === 'fulfilled' && docRes.value && docRes.value.success && docRes.value.link) {
+        nextState = { ...nextState, status: 'ok', url: docRes.value.link, filename: docRes.value.fileName, percent: 100, message: 'พร้อมดาวน์โหลด', folderId: undefined }
+      } else if (docRes.status === 'fulfilled') {
+        const val = docRes.value || {}
+        const msg = typeof val.error === 'string' && val.error.trim().length > 0 ? val.error : 'ไม่พบไฟล์'
+        nextState = { ...nextState, status: 'error', percent: 100, message: msg, folderId: val.folderId }
       } else {
-        const msg = typeof json.error === 'string' && json.error.trim().length > 0 ? json.error : 'ไม่พบไฟล์'
-        setLinkStates(s => ({ ...s, [idx]: { status: 'error', percent: 100, message: msg, folderId: json.folderId } }))
+        nextState = { ...nextState, status: 'error', percent: 100, message: 'เกิดข้อผิดพลาด' }
       }
+      // image result handling (independent)
+      if (imgRes.status === 'fulfilled' && imgRes.value && imgRes.value.success && imgRes.value.link) {
+        nextState = { ...nextState, imageStatus: 'ok', imageUrl: imgRes.value.link, imageFilename: imgRes.value.fileName, imageFolderId: undefined }
+      } else if (imgRes.status === 'fulfilled') {
+        const val = imgRes.value || {}
+        nextState = { ...nextState, imageStatus: 'error', imageUrl: undefined, imageFilename: undefined, imageFolderId: val.folderId || IMAGE_DRIVE_FOLDER_ID }
+      } else {
+        nextState = { ...nextState, imageStatus: 'error', imageFolderId: IMAGE_DRIVE_FOLDER_ID }
+      }
+      setLinkStates(s => ({ ...s, [idx]: nextState }))
     } catch (e:any) {
       clearInterval(timer)
       setTimerMap(t => { const { [idx]: _, ...rest } = t; return rest })
@@ -235,7 +285,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       stagedTimers.forEach(id => { try { clearTimeout(id) } catch {} })
       setStagedTimerMap(m => { const { [idx]: _, ...rest } = m; return rest })
       const isAbort = e && (e.name === 'AbortError' || e.message === 'AbortError')
-      setLinkStates(s => ({ ...s, [idx]: { status: 'error', percent: 100, message: isAbort ? 'ยกเลิกแล้ว' : 'เกิดข้อผิดพลาด' } }))
+      setLinkStates(s => ({ ...s, [idx]: { ...(s[idx] || {}), status: 'error', imageStatus: 'error', percent: 100, message: isAbort ? 'ยกเลิกแล้ว' : 'เกิดข้อผิดพลาด' } }))
     } finally {
       setAbortMap(m => { const { [idx]: _, ...rest } = m; return rest })
     }
@@ -373,7 +423,8 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
                       <th className="p-3 text-left">คู่พี่นายทหาร</th>
                       <th className="p-3 text-left">ผลัด</th>
                       <th className="p-3 text-left">หมายเหตุ</th>
-                      <th className="p-3 text-left">ลิงก์ดาวน์โหลด</th>
+                      <th className="p-3 text-left">ไฟล์ ฉก.</th>
+                      <th className="p-3 text-left">รูปภาพ</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -400,7 +451,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
                           <td className="p-3">{m.note || '-'}</td>
                           <td className="p-3" onClick={e=>e.stopPropagation()}>
                             {st.status === 'ok' && st.url ? (
-                              <a href={st.url} target="_blank" download={st.filename || undefined} className="text-emerald-400 underline">ดาวน์โหลด</a>
+                              <a href={st.url} target="_blank" download={st.filename || undefined} className="text-emerald-400 underline">ไฟล์ ฉก.</a>
                             ) : st.status === 'error' && st.folderId ? (
                               <a href={`https://drive.google.com/drive/folders/${st.folderId}`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 underline">ตรวจสอบ Drive</a>
                             ) : (
@@ -418,6 +469,15 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
                                   </div>
                                 )}
                               </div>
+                            )}
+                          </td>
+                          <td className="p-3" onClick={e=>e.stopPropagation()}>
+                            {st.imageStatus === 'ok' && st.imageUrl ? (
+                              <a href={st.imageUrl} target="_blank" download={st.imageFilename || undefined} className="text-emerald-400 underline">รูปภาพ</a>
+                            ) : st.imageStatus === 'error' ? (
+                              <a href={`https://drive.google.com/drive/folders/${st.imageFolderId || '17h7HzW7YQqXeVH7-A-EhkJKQOmGNUC5s'}`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 underline">หารูป</a>
+                            ) : (
+                              <span className="text-slate-400">-</span>
                             )}
                           </td>
                         </tr>

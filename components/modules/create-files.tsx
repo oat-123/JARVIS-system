@@ -455,17 +455,17 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
                             ) : st.status === 'error' && st.folderId ? (
                               <a href={`https://drive.google.com/drive/folders/${st.folderId}`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 underline">ตรวจสอบ Drive</a>
                             ) : (
-                              <div className="flex items-center gap-2">
-                                <Button size="sm" onClick={() => createLinkForIndex(i)} disabled={st.status==='loading'} className="bg-emerald-600">{st.status==='loading' ? 'กำลังสร้าง...' : 'สร้างลิงก์'}</Button>
+                              <div className="inline-flex flex-nowrap gap-2 items-center min-h-0 h-8">
+                                <Button size="sm" onClick={() => createLinkForIndex(i)} disabled={st.status==='loading'} className="bg-emerald-600 whitespace-nowrap">{st.status==='loading' ? 'กำลังสร้าง...' : 'สร้างลิงก์'}</Button>
                                 {st.status === 'loading' && (
                                   <Button size="sm" variant="ghost" onClick={() => cancelLinkForIndex(i)} className="text-red-400">ยกเลิก</Button>
                                 )}
                                 {(st.status === 'loading' || st.status === 'error') && !st.folderId && (
-                                  <div className="w-32">
-                                    <div className="h-1 bg-slate-700 rounded overflow-hidden">
+                                  <div className="inline-flex flex-col items-center justify-center min-w-[60px] max-w-[120px] h-8">
+                                    <div className="h-1 w-full bg-slate-700 rounded overflow-hidden">
                                       <div className={`h-1 ${st.status==='error' ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${st.percent || 0}%` }} />
                                     </div>
-                                    <div className="text-[10px] text-slate-300 mt-1">{st.message || (st.status==='loading' ? 'กำลังค้นหา...' : '')}</div>
+                                    <div className="text-[10px] text-slate-300 leading-none mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-full" style={{maxWidth:'112px'}}>{st.message || (st.status==='loading' ? 'ค้นหา...' : '')}</div>
                                   </div>
                                 )}
                               </div>

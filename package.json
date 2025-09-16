@@ -34,6 +34,10 @@
     "fix": "chmod +x fix.sh && ./fix.sh"
   },
   "dependencies": {
+    "@fullcalendar/core": "^6.1.15",
+    "@fullcalendar/daygrid": "^6.1.15",
+    "@fullcalendar/interaction": "6.1.15",
+    "@fullcalendar/react": "^6.1.15",
     "@hookform/resolvers": "^3.3.2",
     "@radix-ui/react-accordion": "^1.1.2",
     "@radix-ui/react-alert-dialog": "^1.0.5",

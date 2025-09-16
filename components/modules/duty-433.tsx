@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 // Card wrapper removed from detail view to simplify layout (no grey frame)
 import { Badge } from "@/components/ui/badge"
-import { PieChart, List, Users, X, FileText } from "lucide-react"
+import { PieChart, List, Users, X, FileText, Calendar, ChevronLeft, ChevronRight } from "lucide-react"
 import { ProfileDetail } from "@/components/profile-detail"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -188,24 +188,151 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
   // Aggregated data from API
   const [aggData, setAggData] = useState<any>(null)
   const [topMetric, setTopMetric] = useState<string>('report')
+  const [topCardMetric, setTopCardMetric] = useState<string>('report')
   const [showPieDetail, setShowPieDetail] = useState<boolean>(false)
   const [pieDetailLabel, setPieDetailLabel] = useState<string>('')
   const [selectedPie, setSelectedPie] = useState<string | null>(null)
   const [selectedOverviewItem, setSelectedOverviewItem] = useState<string | null>(null)
   const router = useRouter()
 
-  // Compute next weekend (Sat-Sun) strictly after today
+  // Calendar state (bottom section)
+  const [calDate, setCalDate] = useState<Date | undefined>(new Date())
+  const [calMonth, setCalMonth] = useState<Date>(new Date())
+  // Enhanced calendar popup state
+  const [showCalendarPopup, setShowCalendarPopup] = useState<boolean>(false)
+  const [selectedCalendarData, setSelectedCalendarData] = useState<any | null>(null)
+  const [monthWeekendMap, setMonthWeekendMap] = useState<Record<string, any[]>>({})
+  const [isMonthMapLoading, setIsMonthMapLoading] = useState<boolean>(false)
+
+  // Week helpers for calendar selection
+  const startOfWeek = (d: Date) => {
+    const out = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const day = out.getDay() // 0=Sun .. 6=Sat
+    out.setDate(out.getDate() - day)
+    out.setHours(0,0,0,0)
+    return out
+  }
+  const endOfWeek = (d: Date) => {
+    const s = startOfWeek(d)
+    const e = new Date(s)
+    e.setDate(e.getDate() + 6)
+    e.setHours(23,59,59,999)
+    return e
+  }
+  const isInSelectedWeek = (dateText: string | undefined) => {
+    if (!dateText || !calDate) return false
+    try {
+      const iso = parseDateFromText(String(dateText))
+      if (!iso) return false
+      const d = new Date(iso)
+      const s = startOfWeek(calDate)
+      const e = endOfWeek(calDate)
+      return d.getTime() >= s.getTime() && d.getTime() <= e.getTime()
+    } catch { return false }
+  }
+
+  // Next weekend helper (Sat-Sun strictly after today)
   function nextWeekendRange(now: Date = new Date()) {
     const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const day = base.getDay() // 0=Sun..6=Sat
     let delta = (6 - day + 7) % 7
-    if (delta === 0) delta = 7 // if today is Saturday, go to next Saturday
+    if (delta === 0) delta = 7
     const start = new Date(base)
     start.setDate(base.getDate() + delta)
     const end = new Date(start)
     end.setDate(start.getDate() + 1)
     return [start, end] as const
   }
+
+  // Compute weekly duty list from normalized enter433 entries
+  const weeklyDutyList = useMemo(() => {
+    if (!Array.isArray(people) || !calDate) return [] as any[]
+    const list = people.filter(p => Array.isArray((p as any).enter433) && (p as any).enter433.some((en:any) => isInSelectedWeek(en.date)))
+    // sort by position/name for stable UI
+    return list.sort((a:any,b:any) => String(getPositionFrom(a) || '').localeCompare(String(getPositionFrom(b) || '')) || String(a.ชื่อ || '').localeCompare(String(b.ชื่อ || '')))
+  }, [people, calDate])
+
+  // Weekly list from external spreadsheet tabs named by weekend text
+  const [weeklyExternal, setWeeklyExternal] = useState<any[] | null>(null)
+  useEffect(() => {
+    if (!calDate) { setWeeklyExternal(null); return }
+    // Build sheet name like "14-15 ก.ย. 68" based on the weekend that includes the selected date
+    const day = calDate.getDay() // 0=Sun..6=Sat
+    const sat = new Date(calDate)
+    // If Sunday, go back 1 day; otherwise move forward to Saturday in the same week
+    sat.setDate(calDate.getDate() + (day === 0 ? -1 : (6 - day)))
+    const sun = new Date(sat)
+    sun.setDate(sat.getDate() + 1)
+    // If selected day is Sat/Sun, ensure the span covers that weekend
+    const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+    const thaiNum = (val: number | string) => String(val).split('').map(ch => {
+      const d = parseInt(ch as string, 10)
+      return Number.isNaN(d) ? ch : '๐๑๒๓๔๕๖๗๘๙'[d]
+    }).join('')
+    const yearBE = (d: Date) => d.getFullYear() + 543
+    const sheetLabel = `${sat.getDate()}-${sun.getDate()} ${monthNames[sat.getMonth()]} ${String(yearBE(sat)).slice(-2)}`
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/sheets/weekly-433?sheetName=${encodeURIComponent(sheetLabel)}`)
+        const json = await res.json()
+        if (json && json.success) setWeeklyExternal(json.people || [])
+        else setWeeklyExternal([])
+      } catch {
+        setWeeklyExternal([])
+      }
+    })()
+  }, [calDate])
+
+  // Build a map of date (YYYY-MM-DD) -> people[] from Weekly Sheet tabs for the visible month
+  useEffect(() => {
+    const buildMonthWeekendMap = async () => {
+      try {
+        setIsMonthMapLoading(true)
+        const year = calMonth.getFullYear()
+        const month = calMonth.getMonth()
+        const firstDay = new Date(year, month, 1)
+        const startDate = new Date(firstDay)
+        startDate.setDate(startDate.getDate() - firstDay.getDay())
+        const weekends: { sat: Date; sun: Date; label: string }[] = []
+        const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+        const yearBE = (d: Date) => d.getFullYear() + 543
+        for (let i = 0; i < 42; i++) {
+          const d = new Date(startDate)
+          d.setDate(startDate.getDate() + i)
+          if (d.getDay() === 6) { // Saturday
+            const sat = new Date(d)
+            const sun = new Date(d)
+            sun.setDate(sat.getDate() + 1)
+            const label = `${sat.getDate()}-${sun.getDate()} ${monthNames[sat.getMonth()]} ${String(yearBE(sat)).slice(-2)}`
+            weekends.push({ sat, sun, label })
+          }
+        }
+        // dedupe by label
+        const uniq = Array.from(new Map(weekends.map(w => [w.label, w])).values())
+        const results = await Promise.all(uniq.map(async (w) => {
+          try {
+            const res = await fetch(`/api/sheets/weekly-433?sheetName=${encodeURIComponent(w.label)}`)
+            const json = await res.json()
+            if (json && json.success && Array.isArray(json.people)) {
+              return { key: w, people: json.people }
+            }
+          } catch {}
+          return { key: w, people: [] as any[] }
+        }))
+        const map: Record<string, any[]> = {}
+        results.forEach(r => {
+          const satKey = r.key.sat.toISOString().slice(0,10)
+          const sunKey = r.key.sun.toISOString().slice(0,10)
+          map[satKey] = r.people || []
+          map[sunKey] = r.people || []
+        })
+        setMonthWeekendMap(map)
+      } finally {
+        setIsMonthMapLoading(false)
+      }
+    }
+    buildMonthWeekendMap()
+  }, [calMonth])
 
   // Format Thai weekend range like "30-31 ส.ค. ๖๘" or "31 ส.ค. - 1 ก.ย. ๖๘"
   function formatThaiRange(start: Date, end: Date) {
@@ -700,7 +827,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
   // Mobile-friendly layout: use stacked sections under 420px wide
   if (view === "list") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -807,6 +934,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
     )
   }
 
+  
   // helper: find person by name (exact or partial)
 const findPersonByName = (name: string) => {
     if (!name) return null
@@ -826,11 +954,47 @@ const findPersonByName = (name: string) => {
     return null
   }
 
+  // open profile by raw full name from popup; back will return to this view (dashboard)
+  const openPersonByName = (rawName: string) => {
+    const p = findPersonByName(rawName)
+    if (p) {
+      setShowCalendarPopup(false)
+      openPersonDetail(p as PersonData)
+    } else {
+      toast({ title: 'ไม่พบโปรไฟล์', description: rawName || '', variant: 'destructive' as any })
+    }
+  }
+
+  // สร้างข้อความข้อมูลย่อ: ตำแหน่ง | สูง X | คู่ Y
+  const buildInfo = (person: any) => {
+    const base = getPositionFrom(person) || ''
+    const height = person?.ส่วนสูง || person?.height || person?.สูง || ''
+    const partner = person?.partner || person?.คู่ || person?.['คู่พี่นายทหาร'] || person?.['คู่พี่'] || ''
+    const parts: string[] = []
+    if (base) parts.push(base)
+    if (height) parts.push(`สูง ${height}`)
+    if (partner) parts.push(`คู่ ${partner}`)
+    return parts.length ? parts.join(' | ') : '-'
+  }
+
+  // เติมข้อมูลจากฐานข้อมูลรวมให้รายการ Weekly Sheet (เช่น ส่วนสูง/คู่) ด้วยการ match ชื่อ
+  const enrichPerson = (p: any) => {
+    if (!p) return p
+    const nameKey = `${p?.ชื่อ || ''}${p?.สกุล || ''}`
+    const internal = findPersonByName(nameKey)
+    if (!internal) return p
+    return {
+      ...p,
+      ส่วนสูง: p?.ส่วนสูง || internal?.ส่วนสูง || internal?.height || '',
+      partner: p?.partner || internal?.partner || internal?.['คู่พี่นายทหาร'] || internal?.['คู่พี่'] || ''
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
         {/* Top: header icons, site name left, date center, placeholder right */}
-        <header className="flex items-center justify-between mb-6">
+        <header className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-3">
             <div className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">J.A.R.V.I.S</div>
             <Badge className="bg-green-600 text-white">ระบบเวร 433</Badge>
@@ -871,8 +1035,8 @@ const findPersonByName = (name: string) => {
         </header>
 
         {/* Middle: left pie chart, right top list */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div className="md:col-span-1 bg-slate-800/60 border border-slate-700 rounded-lg p-4 flex flex-col items-center">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+            <div className="xl:col-span-1 bg-slate-800/60 border border-slate-700 rounded-lg p-4 flex flex-col items-center">
             <div className="flex items-center gap-2 mb-3">
               <PieChart className="h-5 w-5 text-yellow-400" />
               <h3 className="font-semibold">อัตราส่วนนนร.ที่ปฏิบัติหน้าที่</h3>
@@ -881,7 +1045,13 @@ const findPersonByName = (name: string) => {
               <div className="text-slate-400">กำลังโหลด...</div>
             ) : (
               <div className="flex flex-col items-center">
-                <Pie data={pieData} selectedLabel={selectedOverviewItem || undefined} />
+                <Pie
+                  data={pieData}
+                  selectedLabel={selectedOverviewItem || undefined}
+                  onSliceClick={(label) => {
+                    setSelectedOverviewItem(prev => prev === label ? null : label)
+                  }}
+                />
                 {selectedPie && (
                   <div className="mt-3 bg-slate-700/60 border border-slate-500 rounded-lg p-3 shadow-lg transform -translate-y-2">
                     <div className="text-sm font-semibold">{selectedPie}</div>
@@ -904,13 +1074,13 @@ const findPersonByName = (name: string) => {
               {' : '}
               <span 
                 className={`cursor-pointer px-2 py-1 rounded transition-all duration-200 ${
-                  selectedOverviewItem === 'เข้า433' 
+                  selectedOverviewItem === 'เข้าเวร433' 
                     ? 'bg-green-600 text-white shadow-lg transform scale-105' 
                     : 'hover:bg-slate-700/50'
                 }`}
-                onClick={() => setSelectedOverviewItem(prev => prev === 'เข้า433' ? null : 'เข้า433')}
+                onClick={() => setSelectedOverviewItem(prev => prev === 'เข้าเวร433' ? null : 'เข้าเวร433')}
               >
-                เข้า433
+                เข้าเวร433
               </span>
               {' : '}
               <span 
@@ -926,13 +1096,13 @@ const findPersonByName = (name: string) => {
               {' : '}
               <span 
                 className={`cursor-pointer px-2 py-1 rounded transition-all duration-200 ${
-                  selectedOverviewItem === 'ไม่เคยเข้า' 
+                  selectedOverviewItem === 'ยังไม่เคย' 
                     ? 'bg-red-600 text-white shadow-lg transform scale-105' 
                     : 'hover:bg-slate-700/50'
                 }`}
-                onClick={() => setSelectedOverviewItem(prev => prev === 'ไม่เคยเข้า' ? null : 'ไม่เคยเข้า')}
+                onClick={() => setSelectedOverviewItem(prev => prev === 'ยังไม่เคย' ? null : 'ยังไม่เคย')}
               >
-                ไม่เคยเข้า
+                ยังไม่เคย
               </span>
             </div>
             {selectedOverviewItem && (
@@ -948,7 +1118,7 @@ const findPersonByName = (name: string) => {
                         case 'ถวายรายงาน':
                           count = people.filter(p => (p as any).ถวายรายงาน || (Array.isArray((p as any).reportHistory) && (p as any).reportHistory.length > 0)).length
                           break
-                        case 'เข้า433':
+                        case 'เข้าเวร433':
                           count = people.filter(p => {
                             // ตรวจสอบข้อมูลจาก _433_columns
                             if (p._433_columns && Array.isArray(p._433_columns)) {
@@ -960,7 +1130,7 @@ const findPersonByName = (name: string) => {
                         case 'ธุรการ':
                           count = people.filter(p => (p as any)['ธุรการ ฝอ.'] || (p as any)['ธุรการ']).length
                           break
-                        case 'ไม่เคยเข้า':
+                        case 'ยังไม่เคย':
                           count = people.filter(p => {
                             // ตรวจสอบข้อมูลจาก _433_columns และ _admin_columns
                             const has433 = p._433_columns && Array.isArray(p._433_columns) && p._433_columns.some((col: any) => col.value && col.value.toString().trim() && col.value !== '-')
@@ -981,26 +1151,63 @@ const findPersonByName = (name: string) => {
             )}
           </div>
 
-          <div className="md:col-span-2 bg-slate-800/60 border border-slate-700 rounded-lg p-4">
+          <div className="xl:col-span-2 bg-slate-800/60 border border-slate-700 rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2"><Users className="h-5 w-5 text-orange-400" /><h3 className="font-semibold">ประวัติผู้ที่ถวายรายงานมากที่สุด</h3></div>
+              <div className="flex items-center gap-2"><Users className="h-5 w-5 text-orange-400" /><h3 className="font-semibold">อันดับ Top 6</h3></div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-slate-300">เลือกประเภท</label>
+                <select
+                  value={topCardMetric}
+                  onChange={e => {
+                    const v = e.target.value
+                    setTopCardMetric(v)
+                    // sync highlight on pie
+                    if (v === 'report') setSelectedOverviewItem('ถวายรายงาน')
+                    else if (v === '_433') setSelectedOverviewItem('เข้าเวร433')
+                    else setSelectedOverviewItem('ธุรการ')
+                  }}
+                  className="bg-slate-700 text-white px-2 py-1 rounded"
+                >
+                  <option value="report">ถวายรายงาน</option>
+                  <option value="_433">เข้าเวร433</option>
+                  <option value="admin">ชป.ธุรการ</option>
+                </select>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {(aggData && Array.isArray(aggData.topByReportPerson) ? aggData.topByReportPerson : []).slice(0, 6).map((p: any, i: number) => {
+              {(() => {
+                // สร้างอันดับจาก people โดยตรง เพื่อให้ได้สูงสุด 6 การ์ดเสมอถ้ามีข้อมูลพอ
+                const rankedByMetric = (() => {
+                  const list = (Array.isArray(people) ? people : []) as any[]
+                  const rows = list.map(pp => {
+                    let count = 0
+                    if (topCardMetric === 'report') {
+                      if (pp.ถวายรายงาน && pp['น.กำกับยาม'] && pp.วันที่) count = 1
+                      else if (Array.isArray(pp.reportHistory)) count = pp.reportHistory.length || 0
+                    } else if (topCardMetric === '_433') {
+                      if (pp._433_columns && Array.isArray(pp._433_columns)) {
+                        count = pp._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
+                      }
+                    } else {
+                      if (pp._admin_columns && Array.isArray(pp._admin_columns)) {
+                        count = pp._admin_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
+                      }
+                    }
+                    const fullName = `${pp.ยศ || ''} ${pp.ชื่อ || ''} ${pp.สกุล || ''}`.trim()
+                    return { fullName, personRef: pp, count }
+                  })
+                  return rows
+                    .filter(r => r.count > 0)
+                    .sort((a,b) => b.count - a.count)
+                })()
+
+                return rankedByMetric.slice(0, 6).map((p: any, i: number) => {
                 const rawName = p.fullName || p.name || ''
-                const person = findPersonByName(rawName)
+                  const person = p.personRef || findPersonByName(rawName)
                 const displayName = person ? formatDisplayName(person?.ยศ, person?.ชื่อ, person?.สกุล) : rawName
                 const pos = getPositionFrom(p) || (person ? getPositionFrom(person) : '')
-                // นับจากประวัติถวายรายงานเท่านั้น
-                let count = 0
-                if (person) {
-                  const hasReportFromSheet = !!(person as any).ถวายรายงาน && !!(person as any)['น.กำกับยาม'] && !!(person as any).วันที่
-                  if (hasReportFromSheet) count = 1
-                  else if (Array.isArray((person as any).reportHistory)) count = (person as any).reportHistory.length
-                } else if (p.count != null) {
-                  count = p.count
-                }
+                  const count = p.count != null ? p.count : 0
                 return (
                   <div
                     key={i}
@@ -1020,92 +1227,251 @@ const findPersonByName = (name: string) => {
                     </div>
                   </div>
                 )
-              })}
-              {/* ลบตาราง/รายการตามคำขอ - คงไว้เฉพาะหัวข้อ */}
+                })
+              })()}
             </div>
-            {/* ตารางล่างถูกนำออกตามคำขอ */}
           </div>
         </div>
 
-        {/* Bottom: actions only - full list moved to the 'list' view */}
-        <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-          {/* Top 6 on overview (bottom) */}
-          <div className="mb-4">
-            <h4 className="text-lg font-semibold mb-3">อันดับ Top 5</h4>
-            <div className="flex items-center gap-3 mb-3">
-              <label className="text-sm text-slate-300">เลือกประเภท</label>
-              <select value={topMetric} onChange={e => setTopMetric(e.target.value)} className="bg-slate-700 text-white px-2 py-1 rounded">
-                <option value="report">ถวายรายงาน</option>
-                <option value="_433">เข้าเวร433</option>
-                <option value="admin">ชป.ธุรการ</option>
-              </select>
-            </div>
-
-            <div className="overflow-x-auto w-full max-w-full mb-2">
-              <table className="min-w-full w-full max-w-full text-xs sm:text-sm table-auto border-collapse break-words">
-                <thead>
-                  <tr className="bg-slate-900/40">
-                      <th className="p-3 text-center border-b border-slate-700">อันดับ</th>
-                      <th className="p-3 text-center border-b border-slate-700">ยศ ชื่อ-สกุล</th>
-                      <th className="p-3 text-center border-b border-slate-700">ตำแหน่ง ทกท.</th>
-                      <th className="p-3 text-center border-b border-slate-700">จำนวนครั้ง</th>
-                    </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const source = ((): any[] => {
-                      if (!aggData) return []
-                      if (topMetric === 'report') {
-                        // ใช้เฉพาะคนที่มีข้อมูลจากชีตครบ 3 ช่องเท่านั้น
-                        return people.filter((pp: any) => !!pp.ถวายรายงาน && !!pp['น.กำกับยาม'] && !!pp.วันที่)
-                          .map((pp: any) => ({ fullName: `${pp.ยศ || ''} ${pp.ชื่อ || ''} ${pp.สกุล || ''}`.trim(), personRef: pp, count: 1 }))
-                      }
-                      return topMetric === '_433' ? (aggData.topBy433Person || []) : (aggData.topByAdminPerson || [])
-                    })()
-                    return source.slice(0,6).map((r: any, i: number) => {
-                      const displayName = r.fullName || r.name || ''
-                      const person = r.personRef || findPersonByName(displayName)
-                      const pos = getPositionFrom(r) || (person ? getPositionFrom(person) : '')
-                      let count = 0
-                      if (topMetric === 'report') {
-                        // นับจากชีตเท่านั้น => 1
-                        count = 1
-                      } else if (person) {
-                        if (topMetric === '_433') {
-                          // ใช้ _433_columns แทน _433_dates
-                          if (person._433_columns && Array.isArray(person._433_columns)) {
-                            count = person._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
-                          }
-                        } else {
-                          // ใช้ _admin_columns แทน _admin_dates
-                          if (person._admin_columns && Array.isArray(person._admin_columns)) {
-                            count = person._admin_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
-                          }
-                        }
-                      }
-                      if (count === 0) count = r.count != null ? r.count : (r.report || r._433 || r.admin || 0)
-                      const nameWithRank = person ? formatDisplayName(person?.ยศ, person?.ชื่อ, person?.สกุล) : (displayName && displayName !== "นนร. นนร. นนร." ? displayName : 'ไม่พบชื่อจริง')
-                      return (
-                        <tr key={i} className="cursor-pointer hover:bg-slate-800/30" onClick={() => { if (person) openPersonDetail(person) }}>
-                          <td className="p-3 border-b border-slate-700 text-center">{i+1}</td>
-                          <td className="p-3 border-b border-slate-700 text-center">{nameWithRank}</td>
-                          <td className="p-3 border-b border-slate-700 text-center">{pos || '-'}</td>
-                          <td className="p-3 border-b border-slate-700 font-semibold text-center">{count}</td>
-                        </tr>
-                      )
-                    })
-                  })()}
-                </tbody>
-              </table>
+        {/* Enhanced Calendar with Detailed Daily Information */}
+        <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h4 className="text-xl font-bold text-center flex items-center gap-2">
+              <Calendar className="h-6 w-6 text-blue-400" />
+              ปฏิทินเวร 433
+            </h4>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-700 rounded-full px-1.5 py-1 shadow-sm">
+                <Button
+                  onClick={() => {
+                    const d = new Date(calMonth)
+                    d.setMonth(d.getMonth() - 1)
+                    setCalMonth(new Date(d))
+                  }}
+                  className="h-8 w-8 p-0 rounded-full bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700"
+                  aria-label="เดือนก่อนหน้า"
+                >
+                  <ChevronLeft className="h-4 w-4 text-slate-200" />
+                </Button>
+                <div className="px-3 py-1 text-sm sm:text-base font-semibold text-slate-200 whitespace-nowrap">
+                  {['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'][calMonth.getMonth()]} {calMonth.getFullYear() + 543}
+                </div>
+                <Button
+                  onClick={() => {
+                    const d = new Date(calMonth)
+                    d.setMonth(d.getMonth() + 1)
+                    setCalMonth(new Date(d))
+                  }}
+                  className="h-8 w-8 p-0 rounded-full bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700"
+                  aria-label="เดือนถัดไป"
+                >
+                  <ChevronRight className="h-4 w-4 text-slate-200" />
+                </Button>
+              </div>
+              <Button
+                onClick={() => { const now = new Date(); setCalMonth(now); setCalDate(now) }}
+                className="hidden sm:inline-flex h-8 px-3 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs border border-emerald-500/50"
+              >
+                วันนี้
+              </Button>
             </div>
           </div>
 
-          <div className="flex items-center justify-between mb-2">
+          {/* Enhanced Calendar Grid */}
+          <div className="grid grid-cols-7 gap-2 mb-4">
+            {/* Day headers */}
+            {['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'].map((day) => (
+              <div key={day} className="text-center font-semibold text-slate-400 p-2 text-sm">
+                {day}
+              </div>
+            ))}
+            
+            {/* Calendar days with enhanced information */}
+            {(() => {
+              const year = calMonth.getFullYear()
+              const month = calMonth.getMonth()
+              const firstDay = new Date(year, month, 1)
+              const lastDay = new Date(year, month + 1, 0)
+              const startDate = new Date(firstDay)
+              startDate.setDate(startDate.getDate() - firstDay.getDay())
+              
+              const days = []
+              const today = new Date()
+              
+              // ใช้ข้อมูลจริงจาก Weekly Sheet ผ่าน monthWeekendMap ที่โหลดล่วงหน้าสำหรับเดือนนี้
+              
+              for (let i = 0; i < 42; i++) {
+                const date = new Date(startDate)
+                date.setDate(startDate.getDate() + i)
+                
+                const dateStr = date.toISOString().split('T')[0]
+                const externalPeople = monthWeekendMap[dateStr] || []
+                const hasDutyExternal = externalPeople.length > 0
+                
+                // Check if this date has duty from weeklyDutyList
+                const hasDutyFromData = weeklyDutyList.some(p => 
+                  Array.isArray(p.enter433) && p.enter433.some((en: any) => {
+                    const entryDate = new Date(parseDateFromText(en.date) || en.date)
+                    return entryDate.toDateString() === date.toDateString()
+                  })
+                )
+                
+                const isCurrentMonth = date.getMonth() === month
+                const isToday = date.toDateString() === today.toDateString()
+                const isSelected = calDate?.toDateString() === date.toDateString()
+                
+                days.push(
+                  <div
+                    key={i}
+                    className={`
+                      min-h-[72px] sm:min-h-[88px] p-2 border border-slate-700 rounded-lg cursor-pointer
+                      transition-all duration-200 hover:bg-slate-700/50 relative
+                      ${isCurrentMonth ? 'bg-slate-800/40' : 'bg-slate-950/70 opacity-60'}
+                      ${isToday ? 'ring-2 ring-blue-400' : ''}
+                      ${isSelected ? 'bg-blue-600/30 ring-1 ring-blue-500' : ''}
+                    `}
+                    onClick={() => {
+                      setCalDate(date)
+                      // Show popup with day details
+                      const popupData = {
+                        date,
+                        weeklyExternal: externalPeople,
+                        weeklyInternal: weeklyDutyList.filter(p => 
+                          Array.isArray(p.enter433) && p.enter433.some((en: any) => {
+                            const entryDate = new Date(parseDateFromText(en.date) || en.date)
+                            return entryDate.toDateString() === date.toDateString()
+                          })
+                        )
+                      }
+                      setSelectedCalendarData(popupData)
+                      setShowCalendarPopup(true)
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-sm font-medium ${isToday ? 'text-blue-400' : (isCurrentMonth ? 'text-slate-200' : 'text-slate-500')}`}>
+                        {date.getDate()}
+                      </span>
+                      {(hasDutyExternal || hasDutyFromData) && (
+                        <div className="flex gap-1 items-center">
+                          {hasDutyExternal && (
+                            <div className="w-2 h-2 bg-cyan-400 rounded-full" title="Weekly Sheet"></div>
+                          )}
+                          {hasDutyFromData && (
+                            <div className="w-2 h-2 bg-green-500 rounded-full" title="ฐานข้อมูลรวม"></div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              }
+              
+              return days
+            })()}
+          </div>
+
+          {/* Legend */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 p-3 bg-slate-900/50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-cyan-400 rounded-full"></div>
+              <span className="text-sm">นนร.ปฏิบัติหน้าที่</span>
+            </div>
+            <div className="flex items-center gap-2">
+            </div>
+            {isMonthMapLoading && (
+              <div className="text-xs text-slate-400">กำลังโหลดข้อมูล...</div>
+            )}
+          </div>
+        </div>
+
+        {/* Calendar Popup Modal */}
+        {showCalendarPopup && selectedCalendarData && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 border border-slate-700 rounded-lg w-full max-w-[92vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              {/* Popup Header */}
+              <div className="flex items-center justify-between p-4 border-b border-slate-700">
+                <h3 className="text-xl font-bold">
+                  วันที่ {selectedCalendarData.date.getDate()} {['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'][selectedCalendarData.date.getMonth()]} {selectedCalendarData.date.getFullYear() + 543}
+                </h3>
+                <Button
+                  onClick={() => setShowCalendarPopup(false)}
+                  className="bg-transparent hover:bg-slate-700 p-2"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Popup Content */}
+              <div className="p-4 space-y-6">
+                {/* Weekly External Section */}
+                <div>
+                  <h4 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-cyan-400" />
+                    ผู้ปฏิบัติหน้าที่
+                  </h4>
+                  {selectedCalendarData.weeklyExternal && selectedCalendarData.weeklyExternal.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedCalendarData.weeklyExternal.map((person: any, index: number) => (
+                        <button
+                          key={index}
+                          className="w-full flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-3 py-2 hover:bg-slate-800/70 transition-colors"
+                          onClick={() => openPersonByName(`${person.ชื่อ || ''} ${person.สกุล || ''}`.trim())}
+                        >
+                          <div className="min-w-0 text-left">
+                            <div className="font-medium truncate">{`${person.ชื่อ || ''} ${person.สกุล || ''}`.trim()}</div>
+                            <div className="text-xs text-slate-400 truncate">{buildInfo(enrichPerson(person))}</div>
+                          </div>
+                          <span className="ml-2 shrink-0 bg-cyan-600 text-white px-2 py-0.5 rounded text-xs">Check Profile </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-slate-400">ไม่มีข้อมูล</div>
+                  )}
+                </div>
+
+                {/* Weekly Internal Section */}
+                {selectedCalendarData.weeklyInternal && selectedCalendarData.weeklyInternal.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                      <Users className="h-5 w-5 text-green-400" />
+                      ผู้ปฏิบัติหน้าที่จากฐานข้อมูลรวม
+                    </h4>
+                    <div className="space-y-2">
+                      {selectedCalendarData.weeklyInternal.map((person: any, index: number) => (
+                        <button
+                          key={index}
+                          className="w-full flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-3 py-2 hover:bg-slate-800/70 transition-colors"
+                          onClick={() => openPersonByName(`${person.ชื่อ || ''} ${person.สกุล || ''}`.trim())}
+                        >
+                          <div className="min-w-0 text-left">
+                            <div className="font-medium truncate">{formatDisplayName(person.ยศ, person.ชื่อ, person.สกุล)}</div>
+                            <div className="text-xs text-slate-400 truncate">{buildInfo(person)}</div>
+                          </div>
+                          <span className="ml-2 shrink-0 bg-green-600 text-white px-2 py-0.5 rounded text-xs">Internal</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Popup Footer */}
+              <div className="flex justify-end gap-3 p-4 border-t border-slate-700">
+                <Button onClick={() => setShowCalendarPopup(false)} className="bg-slate-600 hover:bg-slate-500">
+                  ปิด
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 mt-3">
               <div className="flex items-center gap-3">
               <Button onClick={onBack} className="bg-yellow-400 text-black px-4 py-2 rounded-md shadow-sm w-full sm:w-auto mb-2 sm:mb-0"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>กลับไป Dashboard</Button>
               <Button onClick={() => setView("list")} className="bg-indigo-600 w-full sm:w-auto mb-2 sm:mb-0"><List className="mr-2"/>ไปหน้ารายชื่อทั้งหมด</Button>
-              <Button onClick={() => router.push('/create-files')} className="bg-emerald-600 w-full sm:w-auto mb-2 sm:mb-0"><FileText className="mr-2"/>สร้างไฟล์จาก Drive (for PC)</Button>
-            </div>
+                            <Button onClick={() => router.push('/create-files')} className="bg-emerald-600 w-full sm:w-auto mb-2 sm:mb-0"><FileText className="mr-2"/>สร้างไฟล์จาก Drive (for PC)</Button>
           </div>
         </div>
       </div>

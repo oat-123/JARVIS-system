@@ -1309,13 +1309,20 @@ const findPersonByName = (name: string) => {
                 const externalPeople = monthWeekendMap[dateStr] || []
                 const hasDutyExternal = externalPeople.length > 0
                 
-                // Check if this date has duty from weeklyDutyList
-                const hasDutyFromData = weeklyDutyList.some(p => 
+                // Collect internal duty people for this date
+                const internalForDate = weeklyDutyList.filter(p => 
                   Array.isArray(p.enter433) && p.enter433.some((en: any) => {
                     const entryDate = new Date(parseDateFromText(en.date) || en.date)
                     return entryDate.toDateString() === date.toDateString()
                   })
                 )
+                const hasDutyFromData = internalForDate.length > 0
+
+                // Build small display list: first from external sheet, then internal; dedupe and limit to 3
+                const displayNames = [
+                  ...externalPeople.map((p:any) => `${p.ชื่อ || ''} ${p.สกุล || ''}`.trim()),
+                  ...internalForDate.map((p:any) => `${p.ชื่อ || ''} ${p.สกุล || ''}`.trim()),
+                ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).slice(0, 3)
                 
                 const isCurrentMonth = date.getMonth() === month
                 const isToday = date.toDateString() === today.toDateString()
@@ -1363,6 +1370,13 @@ const findPersonByName = (name: string) => {
                         </div>
                       )}
                     </div>
+                    {displayNames.length > 0 && (
+                      <div className="mt-1 space-y-0.5 text-right">
+                        {displayNames.map((nm, idx) => (
+                          <div key={idx} className="text-[10px] leading-tight text-slate-300 truncate">{nm}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               }

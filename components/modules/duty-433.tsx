@@ -100,7 +100,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
     return () => clearTimeout(t)
   }, [searchQuery])
   const [selectedGid, setSelectedGid] = useState<string>('0')
-  const [view, setView] = useState<"dashboard" | "list" | "detail">("dashboard")
+  const [view, setView] = useState<"dashboard" | "list" | "detail" | "calendar-popup">("dashboard")
   const [listSheet, setListSheet] = useState<string | null>(null)
   const [selectedPerson, setSelectedPerson] = useState<PersonData | null>(null)
   const [prevView, setPrevView] = useState<"dashboard" | "list" | null>(null)
@@ -958,7 +958,6 @@ const findPersonByName = (name: string) => {
   const openPersonByName = (rawName: string) => {
     const p = findPersonByName(rawName)
     if (p) {
-      setShowCalendarPopup(false)
       openPersonDetail(p as PersonData)
     } else {
       toast({ title: 'ไม่พบโปรไฟล์', description: rawName || '', variant: 'destructive' as any })
@@ -1023,14 +1022,9 @@ const findPersonByName = (name: string) => {
               // small delay to allow effect to run
               setTimeout(() => { setIsLoading(false); }, 300)
             }}>ล้าง Cache</Button>
-            {aggData?.metadata && (
-              <div className="text-xs text-slate-400">
-                433: {aggData.metadata.total_433_columns} | ธุรการ: {aggData.metadata.total_admin_columns}
-              </div>
-            )}
           </div>
           <div className="hidden md:block text-right">
-            <div className="text-sm text-slate-200">เข้าเวรครั้งถัดไปวันที่ {nextWeekendText}</div>
+            <div className="text-sm text-slate-200">เข้าเวรครั้งถัดไป {nextWeekendText}</div>
           </div>
         </header>
 
@@ -1352,7 +1346,7 @@ const findPersonByName = (name: string) => {
                         )
                       }
                       setSelectedCalendarData(popupData)
-                      setShowCalendarPopup(true)
+                      setView("calendar-popup")
                     }}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -1400,7 +1394,7 @@ const findPersonByName = (name: string) => {
         </div>
 
         {/* Calendar Popup Modal */}
-        {showCalendarPopup && selectedCalendarData && (
+        {view === "calendar-popup" && selectedCalendarData && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-slate-800 border border-slate-700 rounded-lg w-full max-w-[92vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
               {/* Popup Header */}
@@ -1409,7 +1403,7 @@ const findPersonByName = (name: string) => {
                   วันที่ {selectedCalendarData.date.getDate()} {['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'][selectedCalendarData.date.getMonth()]} {selectedCalendarData.date.getFullYear() + 543}
                 </h3>
                 <Button
-                  onClick={() => setShowCalendarPopup(false)}
+                  onClick={() => setView("dashboard")}
                   className="bg-transparent hover:bg-slate-700 p-2"
                 >
                   <X className="h-4 w-4" />
@@ -1481,7 +1475,7 @@ const findPersonByName = (name: string) => {
 
               {/* Popup Footer */}
               <div className="flex justify-end gap-3 p-4 border-t border-slate-700">
-                <Button onClick={() => setShowCalendarPopup(false)} className="bg-slate-600 hover:bg-slate-500">
+                <Button onClick={() => setView("dashboard")} className="bg-slate-600 hover:bg-slate-500">
                   ปิด
                 </Button>
               </div>

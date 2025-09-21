@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, User, Phone, Award, Calendar, MapPin, Star, RefreshCw } from "lucide-react"
@@ -38,6 +38,7 @@ const toThaiShortDate = (input: string) => {
 
 export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isLoadingImage, setIsLoadingImage] = useState<boolean>(true);
 
   if (!person) {
     return (
@@ -54,13 +55,15 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   const displayName = (person.ชื่อ && person.ชื่อ !== "นนร.") ? fullName : "ไม่พบชื่อจริง"
   const position = person['ตำแหน่ง ทกท.'] || person.ตำแหน่ง || person['ทกท.'] || ''
 
-  const fetchAvatar = async () => {
+  const fetchAvatar = useCallback(async () => {
     if (person?.ชื่อ) {
+      setIsLoadingImage(true); // Set loading to true
       const cacheKey = `avatar_${person.ชื่อ}_${person.สกุล}`;
       const cachedUrl = localStorage.getItem(cacheKey);
 
       if (cachedUrl) {
         setAvatarUrl(cachedUrl);
+        setIsLoadingImage(false); // Set loading to false if cached
         return;
       }
 
@@ -76,60 +79,39 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
         const data = await res.json();
 
         if (data.success) {
+          // Set the thumbnail first for a quick preview
+          if (data.thumbnailLink) {
+            setAvatarUrl(data.thumbnailLink);
+          }
+
+          // Then load the full image in the background
           const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(data.link)}`;
-          setAvatarUrl(proxyUrl);
-          localStorage.setItem(cacheKey, proxyUrl);
+          const img = new Image();
+          img.src = proxyUrl;
+          img.onload = () => {
+            setAvatarUrl(proxyUrl);
+            localStorage.setItem(cacheKey, proxyUrl);
+            setIsLoadingImage(false); // Set loading to false after full image loads
+          };
+          img.onerror = () => { // Handle error case
+            setIsLoadingImage(false);
+            console.error('Failed to load full image from proxy.');
+          };
+        } else {
+          setIsLoadingImage(false); // Set loading to false if API call fails
         }
       } catch (error) {
         console.error('Error fetching avatar:', error);
+        setIsLoadingImage(false); // Set loading to false on error
       }
     }
-  };
+  }, [person, setAvatarUrl, setIsLoadingImage]);
 
   useEffect(() => {
     if (person?.ชื่อ) {
-      const cacheKey = `avatar_${person.ชื่อ}_${person.สกุล}`;
-      const cachedUrl = localStorage.getItem(cacheKey);
-
-      if (cachedUrl) {
-        setAvatarUrl(cachedUrl);
-        return;
-      }
-
-      const fetchAvatar = async () => {
-        try {
-          const lastNameInitial = person.สกุล ? person.สกุล.charAt(0) : '';
-          const searchName = `${person.ชื่อ} ${lastNameInitial}`.trim();
-
-          const res = await fetch('/api/image-link', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ personName: searchName }),
-          });
-          const data = await res.json();
-
-          if (data.success) {
-            // Set the thumbnail first for a quick preview
-            if (data.thumbnailLink) {
-              setAvatarUrl(data.thumbnailLink);
-            }
-
-            // Then load the full image in the background
-            const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(data.link)}`;
-            const img = new Image();
-            img.src = proxyUrl;
-            img.onload = () => {
-              setAvatarUrl(proxyUrl);
-              localStorage.setItem(cacheKey, proxyUrl);
-            };
-          }
-        } catch (error) {
-          console.error('Error fetching avatar:', error);
-        }
-      };
       fetchAvatar();
     }
-  }, [person]);
+  }, [person, fetchAvatar]);
 
   const handleDownload = () => {
     if (avatarUrl) {
@@ -310,19 +292,23 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <div className="w-48 h-48 rounded-full bg-gradient-to-br from-slate-700/60 to-slate-700/40 flex items-center justify-center overflow-hidden ring-4 ring-white/6 shadow-2xl cursor-pointer">
-                  {avatarUrl ? (
-                    <img 
-                      src={avatarUrl} 
-                      alt={fullName} 
-                      className="w-full h-full object-cover" 
-                    />
-                  ) : (
-                    <div className="text-slate-200 text-center">
-                      <User className="h-16 w-16 mx-auto mb-2 opacity-50" />
-                      <span className="text-sm">รูปภาพ</span>
-                    </div>
-                  )}
+              {isLoadingImage ? (
+                <div className="text-slate-200 text-center">
+                  <span className="text-sm">กำลังโหลด...</span>
                 </div>
+              ) : avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={fullName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-slate-200 text-center">
+                  <User className="h-16 w-16 mx-auto mb-2 opacity-50" />
+                  <span className="text-sm">รูปภาพ</span>
+                </div>
+              )}
+            </div>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>

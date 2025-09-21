@@ -16,20 +16,15 @@ export async function POST(req: NextRequest) {
 
     // Find the image file by name in the specified folder.
     const imageFile = await findImageFileByName(IMAGE_FOLDER_ID, personName);
-    console.log('[API/image-link] Found imageFile:', imageFile);
 
     if (!imageFile) {
       return NextResponse.json({ success: false, error: `Image not found for: ${personName}` });
     }
 
-    // Get the download link for the image.
-    const link = getDownloadLink(imageFile);
+    // Use the direct Google Drive URL format
+    const directGoogleDriveUrl = `https://drive.google.com/uc?export=view&id=${imageFile.id}`;
 
-    if (!link) {
-      return NextResponse.json({ success: false, error: `Could not get download link for: ${imageFile.name}` });
-    }
-
-    return NextResponse.json({ success: true, link, thumbnailLink: imageFile.thumbnailLink });
+    return NextResponse.json({ success: true, link: directGoogleDriveUrl, thumbnailLink: imageFile.thumbnailLink });
   } catch (error: any) {
     console.error('[API/image-link] ERROR:', error);
     return NextResponse.json({ success: false, error: error?.message || 'Unknown error' }, { status: 500 });

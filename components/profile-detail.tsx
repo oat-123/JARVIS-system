@@ -285,27 +285,28 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
-        <div className="relative mb-6 py-2">
+        <div className="flex justify-start items-center mb-4 gap-2">
           <Button 
             onClick={onBack} 
-            className="absolute left-4 top-4 bg-yellow-400 text-black px-3 py-2 rounded-md shadow hover:bg-yellow-500"
+            className="bg-yellow-400 text-black px-3 py-2 rounded-md shadow hover:bg-yellow-500"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             ย้อนกลับ
           </Button>
           <Button 
             onClick={handleRefresh} 
-            className="absolute left-36 top-4 bg-green-500 text-white p-2 rounded-full shadow hover:bg-green-600"
+            className="bg-green-500 text-white p-2 rounded-full shadow hover:bg-green-600"
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <h2 className="text-3xl font-extrabold text-center tracking-tight">รายละเอียด</h2>
         </div>
+
+        <h2 className="text-3xl font-extrabold text-center tracking-tight mb-6">รายละเอียด</h2>
 
         {/* Profile Card */}
         <div className="rounded-lg p-6 shadow-md border border-slate-700/20 bg-gradient-to-tr from-blue-800/20 via-slate-800/10 to-transparent">
           {/* Profile Picture and Name */}
-          <div className="flex flex-col items-center -mt-12 mb-6">
+          <div className="flex flex-col items-center mb-6">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <div className="w-48 h-48 rounded-full bg-gradient-to-br from-slate-700/60 to-slate-700/40 flex items-center justify-center overflow-hidden ring-4 ring-white/6 shadow-2xl cursor-pointer">

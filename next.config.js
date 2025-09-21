@@ -7,7 +7,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ["blob.v0.dev"],
+    domains: ["blob.v0.dev", "drive.google.com"],
     unoptimized: true,
   },
 }

@@ -1441,7 +1441,15 @@ const findPersonByName = (name: string) => {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-4 text-slate-400">ไม่มีข้อมูล</div>
+                    <div className="text-center py-4 text-slate-400">
+                      ไม่มีข้อมูล
+                      <div className="flex justify-center gap-2 mt-4">
+               
+                        <a href="https://docs.google.com/spreadsheets/d/1VLyX1Ug7wY0SENaBzyl50i7HoJIhhOGAnPTbd02hqqw/edit?gid=2008232260#gid=2008232260" target="_blank" rel="noopener noreferrer">
+                          <Button>ตรวจสอบชีท</Button>
+                        </a>
+                      </div>
+                    </div>
                   )}
                 </div>
 

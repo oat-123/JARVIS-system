@@ -1,10 +1,20 @@
 "use client"
 
-import React from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, User, Phone, Award, Calendar, MapPin, Star } from "lucide-react"
-import { useEffect } from "react"
+import { ArrowLeft, User, Phone, Award, Calendar, MapPin, Star, RefreshCw } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface ProfileDetailProps {
   person: any
@@ -27,6 +37,8 @@ const toThaiShortDate = (input: string) => {
 }
 
 export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
   if (!person) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
@@ -41,6 +53,103 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   const fullName = `${(person.ยศ || '').trim()} ${(person.ชื่อ || '').trim()} ${(person.สกุล || '').trim()}`.replace(/\s+/g, ' ').trim()
   const displayName = (person.ชื่อ && person.ชื่อ !== "นนร.") ? fullName : "ไม่พบชื่อจริง"
   const position = person['ตำแหน่ง ทกท.'] || person.ตำแหน่ง || person['ทกท.'] || ''
+
+  const fetchAvatar = async () => {
+    if (person?.ชื่อ) {
+      const cacheKey = `avatar_${person.ชื่อ}_${person.สกุล}`;
+      const cachedUrl = localStorage.getItem(cacheKey);
+
+      if (cachedUrl) {
+        setAvatarUrl(cachedUrl);
+        return;
+      }
+
+      try {
+        const lastNameInitial = person.สกุล ? person.สกุล.charAt(0) : '';
+        const searchName = `${person.ชื่อ} ${lastNameInitial}`.trim();
+
+        const res = await fetch('/api/image-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personName: searchName }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(data.link)}`;
+          setAvatarUrl(proxyUrl);
+          localStorage.setItem(cacheKey, proxyUrl);
+        }
+      } catch (error) {
+        console.error('Error fetching avatar:', error);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (person?.ชื่อ) {
+      const cacheKey = `avatar_${person.ชื่อ}_${person.สกุล}`;
+      const cachedUrl = localStorage.getItem(cacheKey);
+
+      if (cachedUrl) {
+        setAvatarUrl(cachedUrl);
+        return;
+      }
+
+      const fetchAvatar = async () => {
+        try {
+          const lastNameInitial = person.สกุล ? person.สกุล.charAt(0) : '';
+          const searchName = `${person.ชื่อ} ${lastNameInitial}`.trim();
+
+          const res = await fetch('/api/image-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ personName: searchName }),
+          });
+          const data = await res.json();
+
+          if (data.success) {
+            // Set the thumbnail first for a quick preview
+            if (data.thumbnailLink) {
+              setAvatarUrl(data.thumbnailLink);
+            }
+
+            // Then load the full image in the background
+            const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(data.link)}`;
+            const img = new Image();
+            img.src = proxyUrl;
+            img.onload = () => {
+              setAvatarUrl(proxyUrl);
+              localStorage.setItem(cacheKey, proxyUrl);
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching avatar:', error);
+        }
+      };
+      fetchAvatar();
+    }
+  }, [person]);
+
+  const handleDownload = () => {
+    if (avatarUrl) {
+      const link = document.createElement('a');
+      link.href = avatarUrl;
+      link.download = `${fullName}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const handleRefresh = () => {
+    if (person?.ชื่อ) {
+      const cacheKey = `avatar_${person.ชื่อ}_${person.สกุล}`;
+      localStorage.removeItem(cacheKey);
+      setAvatarUrl(null);
+      fetchAvatar();
+    }
+  };
 
   // เรียก API เพื่อ log ข้อมูลใน terminal ทุกครั้งที่เปิดโปรไฟล์
   useEffect(() => {
@@ -84,18 +193,18 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
             คัดเกรด: person.คัดเกรด,
           },
           additionalInfo: {
-            'ธุรการ ฝอ.': person['ธุรการ ฝอ.'],
+            'ธุรการ ฝอ.': person['ธุรการ ฝอ.లా'],
             ตัวชน: person.ตัวชน,
             ส่วนสูง: person.ส่วนสูง,
             นักกีฬา: person.นักกีฬา,
-            'ภารกิจอื่น ๆ': person['ภารกิจอื่น ๆ'],
-            'ดูงานต่างประเทศ': person['ดูงานต่างประเทศ'],
-            'เจ็บ (ใบรับรองแพทย์)': person['เจ็บ (ใบรับรองแพทย์)'],
+            'ภารกิจอื่น ๆ': person['ภารกิจอื่น ๆలా'],
+            'ดูงานต่างประเทศ': person['ดูงานต่างประเทศలా'],
+            'เจ็บ (ใบรับรองแพทย์)': person['เจ็บ (ใบรับรองแพทย์)లా'],
             หมายเหตุ: person.หมายเหตุ,
           },
           reportInfo: {
             ถวายรายงาน: person.ถวายรายงาน,
-            'น.กำกับยาม': person['น.กำกับยาม'],
+            'น.กำกับยาม': person['น.กำกับยามలా'],
             วันที่: person.วันที่,
           },
           dynamicColumns: {
@@ -111,7 +220,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      }).catch(() => {})
+      }).catch(() => {}) // Suppress errors for logging
     } catch (e) {
       console.error('❌ Error logging profile data:', e)
     }
@@ -179,10 +288,16 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
         <div className="relative mb-6 py-2">
           <Button 
             onClick={onBack} 
-            className="absolute left-4 top-4 bg-white text-slate-900 px-3 py-2 rounded-md shadow hover:bg-gray-100"
+            className="absolute left-4 top-4 bg-yellow-400 text-black px-3 py-2 rounded-md shadow hover:bg-yellow-500"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             ย้อนกลับ
+          </Button>
+          <Button 
+            onClick={handleRefresh} 
+            className="absolute left-36 top-4 bg-green-500 text-white p-2 rounded-full shadow hover:bg-green-600"
+          >
+            <RefreshCw className="h-4 w-4" />
           </Button>
           <h2 className="text-3xl font-extrabold text-center tracking-tight">รายละเอียด</h2>
         </div>
@@ -191,20 +306,36 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
         <div className="rounded-lg p-6 shadow-md border border-slate-700/20 bg-gradient-to-tr from-blue-800/20 via-slate-800/10 to-transparent">
           {/* Profile Picture and Name */}
           <div className="flex flex-col items-center -mt-12 mb-6">
-            <div className="w-48 h-48 rounded-full bg-gradient-to-br from-slate-700/60 to-slate-700/40 flex items-center justify-center overflow-hidden ring-4 ring-white/6 shadow-2xl">
-              {person.avatarUrl ? (
-                <img 
-                  src={person.avatarUrl} 
-                  alt={fullName} 
-                  className="w-full h-full object-cover" 
-                />
-              ) : (
-                <div className="text-slate-200 text-center">
-                  <User className="h-16 w-16 mx-auto mb-2 opacity-50" />
-                  <span className="text-sm">รูปภาพ</span>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <div className="w-48 h-48 rounded-full bg-gradient-to-br from-slate-700/60 to-slate-700/40 flex items-center justify-center overflow-hidden ring-4 ring-white/6 shadow-2xl cursor-pointer">
+                  {avatarUrl ? (
+                    <img 
+                      src={avatarUrl} 
+                      alt={fullName} 
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : (
+                    <div className="text-slate-200 text-center">
+                      <User className="h-16 w-16 mx-auto mb-2 opacity-50" />
+                      <span className="text-sm">รูปภาพ</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>ดาวน์โหลดรูปภาพ</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    คุณต้องการดาวน์โหลดรูปภาพนี้หรือไม่?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDownload}>ดาวน์โหลด</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <div className="text-center mt-4">
               <div className="text-2xl font-semibold text-white">{displayName}</div>
               <div className="text-sm text-slate-300 mt-1">{position}</div>
@@ -219,7 +350,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <Award className="h-4 w-4 mr-2" />
                 ลำดับ
               </div>
-              <div className="text-base font-medium text-white text-right">{person.ลำดับ || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person.ลำดับ || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -227,7 +358,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <Calendar className="h-4 w-4 mr-2" />
                 ชั้นปีที่
               </div>
-              <div className="text-base font-medium text-white text-right">{person.ชั้นปีที่ || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person.ชั้นปีที่ || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -235,7 +366,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <MapPin className="h-4 w-4 mr-2" />
                 ตอน
               </div>
-              <div className="text-base font-medium text-white text-right">{person.ตอน || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person.ตอน || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -243,7 +374,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <MapPin className="h-4 w-4 mr-2" />
                 สังกัด
               </div>
-              <div className="text-base font-medium text-white text-right">{person.สังกัด || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person.สังกัด || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -251,7 +382,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <Phone className="h-4 w-4 mr-2" />
                 เบอร์โทรศัพท์
               </div>
-              <div className="text-base font-medium text-white text-right">{person.เบอร์โทรศัพท์ || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person.เบอร์โทรศัพท์ || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -259,7 +390,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <Star className="h-4 w-4 mr-2" />
                 คัดเกรด
               </div>
-              <div className="text-base font-medium text-white text-right">{person.คัดเกรด || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person.คัดเกรด || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -267,7 +398,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <Award className="h-4 w-4 mr-2" />
                 ธุรการ ฝอ.
               </div>
-              <div className="text-base font-medium text-white text-right">{person['ธุรการ ฝอ.'] || person.ธุรการ || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person['ธุรการ ฝอ.'] || person.ธุรการ || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -275,7 +406,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <User className="h-4 w-4 mr-2" />
                 ตัวชน
               </div>
-              <div className="text-base font-medium text-white text-right">{person.ตัวชน || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person.ตัวชน || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -283,7 +414,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <User className="h-4 w-4 mr-2" />
                 ส่วนสูง
               </div>
-              <div className="text-base font-medium text-white text-right">{person.ส่วนสูง || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person.ส่วนสูง || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -291,7 +422,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <Star className="h-4 w-4 mr-2" />
                 นักกีฬา
               </div>
-              <div className="text-base font-medium text-white text-right">{person.นักกีฬา || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person.นักกีฬา || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -299,7 +430,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <Calendar className="h-4 w-4 mr-2" />
                 ภารกิจอื่น ๆ
               </div>
-              <div className="text-base font-medium text-white text-right">{person['ภารกิจอื่น ๆ'] || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person['ภารกิจอื่น ๆ'] || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -307,7 +438,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <MapPin className="h-4 w-4 mr-2" />
                 ดูงานต่างประเทศ
               </div>
-              <div className="text-base font-medium text-white text-right">{person['ดูงานต่างประเทศ'] || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person['ดูงานต่างประเทศ'] || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -315,7 +446,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <User className="h-4 w-4 mr-2" />
                 เจ็บ (ใบรับรองแพทย์)
               </div>
-              <div className="text-base font-medium text-white text-right">{person['เจ็บ (ใบรับรองแพทย์)'] || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person['เจ็บ (ใบรับรองแพทย์)'] || '-'}</div >
             </div>
 
             <div className="grid grid-cols-2 items-center px-6 py-4">
@@ -323,7 +454,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <Calendar className="h-4 w-4 mr-2" />
                 หมายเหตุ
               </div>
-              <div className="text-base font-medium text-white text-right">{person.หมายเหตุ || '-'}</div>
+              <div className="text-base font-medium text-white text-right">{person.หมายเหตุ || '-'}</div >
             </div>
 
 

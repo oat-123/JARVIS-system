@@ -13,7 +13,7 @@ export async function getGoogleAuth() {
     
     // Ensure the private key has proper formatting
     if (!privateKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
-      privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----`
+      privateKey = `-----BEGIN PRIVATE KEY-----\\n${privateKey}\\n-----END PRIVATE KEY-----`
     }
 
     // Validate required environment variables
@@ -236,3 +236,45 @@ export const getDownloadLink = (file: any) => {
   // ถ้าไม่มีเลย คืน null
   return null
 } 
+
+// ค้นหาไฟล์รูปภาพในโฟลเดอร์ (ชื่อใกล้เคียง targetName)
+export const findImageFileByName = async (parentId: string, targetName: string) => {
+  const drive = await getDriveService();
+  const res = await drive.files.list({
+    q: `('${parentId}' in parents) and trashed = false and (mimeType = 'image/jpeg' or mimeType = 'image/png')`,
+    fields: 'files(id, name, webViewLink, webContentLink, thumbnailLink, size)',
+    pageSize: 1000,
+  });
+  const files = res.data.files || [];
+  // fuzzy match
+  const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
+  const target = norm(targetName);
+  let best = null;
+  let bestScore = 0;
+  for (const f of files) {
+    const n = norm(f.name || '');
+    let score = 0;
+    if (n === target) score = 100;
+    else if (n.includes(target) || target.includes(n)) score = 80;
+    else if (n.split('.')[0] === target.split('.')[0]) score = 70;
+    if (score > bestScore) {
+      best = f;
+      bestScore = score;
+    }
+  }
+
+  // If no good match, try a more fuzzy search just based on the first name
+  if (bestScore < 70) {
+    const firstName = targetName.split(' ')[0];
+    const targetFirstName = norm(firstName);
+    for (const f of files) {
+        const n = norm(f.name || '');
+        if (n.startsWith(targetFirstName)) {
+            best = f;
+            break;
+        }
+    }
+  }
+
+  return best;
+};

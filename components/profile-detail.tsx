@@ -1,9 +1,11 @@
+
 "use client"
+import { getFriendlySheetName } from "@/components/modules/ceremony-duty"
 
 import React, { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, User, Phone, Award, Calendar, MapPin, Star, RefreshCw } from "lucide-react"
+import { ArrowLeft, User, Phone, Award, Calendar, MapPin, Star, RefreshCw, Download } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +17,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useToast } from "@/components/ui/use-toast"
+
 
 interface ProfileDetailProps {
   person: any
@@ -39,6 +43,13 @@ const toThaiShortDate = (input: string) => {
 export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isLoadingImage, setIsLoadingImage] = useState<boolean>(true);
+  const [isDownloadingWord, setIsDownloadingWord] = useState<boolean>(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
+  const [showFileNotFoundDialog, setShowFileNotFoundDialog] = useState<boolean>(false);
+  const [fileTypeNotFound, setFileTypeNotFound] = useState<'word' | 'pdf' | null>(null);
+  
+  const [showSecondaryDownloadDialog, setShowSecondaryDownloadDialog] = useState<boolean>(false);
+  const { toast } = useToast();
 
   if (!person) {
     return (
@@ -52,6 +63,13 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   }
 
   const fullName = `${(person.ยศ || '').trim()} ${(person.ชื่อ || '').trim()} ${(person.สกุล || '').trim()}`.replace(/\s+/g, ' ').trim()
+  const dotIndex = fullName.indexOf('.');
+  let wordFilename = fullName;
+  if (dotIndex > -1) {
+      const rank = fullName.substring(0, dotIndex + 1);
+      const name = fullName.substring(dotIndex + 1).trim();
+      wordFilename = rank + name;
+  }
   const displayName = (person.ชื่อ && person.ชื่อ !== "นนร.") ? fullName : "ไม่พบชื่อจริง"
   const position = person['ตำแหน่ง ทกท.'] || person.ตำแหน่ง || person['ทกท.'] || ''
 
@@ -133,6 +151,119 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
     }
   };
 
+  const handleWordDownload = () => handleFileDownload('word');
+  const handlePdfDownload = () => handleFileDownload('pdf');
+
+  const handleFileDownload = async (fileType: 'word' | 'pdf') => {
+    const isWord = fileType === 'word';
+    const setLoading = isWord ? setIsDownloadingWord : setIsDownloadingPdf;
+    const fileExtension = isWord ? 'docx' : 'pdf';
+
+    if (!person?.ชื่อ) return;
+
+    setLoading(true);
+    toast({
+      title: `กำลังค้นหาไฟล์ ${fileType.toUpperCase()}...`,
+      description: `วิธีที่ 1: ค้นหาในโฟลเดอร์รวม...`,
+    });
+
+    try {
+      // First attempt: Use the simple fetch from the main folder
+      const res = await fetch('/api/fetch-file-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personName: wordFilename, fileType }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.link) {
+        toast({
+          title: "พบไฟล์แล้ว!",
+          description: "กำลังเริ่มดาวน์โหลด...",
+          variant: "default",
+        });
+        const link = document.createElement('a');
+        link.href = data.link;
+        link.download = data.fileName || `${wordFilename}.${fileExtension}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // If not found, trigger the appropriate dialog
+        if (fileType === 'word') {
+          setFileTypeNotFound('word');
+          setShowSecondaryDownloadDialog(true); // Specific dialog for Word
+        } else {
+          setFileTypeNotFound('pdf');
+          setShowFileNotFoundDialog(true); // Generic dialog for PDF
+        }
+      }
+    } catch (error) {
+      console.error(`Error downloading ${fileType} file:`, error);
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถดาวน์โหลดไฟล์ได้ในขณะนี้",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSecondaryWordDownload = async () => {
+    if (!person?.ชื่อ) return;
+
+    setIsDownloadingWord(true);
+    toast({
+      title: "กำลังค้นหาไฟล์ Word...",
+      description: "วิธีที่ 2: ค้นหาในโฟลเดอร์ตามชื่อ...",
+    });
+
+    // Logic from create-files.tsx
+    const personFolderName = `นนร. ${fullName}`.replace(/นนร\.\s*นนร\./i, 'นนร.');
+
+    try {
+      const res = await fetch('/api/drive-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personName: personFolderName,
+          folderName: personFolderName,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.link) {
+        toast({
+          title: "พบไฟล์แล้ว!",
+          description: "กำลังเริ่มดาวน์โหลดจากโฟลเดอร์บุคคล...",
+          variant: "default",
+        });
+        const link = document.createElement('a');
+        link.href = data.link;
+        link.download = data.fileName || `${wordFilename}.docx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        toast({
+          title: "ไม่พบไฟล์",
+          description: "ไม่พบไฟล์ Word ในโฟลเดอร์ตามชื่อบุคคล",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error during secondary Word file download:', error);
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถดาวน์โหลดไฟล์ได้ในขณะนี้",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingWord(false);
+    }
+  };
+
   // เรียก API เพื่อ log ข้อมูลใน terminal ทุกครั้งที่เปิดโปรไฟล์
   useEffect(() => {
     try {
@@ -175,18 +306,18 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
             คัดเกรด: person.คัดเกรด,
           },
           additionalInfo: {
-            'ธุรการ ฝอ.': person['ธุรการ ฝอ.లా'],
+            'ธุรการ ฝอ.': person['ธุรการ ฝอ.ลา'],
             ตัวชน: person.ตัวชน,
             ส่วนสูง: person.ส่วนสูง,
             นักกีฬา: person.นักกีฬา,
-            'ภารกิจอื่น ๆ': person['ภารกิจอื่น ๆలా'],
-            'ดูงานต่างประเทศ': person['ดูงานต่างประเทศలా'],
-            'เจ็บ (ใบรับรองแพทย์)': person['เจ็บ (ใบรับรองแพทย์)లా'],
+            'ภารกิจอื่น ๆ': person['ภารกิจอื่น ๆลา'],
+            'ดูงานต่างประเทศ': person['ดูงานต่างประเทศลา'],
+            'เจ็บ (ใบรับรองแพทย์)': person['เจ็บ (ใบรับรองแพทย์)ลา'],
             หมายเหตุ: person.หมายเหตุ,
           },
           reportInfo: {
             ถวายรายงาน: person.ถวายรายงาน,
-            'น.กำกับยาม': person['น.กำกับยามలా'],
+            'น.กำกับยาม': person['น.กำกับยามลา'],
             วันที่: person.วันที่,
           },
           dynamicColumns: {
@@ -287,6 +418,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
 
         {/* Profile Card */}
         <div className="rounded-lg p-6 shadow-md border border-slate-700/20 bg-gradient-to-tr from-blue-800/20 via-slate-800/10 to-transparent">
+          {/* User Info Section: Role and Group from DB */}
           {/* Profile Picture and Name */}
           <div className="flex flex-col items-center mb-6">
             <AlertDialog>
@@ -447,7 +579,6 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
 
 
 
-
             {/* Report History */}
             <div className="grid grid-cols-2 items-start px-6 py-4">
               <div className="text-sm text-slate-300">ประวัติถวายรายงาน</div>
@@ -493,9 +624,68 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 </Badge>
               </div>
             </div>
+
+            {/* Download Buttons */}
+            <div className="px-6 py-6 flex flex-row gap-4 justify-center">
+              <Button 
+                onClick={handleWordDownload}
+                disabled={isDownloadingWord}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 disabled:bg-slate-500 w-full sm:w-1/2"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isDownloadingWord ? 'กำลังค้นหา...' : 'ดาวน์โหลดไฟล์ Word'}
+              </Button>
+              <Button 
+                onClick={handlePdfDownload}
+                disabled={isDownloadingPdf}
+                className="bg-red-600 text-white px-4 py-2 rounded-md shadow hover:bg-red-700 disabled:bg-slate-500 w-full sm:w-1/2"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isDownloadingPdf ? 'กำลังค้นหา...' : 'ดาวน์โหลดไฟล์ PDF'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* PDF Not Found Dialog */}
+      <AlertDialog open={showFileNotFoundDialog} onOpenChange={setShowFileNotFoundDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ไม่พบไฟล์ PDF</AlertDialogTitle>
+            <AlertDialogDescription>
+              ไม่พบไฟล์ PDF สำหรับ {wordFilename} ในโฟลเดอร์รวม
+              คุณต้องการตรวจสอบโฟลเดอร์ Google Drive ด้วยตนเองหรือไม่?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowFileNotFoundDialog(false)}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              window.open('https://drive.google.com/drive/folders/1DsLfQC3x4G2swC8L92IuipH1XqCsKwtb', '_blank');
+              setShowFileNotFoundDialog(false);
+            }}>ตรวจสอบ Google Drive</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Word Not Found / Secondary Download Dialog */}
+      <AlertDialog open={showSecondaryDownloadDialog} onOpenChange={setShowSecondaryDownloadDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ไม่พบไฟล์ Word ในโฟลเดอร์รวม</AlertDialogTitle>
+            <AlertDialogDescription>
+              ไม่พบไฟล์ Word สำหรับ {wordFilename} ในตำแหน่งแรก ต้องการค้นหาจากโฟลเดอร์ของบุคคลโดยตรงหรือไม่?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowSecondaryDownloadDialog(false)}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowSecondaryDownloadDialog(false);
+              handleSecondaryWordDownload();
+            }}>ค้นหาและดาวน์โหลด</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -62,10 +62,19 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
   
   const previewExcelFile = async (base64String: any, idx: number) => {
     try {
-      const stringValue = String(base64String);
+      const stringValue = String(base64String || ''); // Ensure it's a string, even if base64String is null/undefined
+      if (!stringValue) { // Add check for empty string
+        console.error("Invalid base64 input: Content is empty. Cannot preview file.");
+        setPreviewIdx(null);
+        setExcelPreview({ sheets: [], data: [], sheetName: '' });
+        return;
+      }
       const parts = stringValue.split(",");
       if (parts.length < 2) {
-        throw new Error("Invalid base64 input: Missing comma separator");
+        console.error("Invalid base64 input: Missing comma separator. Cannot preview file.");
+        setPreviewIdx(null);
+        setExcelPreview({ sheets: [], data: [], sheetName: '' });
+        return; // Exit the function gracefully
       }
 
       const raw = parts[1];
@@ -211,7 +220,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
     return <Statistics onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
   }
   if (activeModule === "duty-433") {
-    return <Duty433 onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} username={username} />
+    return <Duty433 onBack={() => setActiveModuleWithSave(null)} user={user} />
   }
 
   if (showHistoryPage) {
@@ -424,7 +433,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
                       </div>
                       <div className="flex items-center space-x-2">
                         <Shield className="h-4 w-4 text-green-400" />
-                        <span className="text-sm text-slate-300">กลุ่ม: {user?.group || "ไม่ระบุ"}</span>
+                        <span className="text-sm text-slate-300">ฐานข้อมูล: {user?.sheetname || 'ไม่ระบุ'}</span>
                       </div>
                     </div>
 
@@ -584,7 +593,8 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
             </CardContent>
           </Card>
 
-          {username === 'oat' && (
+          {/* Duty 433 Card - Visible only to admin/oat roles */}
+          {(user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'oat') && (
             <Card
               className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
               onClick={() => setActiveModuleWithSave("duty-433")}
@@ -596,7 +606,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-slate-400 text-sm mb-4">แดชบอร์ดสรุป433 — เฉพาะ admin oat</p>
+                <p className="text-slate-400 text-sm mb-4">แดชบอร์ดสรุป433 — สำหรับผู้ดูแลระบบ</p>
                 <Badge className="bg-amber-600 text-white">ตรวจสอบ - จัดการ</Badge>
               </CardContent>
             </Card>

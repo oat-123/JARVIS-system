@@ -5,6 +5,7 @@ export const runtime = 'nodejs';
 
 // โฟลเดอร์ root ของ Drive (ค่าเริ่มต้น)
 const DRIVE_ROOT_ID = '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_';
+const PRIORITY_FOLDER_ID = '1AvPt_VAEt1FNbDLgUwykfhMljBXoTdcY'; // New priority folder
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,9 +18,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing personName or folderName' }, { status: 400 });
     }
 
-    // 1. หาโฟลเดอร์ตามชื่อที่ import มาจากชีท (เช่น "นนร.หน.พัน.2 กรม นนร.รอ. สุวิช รุ่มรวย")
+    // 1. (NEW) First, search in the priority folder
+    console.log(`[drive-link] วิธีที่ 1: ค้นหาในโฟลเดอร์ Priority: ${PRIORITY_FOLDER_ID}`);
+    const { best: priorityWordFile } = await findWordFileByName(PRIORITY_FOLDER_ID, personName);
+
+    if (priorityWordFile) {
+      console.log('✅ พบไฟล์ในโฟลเดอร์ Priority:', priorityWordFile.name);
+      const link = getDownloadLink(priorityWordFile);
+      if (link) {
+        console.log('✅ สร้างลิงก์ดาวน์โหลดจากโฟลเดอร์ Priority สำเร็จ');
+        return NextResponse.json({ success: true, link, fileName: priorityWordFile.name });
+      }
+      console.log('⚠️ ไม่สามารถสร้างลิงก์ดาวน์โหลดจากไฟล์ในโฟลเดอร์ Priority ได้');
+    }
+    console.log('ℹ️ ไม่พบไฟล์ในโฟลเดอร์ Priority, ดำเนินการค้นหาวิธีเดิม...');
+
+    // 2. (Original Logic) Find folder by name from sheet import
     const ROOT_ID = rootFolderId || DRIVE_ROOT_ID;
-    console.log('[drive-link] ROOT_ID =', ROOT_ID);
+    console.log('[drive-link] วิธีที่ 2: ROOT_ID =', ROOT_ID);
     console.log('[drive-link] ค้นหาโฟลเดอร์บุคคล:', folderName);
     let personFolder = await findFolderByName(ROOT_ID, folderName);
     if (!personFolder) {
@@ -62,7 +78,7 @@ export async function POST(req: NextRequest) {
     }
     console.log('✅ เจอโฟลเดอร์บุคคล:', personFolder);
 
-    // 2. หาโฟลเดอร์ย่อยที่มีคำว่า "ฉก." แบบ fuzzy (เช่น "1.ประวัติ ฉก. 2 หน้า")
+    // 3. Find subfolder with "ฉก."
     const drive = await getDriveService();
     const list = await drive.files.list({
       q: `mimeType = 'application/vnd.google-apps.folder' and '${personFolder.id}' in parents and trashed = false`,
@@ -94,9 +110,9 @@ export async function POST(req: NextRequest) {
     }
     console.log('✅ เจอโฟลเดอร์ย่อย "ฉก.":', subFolder);
 
-    // 3. หาไฟล์ Word ที่ชื่อใกล้เคียงกับ personName
+    // 4. Find Word file similar to personName
     console.log('[drive-link] ค้นหาไฟล์ Word ตามชื่อ:', personName);
-    const wordFile = await findWordFileByName(subFolder.id, personName);
+    const { best: wordFile, files } = await findWordFileByName(subFolder.id, personName);
     // log all word files found for transparency
     try {
       const listWord = await (await getDriveService()).files.list({
@@ -104,9 +120,9 @@ export async function POST(req: NextRequest) {
         fields: 'files(id, name)',
         pageSize: 200,
       });
-      const files = listWord.data.files || []
-      console.log(`[drive-link] ไฟล์ Word ทั้งหมดใน "${subFolder.name}" (${files.length})`)
-      files.forEach((f, i) => console.log(`  - ${i+1}.`, f.name, f.id))
+      const filesList = listWord.data.files || []
+      console.log(`[drive-link] ไฟล์ Word ทั้งหมดใน "${subFolder.name}" (${filesList.length})`)
+      filesList.forEach((f, i) => console.log(`  - ${i+1}.`, f.name, f.id))
     } catch (e) {
       console.log('[drive-link] ไม่สามารถดึงรายการไฟล์เพื่อ log ได้:', e instanceof Error ? e.message : e)
     }
@@ -121,11 +137,11 @@ export async function POST(req: NextRequest) {
       console.log('❌ ไม่พบไฟล์ Word ที่ตรงกับชื่อ:', personName, 'ใน', subFolder.name);
       console.log('[drive-link] ไฟล์ที่พบในโฟลเดอร์นี้:', names || '(ไม่มีไฟล์ word)');
       // เพิ่ม folderId และ folderName ใน response
-      return NextResponse.json({ success: false, error: `ไม่พบไฟล์: ${personName}`, folderId: subFolder.id, folderName: subFolder.name });
+      return NextResponse.json({ success: false, error: `ไม่พบไฟล์: ${personName}`, folderId: subFolder.id, folderName: subFolder.name, files });
     }
     console.log('✅ เจอไฟล์ Word:', wordFile);
 
-    // 4. สร้างลิงก์ดาวน์โหลด
+    // 5. Create download link
     const link = getDownloadLink(wordFile);
     if (!link) {
       console.log('❌ ไม่สามารถสร้างลิงก์ดาวน์โหลดได้:', wordFile);

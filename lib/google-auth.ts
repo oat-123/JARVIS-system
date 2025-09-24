@@ -7,7 +7,7 @@ export async function getGoogleAuth() {
     let privateKey = process.env.GOOGLE_PRIVATE_KEY || ''
     
     // Handle different private key formats
-    if (privateKey.includes('\\n')) {
+    if (privateKey.includes('\n')) {
       privateKey = privateKey.replace(/\\n/g, '\n')
     }
     
@@ -132,7 +132,7 @@ export const getMockData = () => {
       สถิติโดนยอด: "0",
     }
   ]
-} 
+}
 
 // Google Sheets + Drive API scopes (ต้องมีแค่ 1 อันในไฟล์นี้)
 export const SCOPES: string[] = [
@@ -183,10 +183,13 @@ export const findFolderByName = async (parentId: string, name: string) => {
 }
 
 // ค้นหาไฟล์ Word ในโฟลเดอร์ (ชื่อใกล้เคียง targetName)
-export const findWordFileByName = async (parentId: string, targetName: string) => {
+export const findFileByName = async (parentId: string, targetName: string, mimeTypes: string[]) => {
   const drive = await getDriveService()
+  const mimeTypeQuery = mimeTypes.map(m => `mimeType = '${m}'`).join(' or ');
+  const q = `('${parentId}' in parents) and trashed = false and (${mimeTypeQuery})`;
+
   const res = await drive.files.list({
-    q: `('${parentId}' in parents) and trashed = false and (mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or mimeType = 'application/msword')`,
+    q: q,
     fields: 'files(id, name, webViewLink, webContentLink)',
     pageSize: 100,
   })
@@ -199,14 +202,19 @@ export const findWordFileByName = async (parentId: string, targetName: string) =
   for (const f of files) {
     const n = norm(f.name || '')
     let score = 0
-    if (n === target) score = 100
-    else if (n.includes(target) || target.includes(n)) score = 80
-    else if (n.split('.')[0] === target.split('.')[0]) score = 70
+    if (n === target) {
+      score = 100
+    } else if (n.includes(target) || target.includes(n)) {
+      score = 80
+    } else if (n.split('.')[0] === target.split('.')[0]) {
+      score = 70
+    }
     if (score > bestScore) {
       best = f
       bestScore = score
     }
   }
+
   // ถ้าไม่เจอไฟล์ที่มี 'นนร.' ให้ลองหาไฟล์ที่มีแต่ชื่อ-นามสกุล (ไม่มีนนร.)
   if (!best) {
     // ตัด 'นนร.' ออกจาก targetName ถ้ามี
@@ -215,16 +223,20 @@ export const findWordFileByName = async (parentId: string, targetName: string) =
     for (const f of files) {
       const n = norm(f.name || '')
       let score = 0
-      if (n === targetNoRank) score = 90
-      else if (n.includes(targetNoRank) || targetNoRank.includes(n)) score = 75
-      else if (n.split('.')[0] === targetNoRank.split('.')[0]) score = 65
+      if (n === targetNoRank) {
+        score = 90
+      } else if (n.includes(targetNoRank) || targetNoRank.includes(n)) {
+        score = 75
+      } else if (n.split('.')[0] === targetNoRank.split('.')[0]) {
+        score = 65
+      }
       if (score > bestScore) {
         best = f
         bestScore = score
       }
     }
   }
-  return best
+  return { best, files };
 }
 
 // สร้างลิงก์ดาวน์โหลด (webViewLink/webContentLink)
@@ -278,3 +290,69 @@ export const findImageFileByName = async (parentId: string, targetName: string) 
 
   return best;
 };
+
+// New function for user authentication from Google Sheet
+export async function authenticateUserFromSheet(username: string, password_provided: string): Promise<{username: string, role: string, db: string} | null> {
+  const USER_SPREADSHEET_ID = "1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw";
+  const USER_SHEET_NAME = "user";
+
+  try {
+    const sheets = await getSheetsService();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: USER_SPREADSHEET_ID,
+      range: `${USER_SHEET_NAME}!A:D`, // Columns: A:user, B:pass, C:db, D:role
+    });
+
+    const rows = response.data.values;
+    if (!rows) {
+      console.error("[auth] No data found in user sheet.");
+      return null;
+    }
+
+    // Find the user row (skip header)
+    for (let i = 1; i < rows.length; i++) {
+      const [user, pass, db, role] = rows[i];
+      if (user && user.toLowerCase() === username.toLowerCase()) {
+        if (pass === password_provided) {
+          console.log(`[auth] User '${username}' authenticated successfully with role '${role}' and db '${db}'.`);
+          return { username: user, role: role, db: db };
+        }
+      }
+    }
+
+    console.log(`[auth] Authentication failed for user '${username}'.`);
+    return null;
+  } catch (error) {
+    console.error("[auth] Error authenticating user from Google Sheet:", error);
+    throw new Error("Authentication service encountered an error.");
+  }
+}
+
+export async function getCombinedSheetData(spreadsheetId: string): Promise<any[][]> {
+  const sheets = await getSheetsService();
+  const sheetInfo = await sheets.spreadsheets.get({ spreadsheetId });
+  const allSheets = sheetInfo.data.sheets || [];
+
+  let combinedData: any[][] = [];
+  let isFirstSheet = true;
+
+  for (const sheet of allSheets) {
+    const title = sheet.properties?.title;
+    if (title) {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: title,
+      });
+      const values = response.data.values;
+      if (values) {
+        if (isFirstSheet) {
+          combinedData.push(...values); // Include header from the first sheet
+          isFirstSheet = false;
+        } else {
+          combinedData.push(...values.slice(1)); // Exclude header from subsequent sheets
+        }
+      }
+    }
+  }
+  return combinedData;
+}

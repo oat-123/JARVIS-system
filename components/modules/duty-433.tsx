@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from "react"
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
-// Card wrapper removed from detail view to simplify layout (no grey frame)
 import { Badge } from "@/components/ui/badge"
 import { PieChart, List, Users, X, FileText, Calendar, ChevronLeft, ChevronRight } from "lucide-react"
 import { ProfileDetail } from "@/components/profile-detail"
@@ -30,9 +29,13 @@ interface PersonData {
 }
 
 interface Duty433Props {
-  onBack: () => void
-  sheetName: string
-  username?: string | null
+  onBack: () => void;
+  user: {
+    displayName: string;
+    role: string;
+    group: string;
+    sheetname: string;
+  } | null;
 }
 
 // Small, dependency-free pie chart using SVG
@@ -77,7 +80,7 @@ function Pie({ data, onSliceClick, selectedLabel }: { data: { label: string; val
   )
 }
 
-export function Duty433({ onBack, sheetName, username }: Duty433Props) {
+export function Duty433({ onBack, user }: Duty433Props) {
   const { toast } = useToast()
   const [people, setPeople] = useState<PersonData[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -105,13 +108,13 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
   const [selectedPerson, setSelectedPerson] = useState<PersonData | null>(null)
   const [prevView, setPrevView] = useState<"dashboard" | "list" | null>(null)
 
-  // Enforce visibility: only allow user 'oat' to use this module
-  if (username !== 'oat') {
+  // Enforce visibility: only allow admin/oat roles to use this module
+  if (user?.group?.toLowerCase() !== 'admin' && user?.group?.toLowerCase() !== 'oat') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl font-bold mb-4">ไม่มีสิทธิ์เข้าถึง</h2>
-          <p className="text-slate-400 mb-6">ฟีเจอร์นี้แสดงเฉพาะผู้ใช้ oat เท่านั้น</p>
+          <p className="text-slate-400 mb-6">ฟีเจอร์นี้สำหรับผู้ดูแลระบบเท่านั้น</p>
           <Button onClick={onBack} className="bg-blue-600">กลับไปหน้าหลัก</Button>
         </div>
       </div>
@@ -183,7 +186,7 @@ export function Duty433({ onBack, sheetName, username }: Duty433Props) {
         setIsLoading(false)
       }
     })()
-  }, [sheetName, view])
+  }, [user, view])
 
   // Aggregated data from API
   const [aggData, setAggData] = useState<any>(null)

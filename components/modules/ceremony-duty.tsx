@@ -1,11 +1,24 @@
-"use client"
-
+"use client";
+// Helper to convert Thai numerals to Arabic numerals
+function toArabic(str: string) {
+  return (str || '').replace(/[๐-๙]/g, (d: string) => "0123456789"["๐๑๒๓๔๕๖๗๘๙".indexOf(d)]);
+}
 import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { saveModuleState, loadModuleState, clearModuleState } from "@/lib/state-persistence"
+import { loadFromCache, saveToCache } from "@/lib/ccache"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+// Helper to show friendly sheet name
+export function getFriendlySheetName(name: string) {
+  if (!name) return "-";
+  if (name === "รวม") return "รวม";
+  if (name.startsWith("พัน")) return name;
+  // Add more mapping logic if needed
+  return name;
+}
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
@@ -64,10 +77,62 @@ interface ApiResponse {
 }
 
 export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
+  const router = useRouter();
+  // Log all raw values from the user's sheet when entering the page
+  useEffect(() => {
+    if (!sheetName) return;
+    fetch(`/api/sheets/ceremony?sheetName=${encodeURIComponent(sheetName)}&raw=1`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.rawValues) {
+          console.log('[CeremonyDuty] RAW SHEET VALUES for', sheetName, data.rawValues);
+        } else {
+          console.log('[CeremonyDuty] Sheet data for', sheetName, data);
+        }
+      })
+      .catch(err => {
+        console.error('[CeremonyDuty] Failed to fetch sheet data:', err);
+      });
+  }, [sheetName]);
   const [dutyName, setDutyName] = useState("")
-  const [personCount, setPersonCount] = useState(1)
+  const [requiredByYear, setRequiredByYear] = useState<{[year: string]: number}>({
+    "1": 0, "2": 0, "3": 0, "4": 0, "5": 0
+  })
   const [selectedPersons, setSelectedPersons] = useState<PersonData[]>([])
   const [allPersons, setAllPersons] = useState<PersonData[]>([])
+  const role = 'admin'; 
+  const isAdmin = role === 'admin' || role === 'oat';
+  const [selectedAffiliations, setSelectedAffiliations] = useState<string[]>([]);
+  const allAffiliations = useMemo(() => {
+    if (!isAdmin) return [];
+    const set = new Set<string>();
+    allPersons.forEach((p: PersonData) => {
+      if (
+        p.สังกัด &&
+        typeof p.สังกัด === "string" &&
+        p.สังกัด.trim() &&
+        !/^๐-๙$/.test(p.สังกัด.trim()) // ไม่เอาตัวเลขล้วน
+      ) {
+        set.add(p.สังกัด.trim());
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "th"));
+  }, [allPersons, isAdmin]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      setSelectedAffiliations(allAffiliations);
+    }
+  }, [allAffiliations, isAdmin]);
+
+  const filteredPersons = useMemo(() => {
+    if (isAdmin) {
+      if (selectedAffiliations.length === 0) return [];
+      return allPersons.filter((p: PersonData) => selectedAffiliations.includes(p.สังกัด));
+    } else {
+      return selectedPersons;
+    }
+  }, [selectedPersons, selectedAffiliations, isAdmin, allPersons]);
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "disconnected" | "error">("disconnected")
@@ -75,19 +140,15 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
 
-  // State persistence key
   const MODULE_NAME = 'ceremony-duty'
   const [isStateLoaded, setIsStateLoaded] = useState(false)
 
-  // --- State for Excel Exclusion ---
   const [exclusionFiles, setExclusionFiles] = useState<File[]>([])
   const [exclusionSheetNames, setExclusionSheetNames] = useState<{ [filename: string]: string[] }>({})
   const [checkAllSheets, setCheckAllSheets] = useState(true)
   const [selectedExclusionSheets, setSelectedExclusionSheets] = useState<{ [filename: string]: string[] }>({})
   const [namesToExclude, setNamesToExclude] = useState<Set<string>>(new Set())
-  // ------------------------------------
 
-  // สร้าง options จากฐานข้อมูลจริง (อิงคอลัมน์หน้าที่(M) และ ชมรม(K))
   const positions = useMemo(() => {
     const set = new Set<string>()
     allPersons.forEach(p => {
@@ -109,39 +170,36 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   const [statDomain, setStatDomain] = useState<[number, number]>([0, 10]);
   const [statMax, setStatMax] = useState(10);
 
-  // ฟังก์ชันบันทึก state
   const saveCurrentState = () => {
-    if (!isStateLoaded) return // ป้องกันการบันทึกก่อนโหลด state เสร็จ
+    if (!isStateLoaded) return
     
     const state = {
       dutyName,
-      personCount,
+      requiredByYear,
       selectedPersons,
       excludedPositions,
       excludedClubs,
       statMax,
       checkAllSheets,
-      // ไม่เก็บ files เพราะไม่สามารถ serialize ได้
     }
-    console.log('💾 Saving state:', state) // Debug log
+    console.log('💾 Saving state:', state)
     saveModuleState(MODULE_NAME, state)
   }
 
-  // ฟังก์ชันโหลด state
   const loadSavedState = () => {
     const savedState = loadModuleState(MODULE_NAME)
     if (savedState) {
-      console.log('🔄 Loading saved state:', savedState) // Debug log
+      console.log('🔄 Loading saved state:', savedState)
       if (savedState.dutyName) setDutyName(savedState.dutyName)
-      if (savedState.personCount) setPersonCount(savedState.personCount)
+      if (savedState.requiredByYear) setRequiredByYear(savedState.requiredByYear)
       if (savedState.selectedPersons) setSelectedPersons(savedState.selectedPersons)
       if (savedState.excludedPositions) setExcludedPositions(savedState.excludedPositions)
       if (savedState.excludedClubs) setExcludedClubs(savedState.excludedClubs)
       if (savedState.statMax) setStatMax(savedState.statMax)
       if (typeof savedState.checkAllSheets === 'boolean') setCheckAllSheets(savedState.checkAllSheets)
-      console.log('✅ State loaded successfully') // Debug log
+      console.log('✅ State loaded successfully')
     } else {
-      console.log('ℹ️ No saved state found') // Debug log
+      console.log('ℹ️ No saved state found')
     }
     setIsStateLoaded(true)
   }
@@ -157,17 +215,33 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     return num.toString().split("").map((digit) => thaiDigits[parseInt(digit, 10)]).join("")
   }
 
-  const loadSheetData = async () => {
+  const loadSheetData = async (force: boolean = false) => {
     setIsLoadingData(true)
     setError(null)
+
+    const cacheKey = `ceremony-data-${sheetName}`;
+    if (!force) {
+      const cachedData = loadFromCache<PersonData[]>(cacheKey);
+      if (cachedData) {
+        setAllPersons(cachedData);
+        setConnectionStatus("connected");
+        setLastUpdated(new Date());
+        toast({ title: "โหลดข้อมูลสำเร็จ", description: `ใช้ข้อมูลจากแคช ${cachedData.length} คน` });
+        setIsLoadingData(false);
+        return;
+      }
+    }
+
     try {
       const response = await fetch(`/api/sheets/ceremony?sheetName=${encodeURIComponent(sheetName)}`)
       const result: ApiResponse = await response.json()
       if (result.success && result.data) {
-        setAllPersons(result.data)
+        const dataRows = result.data.slice(1)
+        setAllPersons(dataRows)
         setConnectionStatus("connected")
         setLastUpdated(new Date())
-        toast({ title: "เชื่อมต่อสำเร็จ", description: `โหลดข้อมูล ${result.data.length} คน จาก ${sheetName}` })
+        saveToCache(cacheKey, dataRows);
+        toast({ title: "เชื่อมต่อสำเร็จ", description: `โหลดข้อมูล ${dataRows.length} คน จาก ${sheetName}` })
       } else {
         throw new Error(result.error || "Failed to load data")
       }
@@ -185,21 +259,18 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     loadSheetData()
   }, [sheetName])
 
-  // โหลด saved state เมื่อเริ่มต้น (หลังจากโหลดข้อมูลจาก Google Sheets)
   useEffect(() => {
     if (!isLoadingData && connectionStatus === "connected") {
       loadSavedState()
     }
   }, [isLoadingData, connectionStatus])
 
-  // บันทึก state อัตโนมัติเมื่อมีการเปลี่ยนแปลง (หลังจากโหลด state เสร็จแล้ว)
   useEffect(() => {
     if (isStateLoaded) {
       saveCurrentState()
     }
-  }, [dutyName, personCount, selectedPersons, excludedPositions, excludedClubs, statMax, checkAllSheets, isStateLoaded])
+  }, [dutyName, requiredByYear, selectedPersons, excludedPositions, excludedClubs, statMax, checkAllSheets, isStateLoaded])
 
-  // เมื่อโหลดข้อมูล allPersons ให้คำนวณ min/max ของสถิติโดนยอด
   useEffect(() => {
     if (allPersons.length > 0) {
       const stats = allPersons.map(p => parseInt(p.สถิติโดนยอด, 10) || 0);
@@ -216,19 +287,17 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
       toast({ title: "ไฟล์ไม่ถูกต้อง", description: "กรุณาเลือกไฟล์ .xlsx เท่านั้น", variant: "destructive" })
       return
     }
-    // เพิ่มไฟล์ใหม่โดยไม่ซ้ำชื่อ
     setExclusionFiles(prev => {
       const existingNames = new Set(prev.map(f => f.name))
       return [...prev, ...files.filter(f => !existingNames.has(f.name))]
     })
-    // โหลดชื่อชีทของแต่ละไฟล์
     for (const file of files) {
       const arrayBuffer = await file.arrayBuffer()
       const workbook = XLSX.read(arrayBuffer, { type: "array" })
       setExclusionSheetNames(prev => ({ ...prev, [file.name]: workbook.SheetNames }))
       setSelectedExclusionSheets(prev => ({ ...prev, [file.name]: [] }))
     }
-    setNamesToExclude(new Set()) // Reset excluded names (จะประมวลผลใหม่ใน useEffect)
+    setNamesToExclude(new Set())
   }
 
   useEffect(() => {
@@ -250,7 +319,7 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
           const data = XLSX.utils.sheet_to_json(ws, { header: 1, range: 3 }) as any[][]
           const filteredData = data.filter(row => row && row.length >= 4 && (row[0] || row[2] || row[3]))
           filteredData.forEach(row => {
-            const fullName = normalizeName(row[2], row[3]) // คอลัมน์ C, D
+            const fullName = normalizeName(row[2], row[3])
             if (fullName) names.add(fullName)
           })
         }
@@ -269,9 +338,6 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     setExcludedClubs(prev => checked ? [...prev, club] : prev.filter(c => c !== club))
     }
   
-  // ปรับให้เลือกชีทแบบ per-file
-  // (ฟังก์ชันนี้ไม่ได้ใช้ตรงๆใน UI ใหม่แล้ว, ใช้ inline ใน map exclusionFiles)
-
   const handleSelectAllPositions = () => {
     setExcludedPositions(prev => prev.length === positions.length ? [] : [...positions])
   }
@@ -285,127 +351,64 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
       toast({ title: "กรุณากรอกชื่อยอด", variant: "destructive" })
       return
     }
-    if (allPersons.length === 0) {
-      toast({ title: "ไม่มีข้อมูลในระบบ", description: "กรุณาโหลดข้อมูลจาก Google Sheets ก่อน", variant: "destructive" })
-      return
-    }
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
-      let filteredData = [...allPersons]
+        const namesToExcludeArray = Array.from(namesToExclude);
 
-      // --- NEW: Filter based on Excel file ---
-      if (namesToExclude.size > 0) {
-        filteredData = filteredData.filter(person => {
-          const personName = normalizeName(person.ชื่อ, person.สกุล)
-          return !namesToExclude.has(personName)
-        })
-      }
-      // -----------------------------------------
+        const response = await fetch('/api/ceremony-duty/assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                allPersons,
+                requiredByYear,
+                namesToExclude: namesToExcludeArray,
+                statMax,
+                statDomain,
+                excludedPositions,
+                excludedClubs,
+            }),
+        });
 
-      // NEW: filter by statRange
-      filteredData = filteredData.filter(person => {
-        const stat = parseInt(person.สถิติโดนยอด, 10) || 0;
-        return stat >= statDomain[0] && stat <= statMax;
-      });
+        const result = await response.json();
 
-      const normalize = (str?: string) => (str ? str.trim().toLowerCase() : "")
-
-      if (excludedPositions.length > 0) {
-        const normPositions = excludedPositions.map(normalize)
-        filteredData = filteredData.filter(person => !normPositions.includes(normalize(person.หน้าที่)))
-      }
-
-      if (excludedClubs.length > 0) {
-        const normClubs = excludedClubs.map(normalize)
-        filteredData = filteredData.filter(person => !normClubs.includes(normalize(person.ชมรม)))
-      }
-
-      if (filteredData.length < personCount) {
-        toast({
-          title: "บุคลากรไม่เพียงพอ",
-          description: `ต้องการ ${personCount} คน แต่มีเพียง ${filteredData.length} คนหลังจากการกรอง`,
-          variant: "destructive",
-        })
-        setIsLoading(false)
-        return
-      }
-      
-      if (filteredData.length === 0) {
-        toast({ title: "ไม่มีข้อมูลที่ตรงตามเงื่อนไข", description: "กรุณาปรับเงื่อนไขการกรอง", variant: "destructive" })
-        setIsLoading(false)
-        return
-      }
-
-      // Shuffle filteredData (Fisher-Yates)
-      for (let i = filteredData.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [filteredData[i], filteredData[j]] = [filteredData[j], filteredData[i]]
-      }
-
-      // Sort by stats (ascending - least duty assignments first) - like Python code
-      filteredData.sort((a, b) => parseInt(a.สถิติโดนยอด, 10) - parseInt(b.สถิติโดนยอด, 10))
-
-      // Group by affiliation for fair distribution (like Python code)
-      const groupedByAffiliation: { [key: string]: PersonData[] } = {}
-      filteredData.forEach((person) => {
-        if (!groupedByAffiliation[person.สังกัด]) {
-          groupedByAffiliation[person.สังกัด] = []
+        if (response.ok && result.success) {
+            setSelectedPersons(result.selectedPersons);
+            
+            if (result.message.includes("แต่จัดได้เพียง")) {
+                 toast({
+                    title: "ไม่สามารถหาคนได้ครบตามจำนวนที่ต้องการ",
+                    description: result.message,
+                    variant: "default",
+                });
+            } else {
+                toast({
+                    title: "จัดยอดสำเร็จ",
+                    description: `เลือกบุคลากร ${result.selectedPersons.length} คน สำหรับ ${dutyName}`,
+                });
+            }
+        } else {
+            toast({
+                title: result.error || "เกิดข้อผิดพลาดในการจัดยอด",
+                description: result.description || "ไม่สามารถจัดยอดได้",
+                variant: "destructive",
+            });
         }
-        groupedByAffiliation[person.สังกัด].push(person)
-      })
 
-      // Select people fairly from each affiliation (Python algorithm)
-      const selected: PersonData[] = []
-      const affiliations = Object.keys(groupedByAffiliation)
-      const usedIndices = new Set<string>()
-
-      while (selected.length < personCount && selected.length < filteredData.length) {
-        for (const affiliation of affiliations) {
-          if (selected.length >= personCount) break
-
-          const availablePeople = groupedByAffiliation[affiliation].filter((person) => !usedIndices.has(person.ลำดับ))
-
-          if (availablePeople.length > 0) {
-            // Pick the person with lowest stats from this affiliation
-            const selectedPerson = availablePeople[0]
-            selected.push(selectedPerson)
-            usedIndices.add(selectedPerson.ลำดับ)
-          }
-        }
-      }
-
-      // Sort final selection by affiliation then position (as requested)
-      selected.sort((a, b) => {
-        if (a.สังกัด !== b.สังกัด) {
-          return a.สังกัด.localeCompare(b.สังกัด, "th")
-        }
-        return a.ตำแหน่ง.localeCompare(b.ตำแหน่ง, "th")
-      })
-
-      setSelectedPersons(selected)
-
-      toast({
-        title: "จัดยอดสำเร็จ",
-        description: `เลือกบุคลากร ${selected.length} คน สำหรับ ${dutyName}`,
-      })
     } catch (error) {
-      toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถจัดยอดได้",
-        variant: "destructive",
-      })
+        console.error('[จัดยอด] Client-side ERROR:', error);
+        toast({
+            title: "เกิดข้อผิดพลาด",
+            description: "ไม่สามารถสื่อสารกับเซิร์ฟเวอร์ได้",
+            variant: "destructive",
+        });
     } finally {
-      setIsLoading(false)
+        setIsLoading(false);
     }
   }
 
-  // Export to real .xlsx with exceljs (merge cell, font, layout)
-  // Export to real .xlsx with exceljs (merge cell, font, layout)
-  // Export to real .xlsx with exceljs (merge cell, font, layout)
-  // --- ฟีเจอร์บันทึกไฟล์ยอดที่สร้าง ---
   const [saveToHistory, setSaveToHistory] = useState(false);
-  // ฟังก์ชันบันทึกประวัติยอดลง localStorage
+
   function saveExportHistory(type: 'excel' | 'report', fileName: string, content?: string) {
     if (!saveToHistory) return;
     const key = 'jarvis-duty-history';
@@ -417,19 +420,15 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
       sheetName,
       date: new Date().toISOString(),
       count: selectedPersons.length,
-      content: content || null, // เก็บ content สำหรับ preview
+      content: content || null,
     };
-    const next = [newEntry, ...prev].slice(0, 20); // เก็บ 20 รายการล่าสุด
+    const next = [newEntry, ...prev].slice(0, 20);
     localStorage.setItem(key, JSON.stringify(next));
   }
 
-  // ฟังก์ชันส่งไฟล์ไปยัง Google Sheets จริงๆ
   async function sendFileToGoogleSheets(fileName: string, fileData: string) {
     try {
-      // ใช้ Google Apps Script Web App URL
-      // คุณต้องสร้าง Google Apps Script ก่อน (ดูคำแนะนำด้านล่าง)
       const APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
-      // ตัวอย่าง: 'https://script.google.com/macros/s/AKfycby.../exec'
       
       const payload = {
         action: 'addFile',
@@ -462,7 +461,6 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     } catch (error) {
       console.error('Failed to send file to Google Sheets:', error);
       
-      // สำหรับตอนนี้ ให้แสดงข้อมูลใน console แทน
       console.log('ข้อมูลที่จะส่ง:', {
         fileName,
         date: new Date().toLocaleDateString('th-TH'),
@@ -485,18 +483,14 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   const workbook = new ExcelJS.Workbook();
   const ws = workbook.addWorksheet("ยอดพิธี");
 
-  // ฟอนต์หลัก
   const mainFont = { name: "TH Sarabun New", size: 14 };
 
-  // กำหนด border style - ใช้เส้นบางทั้งหมด
   const thin: { style: BorderStyle } = { style: 'thin' };
 
-  // แถว 1: ชื่อยอด (merge A1:J1)
   ws.mergeCells("A1:J1");
   ws.getCell("A1").value = dutyName;
   ws.getCell("A1").font = mainFont;
   ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
-  // เพิ่มเส้นขอบให้แถว 1
   ws.getCell("A1").border = {
     top: thin,
     left: thin,
@@ -504,10 +498,8 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     bottom: thin,
   };
 
-  // แถว 2: เว้นว่าง (merge A2:J2)
   ws.mergeCells("A2:J2");
   ws.getCell("A2").value = "";
-  // เพิ่มเส้นขอบให้แถว 2
   ws.getCell("A2").border = {
     top: thin,
     left: thin,
@@ -515,7 +507,6 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     bottom: thin,
   };
 
-  // แถว 3: หัวตาราง (merge B3:D3)
   ws.mergeCells("B3:D3");
   ws.getCell("B3").value = "ยศ ชื่อ-สกุล";
   ws.getCell("B3").font = mainFont;
@@ -542,7 +533,6 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   ws.getCell("J3").font = mainFont;
   ws.getCell("J3").alignment = { horizontal: "center", vertical: "middle" };
 
-  // หัวตาราง (row 3) - ใช้เส้นบางทั้งหมด
   for (let col = 1; col <= 10; col++) {
     const cell = ws.getCell(3, col);
     cell.border = {
@@ -553,51 +543,39 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     };
   }
 
-  // ข้อมูล
   selectedPersons.forEach((person, idx) => {
     const rowIdx = idx + 4;
-    // คอลัมน์ A: เลขไทย
     ws.getCell(`A${rowIdx}`).value = toThaiNumber(idx + 1);
     ws.getCell(`A${rowIdx}`).font = mainFont;
     ws.getCell(`A${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    // คอลัมน์ B: ยศ
     ws.getCell(`B${rowIdx}`).value = person.ยศ;
     ws.getCell(`B${rowIdx}`).font = mainFont;
     ws.getCell(`B${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    // คอลัมน์ C: ชื่อ
     ws.getCell(`C${rowIdx}`).value = person.ชื่อ;
     ws.getCell(`C${rowIdx}`).font = mainFont;
     ws.getCell(`C${rowIdx}`).alignment = { horizontal: "left", vertical: "middle" };
-    // คอลัมน์ D: สกุล
     ws.getCell(`D${rowIdx}`).value = person.สกุล;
     ws.getCell(`D${rowIdx}`).font = mainFont;
     ws.getCell(`D${rowIdx}`).alignment = { horizontal: "left", vertical: "middle" };
-    // คอลัมน์ E: ชั้นปีที่ (กึ่งกลาง)
     ws.getCell(`E${rowIdx}`).value = person.ชั้นปีที่;
     ws.getCell(`E${rowIdx}`).font = mainFont;
     ws.getCell(`E${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    // คอลัมน์ F: ตอน (กึ่งกลาง)
     ws.getCell(`F${rowIdx}`).value = person.ตอน;
     ws.getCell(`F${rowIdx}`).font = mainFont;
     ws.getCell(`F${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    // คอลัมน์ G: ตำแหน่ง (กึ่งกลาง)
     ws.getCell(`G${rowIdx}`).value = person.ตำแหน่ง;
     ws.getCell(`G${rowIdx}`).font = mainFont;
     ws.getCell(`G${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    // คอลัมน์ H: สังกัด (กึ่งกลาง)
     ws.getCell(`H${rowIdx}`).value = person.สังกัด;
     ws.getCell(`H${rowIdx}`).font = mainFont;
     ws.getCell(`H${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    // คอลัมน์ I: เบอร์โทรศัพท์ (กึ่งกลาง)
     ws.getCell(`I${rowIdx}`).value = person.เบอร์โทรศัพท์;
     ws.getCell(`I${rowIdx}`).font = mainFont;
     ws.getCell(`I${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    // คอลัมน์ J: หมายเหตุ (กึ่งกลาง)
     ws.getCell(`J${rowIdx}`).value = "";
     ws.getCell(`J${rowIdx}`).font = mainFont;
     ws.getCell(`J${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
     
-    // ใส่ border รอบ cell ทุก cellที่มีข้อมูล (A-J)
     for (let col = 1; col <= 10; col++) {
       ws.getCell(rowIdx, col).border = {
         top: thin,
@@ -608,7 +586,6 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     }
   });
 
-  // ปรับความกว้างคอลัมน์
   ws.getColumn(1).width = 6;
   ws.getColumn(2).width = 5;
   ws.getColumn(3).width = 15;
@@ -620,11 +597,9 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   ws.getColumn(9).width = 15;
   ws.getColumn(10).width = 15;
 
-  // สร้างไฟล์และดาวน์โหลด
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   
-  // สร้าง base64 สำหรับส่งไปยัง Google Sheets
   const uint8Array = new Uint8Array(buffer);
   let binaryString = '';
   for (let i = 0; i < uint8Array.length; i++) {
@@ -640,9 +615,7 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   link.click();
   document.body.removeChild(link);
 
-  // ถ้าติ๊กบันทึกไฟล์ไว้ในประวัติ
   if (saveToHistory) {
-    // ส่งไฟล์ไปยัง Google Sheets
     const result = await sendFileToGoogleSheets(`${dutyName}.xlsx`, dataUrl);
     if (result.success) {
       toast({ title: "ส่งไฟล์สำเร็จ", description: result.message });
@@ -650,7 +623,6 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
       toast({ title: "เกิดข้อผิดพลาด", description: result.message, variant: "destructive" });
     }
     
-    // บันทึกไฟล์ลง localStorage ด้วย base64
     saveExportHistory('excel', `${dutyName}.xlsx`, dataUrl);
   }
 
@@ -663,10 +635,9 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
       return
     }
 
-    // รายงาน exclusionFiles
     let exclusionFilesSummary = 'ไม่มี';
     if (exclusionFiles.length > 0) {
-      exclusionFilesSummary = exclusionFiles.map(f => `${f.name}`).join(', ') + ` (${namesToExclude.size} คน)`;
+      exclusionFilesSummary = exclusionFiles.map(f => `${f.name}`).join(', ') + ` (${namesToExclude.size} คน)`
     }
     const reportLines = [
       `รายงานยอด${dutyName}`,
@@ -701,9 +672,7 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     link.click()
     document.body.removeChild(link)
 
-    // ถ้าติ๊กบันทึกไฟล์ไว้ในประวัติ
     if (saveToHistory) {
-      // ส่งรายงานไปยัง Google Sheets (ในรูปแบบ text)
       const result = await sendFileToGoogleSheets(`รายงาน_${dutyName}.txt`, textContent);
       if (result.success) {
         toast({ title: "ส่งรายงานสำเร็จ", description: result.message });
@@ -711,7 +680,6 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
         toast({ title: "เกิดข้อผิดพลาด", description: result.message, variant: "destructive" });
       }
       
-      // บันทึกรายงานลง localStorage
       saveExportHistory('report', `รายงาน_${dutyName}.txt`, textContent);
     }
 
@@ -719,10 +687,9 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   }
 
   const refreshData = () => {
-    loadSheetData()
+    loadSheetData(true)
   }
 
-  // ฟังก์ชันล้าง state และกลับหน้าหลัก
   const handleBackWithConfirm = () => {
     if (dutyName || selectedPersons.length > 0) {
       if (window.confirm('คุณมีข้อมูลการทำงานที่ยังไม่ได้บันทึก หากออกจากหน้านี้ข้อมูลจะหายไป\n\nต้องการออกจากหน้านี้ใช่หรือไม่?')) {
@@ -735,11 +702,9 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     }
   }
 
-  // ฟังก์ชันล้าง state ปัจจุบัน
   const clearCurrentState = () => {
     if (window.confirm('ต้องการล้างข้อมูลการทำงานทั้งหมดใช่หรือไม่?')) {
       setDutyName("")
-      setPersonCount(1)
       setSelectedPersons([])
       setExcludedPositions([])
       setExcludedClubs([])
@@ -757,7 +722,6 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="flex gap-2">
             <Button onClick={handleBackWithConfirm} variant="outline" className="text-white border-white/30 hover:bg-white/10 hover:text-white bg-transparent backdrop-blur-sm">
@@ -768,7 +732,7 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
               <X className="h-4 w-4 mr-2" />
               ล้างข้อมูล
             </Button>
-          </div>
+            </div>
           <div className="text-center order-first sm:order-none">
             <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent flex items-center justify-center gap-2">
               <Award className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400" />
@@ -776,13 +740,20 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
             </h1>
             <p className="text-slate-300 mt-2 text-sm sm:text-base">ระบบจัดการเวรพิธีและงานพิเศษ - เชื่อมต่อ Google Sheets</p>
           </div>
-          <Button onClick={refreshData} variant="outline" size="sm" disabled={isLoadingData} className="text-white border-white/30 hover:bg-white/10 bg-transparent backdrop-blur-sm w-full sm:w-auto">
-            <Database className={`h-4 w-4 mr-2 ${isLoadingData ? "animate-spin" : ""}`} />
-            รีเฟรชข้อมูล
-          </Button>
-        </div>
-
-        {/* Status Bar */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="bg-yellow-500/90 text-white hover:bg-yellow-600"
+              onClick={() => router.push("/ceremony-duty/manual")}
+            >
+              จัดยอดด้วยตัวเอง
+            </Button>
+            <Button onClick={refreshData} variant="outline" size="sm" disabled={isLoadingData} className="text-white border-white/30 hover:bg-white/10 bg-transparent backdrop-blur-sm w-full sm:w-auto">
+              <Database className={`h-4 w-4 mr-2 ${isLoadingData ? "animate-spin" : ""}`} />
+              รีเฟรชข้อมูล
+            </Button>
+          </div>
+  </div>
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
@@ -791,7 +762,8 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
                 {connectionStatus === "connected" ? "เชื่อมต่อแล้ว" : connectionStatus === "error" ? "เชื่อมต่อล้มเหลว" : "กำลังเชื่อมต่อ"}
               </Badge>
               <span className="text-slate-300 text-xs sm:text-sm">
-                ฐานข้อมูล: {sheetName} | ข้อมูลทั้งหมด: {allPersons.length} คน
+          ฐานข้อมูล: {sheetName === 'Admin' ? 'รวม' : sheetName}
+                {' | '}ข้อมูลทั้งหมด: {allPersons.length} คน
               </span>
               {lastUpdated && (
                 <span className="text-slate-400 text-xs sm:text-sm">อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString("th-TH")}</span>
@@ -836,84 +808,71 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
                     <Label htmlFor="duty-name" className="text-white font-medium text-sm sm:text-base">ชื่อยอด</Label>
                     <Input id="duty-name" value={dutyName} onChange={(e) => setDutyName(e.target.value)} placeholder="กรอกชื่อยอด" className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 text-sm sm:text-base"/>
                   </div>
-                  <div>
-                    <Label htmlFor="person-count" className="text-white font-medium text-sm sm:text-base">จำนวนคน</Label>
-                    <Input id="person-count" type="number" min="1" value={personCount === 0 ? "" : personCount} onChange={(e) => setPersonCount(Math.max(0, parseInt(e.target.value, 10) || 0))} onBlur={(e) => { if (parseInt(e.target.value, 10) < 1) setPersonCount(1) }} className="bg-slate-700/50 border-slate-600 text-white focus:border-blue-400 mt-2 text-sm sm:text-base"/>
-                  </div>
                 </CardContent>
               </Card>
-
-              {/* Excel Exclusion Card - รองรับหลายไฟล์, ลบไฟล์, เลือกชีทต่อไฟล์ */}
               <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-white">
-                    <FileCheck className="h-5 w-5 text-green-400" />
-                    ไม่เลือกจากไฟล์ Excel
+                    <Label className="text-white font-medium text-sm sm:text-base">จำนวนคนแต่ละชั้นปี</Label>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="exclusion-file" className="text-white font-medium text-sm sm:text-base">อัปโหลดไฟล์ (.xlsx)</Label>
-                    <Input id="exclusion-file" type="file" accept=".xlsx" multiple onChange={handleExclusionFileChange} className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 file:bg-slate-600 file:text-white file:border-0"/>
-                  </div>
-                  {exclusionFiles.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between pt-2">
-                        <Label htmlFor="check-all-sheets" className="text-white font-medium text-sm sm:text-base">ตรวจสอบทุกชีทในไฟล์</Label>
-                        <Switch id="check-all-sheets" checked={checkAllSheets} onCheckedChange={setCheckAllSheets} />
-                      </div>
-                      <div className="space-y-2">
-                        {exclusionFiles.map((file) => (
-                          <div key={file.name} className="border border-slate-600 rounded-lg p-2 bg-slate-700/40 flex flex-col gap-1">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-green-400" />
-                                <span className="text-white text-xs sm:text-sm font-medium truncate max-w-[120px] sm:max-w-[200px]">{file.name}</span>
-                                <Badge className="bg-green-600 text-xs">{(exclusionSheetNames[file.name] || []).length} ชีท</Badge>
-                              </div>
-                              <Button size="icon" variant="ghost" className="text-red-400 hover:bg-red-500/20" title="ลบไฟล์นี้"
-                                onClick={() => {
-                                  setExclusionFiles(prev => prev.filter(f => f.name !== file.name))
-                                  setExclusionSheetNames(prev => { const cp = { ...prev }; delete cp[file.name]; return cp })
-                                  setSelectedExclusionSheets(prev => { const cp = { ...prev }; delete cp[file.name]; return cp })
-                                }}>
-                                <span className="sr-only">ลบไฟล์</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                              </Button>
-                            </div>
-                            {!checkAllSheets && (
-                              <div className="pl-6 pt-1">
-                                <div className="flex flex-wrap gap-2">
-                                  {(exclusionSheetNames[file.name] || []).map(sheet => (
-                                    <div key={sheet} className="flex items-center space-x-1">
-                                      <Checkbox id={`sheet-${file.name}-${sheet}`}
-                                        checked={(selectedExclusionSheets[file.name] || []).includes(sheet)}
-                                        onCheckedChange={(checked) => {
-                                          setSelectedExclusionSheets(prev => {
-                                            const prevSheets = prev[file.name] || [];
-                                            return {
-                                              ...prev,
-                                              [file.name]: checked ? [...prevSheets, sheet] : prevSheets.filter(s => s !== sheet)
-                                            }
-                                          })
-                                        }}
-                                        className="border-slate-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"/>
-                                      <Label htmlFor={`sheet-${file.name}-${sheet}`} className="text-white text-xs cursor-pointer truncate max-w-[80px]">{sheet}</Label>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-slate-600">
-                        <Badge className="bg-green-600 text-xs">พบ {namesToExclude.size} ชื่อที่จะถูกยกเว้น</Badge>
-                      </div>
+                  {["1", "2", "3", "4", "5"].map((year) => (
+                    <div key={year} className="flex items-center gap-2">
+                      <Label htmlFor={`year-${year}-count`} className="text-white text-sm sm:text-base w-20">
+                        ชั้นปีที่ {year}:
+                      </Label>
+                      <Input
+                        id={`year-${year}-count`}
+                        type="number"
+                        min="0"
+                        value={requiredByYear[year] === 0 ? "" : requiredByYear[year]}
+                        onChange={(e) => {
+                          const value = Math.max(0, parseInt(e.target.value, 10) || 0);
+                          setRequiredByYear(prev => ({ ...prev, [year]: value }));
+                        }}
+                        className="bg-slate-700/50 border-slate-600 text-white focus:border-blue-400 text-sm sm:text-base"
+                      />
                     </div>
-                  )}
+                  ))}
                 </CardContent>
               </Card>
+      {isAdmin && (
+  <Card className="mb-4 bg-slate-800/50 border-slate-700 shadow-xl">
+          <CardHeader className="pb-2 flex flex-row items-center gap-4">
+            <span className="font-medium text-white text-sm">กรองสังกัด:</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-blue-200 hover:text-white"
+              onClick={() => setSelectedAffiliations(allAffiliations)}
+            >เลือกทั้งหมด</Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-red-200 hover:text-white"
+              onClick={() => setSelectedAffiliations([])}
+            >ล้างทั้งหมด</Button>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {allAffiliations.map(aff => (
+              <label key={aff} className="flex items-center gap-1 cursor-pointer bg-blue-800/60 rounded px-2 py-1 text-white border border-blue-700 hover:bg-blue-700 transition">
+                <Checkbox
+                  id={`affiliation-${aff}`}
+                  checked={selectedAffiliations.includes(aff)}
+                  onCheckedChange={checked => {
+                    setSelectedAffiliations(prev =>
+                      checked ? [...prev, aff] : prev.filter(a => a !== aff)
+                    );
+                  }}
+                  className="border-slate-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                />
+                <span className="text-xs sm:text-sm truncate max-w-[80px]">{aff}</span>
+              </label>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
               <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                 <CardHeader>
@@ -934,7 +893,7 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
                     ))}
                   </div>
                   {excludedPositions.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-slate-600"><Badge variant="destructive" className="text-xs">ยกเว้น {excludedPositions.length} หน้าที่</Badge></div>
+                    <div className="mt-3 pt-3 border-t border-slate-600"><Badge className="bg-red-600 text-xs">ยกเว้น {excludedPositions.length} หน้าที่</Badge></div>
                   )}
                 </CardContent>
               </Card>
@@ -963,7 +922,6 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
                 </CardContent>
               </Card>
 
-              {/* NEW: Card เลือกช่วงสถิติโดนยอด */}
               <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-white">
@@ -1009,7 +967,7 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
                           <input id="save-to-history" type="checkbox" checked={saveToHistory} onChange={e => setSaveToHistory(e.target.checked)} className="accent-blue-500 w-4 h-4" />
                           <label htmlFor="save-to-history" className="text-xs text-slate-300 cursor-pointer select-none">บันทึกไฟล์นี้ไว้ในประวัติยอด (แสดงใน Dashboard)</label>
                         </div>
-                      </>
+                      </> 
                     )}
                   </div>
                 </CardContent>
@@ -1039,16 +997,16 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {selectedPersons.map((person, index) => (
-                            <TableRow key={person.ลำดับ} className={index % 2 === 0 ? "bg-slate-800/60" : "bg-slate-900/60"}>
+                          {selectedPersons.map((person: PersonData, index: number) => (
+                            <TableRow key={person.ลำดับ || index} className={index % 2 === 0 ? "bg-slate-800/60" : "bg-slate-900/60"}>
                               <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-pre-line break-words text-center text-white border-b border-slate-700">{toThaiNumber(index + 1)}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-left text-white border-b border-slate-700">{person.ยศ} {person.ชื่อ} {person.สกุล}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ชั้นปีที่}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตอน}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตำแหน่ง}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.สังกัด}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.เบอร์โทรศัพท์}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700"><Badge className="bg-blue-600 text-white text-xs">{(person.สถิติโดนยอด || "").replace(/^'/, "")}</Badge></TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-left text-white border-b border-slate-700">{person.ยศ || '-'} {person.ชื่อ || '-'} {person.สกุล || '-'}</TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ชั้นปีที่ || '-'}</TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตอน || '-'}</TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตำแหน่ง || '-'}</TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.สังกัด || '-'}</TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.เบอร์โทรศัพท์ || '-'}</TableCell>
+                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700"><Badge className="bg-blue-600 text-white text-xs">{person.สถิติโดนยอด || '-'}</Badge></TableCell>
                             </TableRow>
                           ))}
                         </TableBody>

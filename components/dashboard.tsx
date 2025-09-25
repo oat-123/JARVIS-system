@@ -205,7 +205,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
   }
 
   if (activeModule === "ceremony-duty") {
-    return <CeremonyDuty onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
+    return <CeremonyDuty onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} user={user} />
   }
   if (activeModule === "night-duty") {
     return <NightDuty onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />

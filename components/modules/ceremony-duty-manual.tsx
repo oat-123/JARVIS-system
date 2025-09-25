@@ -18,6 +18,8 @@ import type { BorderStyle } from "exceljs";
 import { saveModuleState, loadModuleState, clearModuleState, ModuleState } from "@/lib/state-persistence";
 import { loadFromCache, saveToCache } from "@/lib/ccache";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useUserSession } from "@/hooks/useUserSession";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 
 // Helper to convert Thai numerals to Arabic numerals
@@ -99,7 +101,15 @@ function CeremonyDutyManualInternal() {
   const [excludedClubs, setExcludedClubs] = useState<string[]>([])
   const [statDomain, setStatDomain] = useState<[number, number]>([0, 10]);
   const [statMax, setStatMax] = useState(10);
-  const isAdmin = true;
+
+  const { user, isLoading: isLoadingUser, isError: isErrorUser } = useUserSession();
+  console.log("[CeremonyDutyManual] User from session:", user);
+  console.log("[CeremonyDutyManual] User role:", user?.role);
+  console.log("[CeremonyDutyManual] User role (lowercase):", user?.role?.toLowerCase());
+  const canAccessPage = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'oat' || user?.role?.toLowerCase() === 'user';
+  const isSuperAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'oat';
+  console.log("[CeremonyDutyManual] canAccessPage:", canAccessPage);
+  console.log("[CeremonyDutyManual] isSuperAdmin:", isSuperAdmin);
 
   const [isStateLoaded, setIsStateLoaded] = useState(false);
 
@@ -640,7 +650,7 @@ function CeremonyDutyManualInternal() {
     }
   };
 
-  if (isLoadingData && allPersons.length === 0) {
+  if (isLoadingData) {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6 flex items-center justify-center">
             <div className="text-center">
@@ -651,19 +661,55 @@ function CeremonyDutyManualInternal() {
     );
   }
 
-  if (error) {
+  if (isLoadingUser) {
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6 flex items-center justify-center">
+            <div className="text-center">
+                <Database className="h-12 w-12 mx-auto mb-4 animate-pulse" />
+                <h3 className="text-xl font-semibold mb-2">กำลังโหลดข้อมูลผู้ใช้...</h3>
+            </div>
+        </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6 flex items-center justify-center">
+        <div className="text-center text-red-400">
+          <AlertCircle className="h-12 w-12 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold mb-2">ไม่พบข้อมูลผู้ใช้</h3>
+          <p>กรุณาเข้าสู่ระบบเพื่อใช้งานฟีเจอร์นี้</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || isErrorUser) {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6 flex items-center justify-center">
             <div className="text-center text-red-400">
                 <AlertCircle className="h-12 w-12 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">เกิดข้อผิดพลาด</h3>
-                <p>{error}</p>
+                <p>{error || "ไม่สามารถโหลดข้อมูลผู้ใช้ได้"}</p>
             </div>
         </div>
     );
   }
 
   const hasPeople = rows.length > 0 && rows.some(r => r.ชื่อ);
+
+  console.log("[CeremonyDutyManual] Final canAccessPage check before render:", canAccessPage);
+  if (!canAccessPage) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6 flex items-center justify-center">
+        <div className="text-center text-red-400">
+          <AlertCircle className="h-12 w-12 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold mb-2">ไม่มีสิทธิ์เข้าถึง</h3>
+          <p>ฟีเจอร์นี้สำหรับผู้ดูแลระบบเท่านั้น</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
@@ -742,7 +788,7 @@ function CeremonyDutyManualInternal() {
                 </CardContent>
             </Card>
 
-            {isAdmin && (
+            {isSuperAdmin && (
                 <Card className="bg-slate-800/50 border-slate-700 shadow-xl">
                     <CardHeader className="pb-2 flex flex-row items-center justify-between">
                         <CardTitle className="flex items-center gap-2 text-white text-base">กรองสังกัด</CardTitle>

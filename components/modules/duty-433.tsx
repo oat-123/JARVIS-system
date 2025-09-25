@@ -109,7 +109,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
   const [prevView, setPrevView] = useState<"dashboard" | "list" | null>(null)
 
   // Enforce visibility: only allow admin/oat roles to use this module
-  if (user?.group?.toLowerCase() !== 'admin' && user?.group?.toLowerCase() !== 'oat') {
+  if (user?.role?.toLowerCase() !== 'admin' && user?.role?.toLowerCase() !== 'oat') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
         <div className="max-w-2xl mx-auto text-center">

@@ -51,6 +51,12 @@ import { Slider } from "@/components/ui/slider"
 interface CeremonyDutyProps {
   onBack: () => void
   sheetName: string
+  user: {
+    displayName: string
+    role: string
+    group: string
+    sheetname: string
+  } | null
 }
 
 interface PersonData {
@@ -76,32 +82,19 @@ interface ApiResponse {
   timestamp?: string
 }
 
-export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
+export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
   const router = useRouter();
-  // Log all raw values from the user's sheet when entering the page
-  useEffect(() => {
-    if (!sheetName) return;
-    fetch(`/api/sheets/ceremony?sheetName=${encodeURIComponent(sheetName)}&raw=1`)
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.rawValues) {
-          console.log('[CeremonyDuty] RAW SHEET VALUES for', sheetName, data.rawValues);
-        } else {
-          console.log('[CeremonyDuty] Sheet data for', sheetName, data);
-        }
-      })
-      .catch(err => {
-        console.error('[CeremonyDuty] Failed to fetch sheet data:', err);
-      });
-  }, [sheetName]);
-  const [dutyName, setDutyName] = useState("")
-  const [requiredByYear, setRequiredByYear] = useState<{[year: string]: number}>({
-    "1": 0, "2": 0, "3": 0, "4": 0, "5": 0
-  })
-  const [selectedPersons, setSelectedPersons] = useState<PersonData[]>([])
-  const [allPersons, setAllPersons] = useState<PersonData[]>([])
-  const role = 'admin'; 
-  const isAdmin = role === 'admin' || role === 'oat';
+  const isAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'oat';
+  console.log("[CeremonyDuty] User prop:", user);
+  console.log("[CeremonyDuty] isAdmin:", isAdmin);
+  const [allPersons, setAllPersons] = useState<PersonData[]>([]);
+  const [selectedPersons, setSelectedPersons] = useState<PersonData[]>([]);
+  const [excludedPositions, setExcludedPositions] = useState<string[]>([])
+  const [excludedClubs, setExcludedClubs] = useState<string[]>([])
+  const [statDomain, setStatDomain] = useState<[number, number]>([0, 10]);
+  const [statMax, setStatMax] = useState(10);
+  const [dutyName, setDutyName] = useState("");
+  const [requiredByYear, setRequiredByYear] = useState<{[key: string]: number}>({"1": 0, "2": 0, "3": 0, "4": 0, "5": 0});
   const [selectedAffiliations, setSelectedAffiliations] = useState<string[]>([]);
   const allAffiliations = useMemo(() => {
     if (!isAdmin) return [];
@@ -165,10 +158,7 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
     return Array.from(set).sort((a, b) => a.localeCompare(b, "th"))
   }, [allPersons])
 
-  const [excludedPositions, setExcludedPositions] = useState<string[]>([])
-  const [excludedClubs, setExcludedClubs] = useState<string[]>([])
-  const [statDomain, setStatDomain] = useState<[number, number]>([0, 10]);
-  const [statMax, setStatMax] = useState(10);
+  
 
   const saveCurrentState = () => {
     if (!isStateLoaded) return
@@ -744,7 +734,7 @@ export function CeremonyDuty({ onBack, sheetName }: CeremonyDutyProps) {
             <Button
               variant="outline"
               className="bg-yellow-500/90 text-white hover:bg-yellow-600"
-              onClick={() => router.push("/ceremony-duty/manual")}
+              onClick={() => router.push(isAdmin ? "/ceremony-duty/manual?sheetName=Admin" : "/ceremony-duty/manual")}
             >
               จัดยอดด้วยตัวเอง
             </Button>

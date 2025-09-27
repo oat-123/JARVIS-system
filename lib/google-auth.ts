@@ -184,7 +184,7 @@ export const findFolderByName = async (parentId: string, name: string) => {
 
 // ค้นหาไฟล์ Word ในโฟลเดอร์ (ชื่อใกล้เคียง targetName)
 export const findFileByName = async (parentId: string, targetName: string, mimeTypes: string[]) => {
-  const drive = await getDriveService()
+  const drive = await getDriveService();
   const mimeTypeQuery = mimeTypes.map(m => `mimeType = '${m}'`).join(' or ');
   const q = `('${parentId}' in parents) and trashed = false and (${mimeTypeQuery})`;
 
@@ -192,52 +192,74 @@ export const findFileByName = async (parentId: string, targetName: string, mimeT
     q: q,
     fields: 'files(id, name, webViewLink, webContentLink)',
     pageSize: 100,
-  })
-  const files = res.data.files || []
-  // fuzzy match
-  const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase()
-  const target = norm(targetName)
-  let best = null
-  let bestScore = 0
-  for (const f of files) {
-    const n = norm(f.name || '')
-    let score = 0
-    if (n === target) {
-      score = 100
-    } else if (n.includes(target) || target.includes(n)) {
-      score = 80
-    } else if (n.split('.')[0] === target.split('.')[0]) {
-      score = 70
-    }
-    if (score > bestScore) {
-      best = f
-      bestScore = score
-    }
+  });
+
+  const files = res.data.files || [];
+  if (!files.length) {
+    return { best: null, bestScore: 0, files: [] };
   }
 
-  // ถ้าไม่เจอไฟล์ที่มี 'นนร.' ให้ลองหาไฟล์ที่มีแต่ชื่อ-นามสกุล (ไม่มีนนร.)
-  if (!best) {
-    // ตัด 'นนร.' ออกจาก targetName ถ้ามี
-    const noRank = targetName.replace(/^นนร\.?\s*/i, '').trim()
-    const targetNoRank = norm(noRank)
-    for (const f of files) {
-      const n = norm(f.name || '')
-      let score = 0
-      if (n === targetNoRank) {
-        score = 90
-      } else if (n.includes(targetNoRank) || targetNoRank.includes(n)) {
-        score = 75
-      } else if (n.split('.')[0] === targetNoRank.split('.')[0]) {
-        score = 65
+  const normalizeAndTokenize = (str: string): string[] => {
+    return (str || '')
+      .replace(/^(นนร\.?|ประวัติฉก\.?)/i, '') // Remove common prefixes
+      .replace(/\.(docx?|pdf)$/i, '') // Remove file extensions
+      .replace(/[\s\._-]+/g, ' ') // Replace separators with space
+      .trim()
+      .toLowerCase()
+      .split(' ')
+      .filter(Boolean); // Remove empty tokens
+  };
+
+  const targetTokens = normalizeAndTokenize(targetName);
+  const lastName = targetTokens.length > 1 ? targetTokens[targetTokens.length - 1] : null;
+
+  let bestFile: any | null = null;
+  let bestScore = 0;
+
+  for (const file of files) {
+    if (!file.name) continue;
+
+    const fileTokens = normalizeAndTokenize(file.name);
+    let currentScore = 0;
+
+    // Direct comparison of normalized strings first
+    if (fileTokens.join(' ') === targetTokens.join(' ')) {
+      currentScore = 100;
+    } else {
+      let matchedTokens = 0;
+      const tempFileTokens = [...fileTokens];
+
+      targetTokens.forEach(token => {
+        const foundIndex = tempFileTokens.findIndex(fileToken => fileToken.includes(token) || token.includes(fileToken));
+        if (foundIndex !== -1) {
+          const isLastName = lastName && (token === lastName);
+          currentScore += isLastName ? 40 : 20; // Higher score for last name
+          matchedTokens++;
+          tempFileTokens.splice(foundIndex, 1); // Remove to avoid re-matching
+        }
+      });
+
+      // Bonus for matching all tokens
+      if (matchedTokens === targetTokens.length) {
+        currentScore += 15;
       }
-      if (score > bestScore) {
-        best = f
-        bestScore = score
-      }
+      
+      // Adjust score based on token count difference
+      const tokenDiff = Math.abs(targetTokens.length - fileTokens.length);
+      currentScore -= tokenDiff * 5;
+    }
+
+    if (currentScore > bestScore) {
+      bestScore = currentScore;
+      bestFile = file;
     }
   }
-  return { best, files };
-}
+  
+  // Clamp score to be between 0 and 100
+  bestScore = Math.max(0, Math.min(bestScore, 100));
+
+  return { best: bestFile, bestScore, files };
+};
 
 // สร้างลิงก์ดาวน์โหลด (webViewLink/webContentLink)
 export const getDownloadLink = (file: any) => {

@@ -176,10 +176,12 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
       });
 
       const data = await res.json();
-      if (data.success && data.link) {
+
+      // NEW LOGIC: Check score if file is found
+      if (data.success && data.link && data.score >= 95) {
         toast({
           title: "พบไฟล์แล้ว!",
-          description: "กำลังเริ่มดาวน์โหลด...",
+          description: `ความแม่นยำ ${data.score}%, กำลังเริ่มดาวน์โหลด...`,
           variant: "default",
         });
         const link = document.createElement('a');
@@ -188,14 +190,24 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        setLoading(false);
       } else {
-        // If not found, trigger the appropriate dialog
+        // If not found, score is too low, or link is missing, use fallback
+        const reason = data.success ? `ความแม่นยำต่ำ (${data.score}%)` : "ไม่พบไฟล์";
+        toast({
+          title: `${reason}, กำลังลองวิธีสำรอง...`,
+          variant: "default",
+        });
+
         if (fileType === 'word') {
-          setFileTypeNotFound('word');
-          setShowSecondaryDownloadDialog(true); // Specific dialog for Word
+          // Directly trigger secondary download for Word
+          // The secondary function will handle setLoading(false)
+          handleSecondaryWordDownload();
         } else {
+          // Show "not found" dialog for PDF
           setFileTypeNotFound('pdf');
-          setShowFileNotFoundDialog(true); // Generic dialog for PDF
+          setShowFileNotFoundDialog(true);
+          setLoading(false);
         }
       }
     } catch (error) {
@@ -205,7 +217,6 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
         description: "ไม่สามารถดาวน์โหลดไฟล์ได้ในขณะนี้",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };

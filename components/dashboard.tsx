@@ -29,12 +29,13 @@ import {
   ChevronDown,
   X,
 } from "lucide-react"
-import { CeremonyDuty } from "./modules/ceremony-duty"
+import { CeremonyDuty } from "./modules/ceremony-duty";
 import { NightDuty } from "./modules/night-duty"
 import { WeekendDuty } from "./modules/weekend-duty"
 import { ReleaseReport } from "./modules/release-report"
 import { Statistics } from "./modules/statistics"
 import { Duty433 } from "./modules/duty-433"
+
 
 interface DashboardProps {
   user: {
@@ -457,6 +458,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-2 sm:px-6 py-6">
+        
         {/* Welcome Section */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">

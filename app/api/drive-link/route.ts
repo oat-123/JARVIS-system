@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findFolderByName, findWordFileByName, getDownloadLink, getDriveService } from '@/lib/google-auth';
+import { findFolderByName, findFileByName, getDownloadLink, getDriveService } from '@/lib/google-auth';
 
 export const runtime = 'nodejs';
 
 // โฟลเดอร์ root ของ Drive (ค่าเริ่มต้น)
 const DRIVE_ROOT_ID = '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_';
 const PRIORITY_FOLDER_ID = '1AvPt_VAEt1FNbDLgUwykfhMljBXoTdcY'; // New priority folder
+const WORD_MIME_TYPES = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
 
     // 1. (NEW) First, search in the priority folder
     console.log(`[drive-link] วิธีที่ 1: ค้นหาในโฟลเดอร์ Priority: ${PRIORITY_FOLDER_ID}`);
-    const { best: priorityWordFile } = await findWordFileByName(PRIORITY_FOLDER_ID, personName);
+    const { best: priorityWordFile } = await findFileByName(PRIORITY_FOLDER_ID, personName, WORD_MIME_TYPES);
 
     if (priorityWordFile) {
       console.log('✅ พบไฟล์ในโฟลเดอร์ Priority:', priorityWordFile.name);
@@ -112,7 +113,9 @@ export async function POST(req: NextRequest) {
 
     // 4. Find Word file similar to personName
     console.log('[drive-link] ค้นหาไฟล์ Word ตามชื่อ:', personName);
-    const { best: wordFile, files } = await findWordFileByName(subFolder.id, personName);
+    const { best: wordFile, bestScore, files } = await findFileByName(subFolder.id, personName, WORD_MIME_TYPES);
+    console.log(`[drive-link] คะแนนความตรงกันของไฟล์: ${bestScore}`);
+
     // log all word files found for transparency
     try {
       const listWord = await (await getDriveService()).files.list({
@@ -126,7 +129,8 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.log('[drive-link] ไม่สามารถดึงรายการไฟล์เพื่อ log ได้:', e instanceof Error ? e.message : e)
     }
-    if (!wordFile) {
+
+    if (!wordFile || bestScore < 60) { // <--- Use score threshold
       // ดึงรายการไฟล์ทั้งหมดเพื่อ log ช่วยดีบัก
       const fileList = await (await getDriveService()).files.list({
         q: `('${subFolder.id}' in parents) and trashed = false and (mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or mimeType = 'application/msword')`,
@@ -134,7 +138,7 @@ export async function POST(req: NextRequest) {
         pageSize: 100,
       });
       const names = (fileList.data.files || []).map(f => f.name).join(', ');
-      console.log('❌ ไม่พบไฟล์ Word ที่ตรงกับชื่อ:', personName, 'ใน', subFolder.name);
+      console.log(`❌ ไม่พบไฟล์ Word ที่ตรงกับชื่อ (คะแนน: ${bestScore} < 60):`, personName, 'ใน', subFolder.name);
       console.log('[drive-link] ไฟล์ที่พบในโฟลเดอร์นี้:', names || '(ไม่มีไฟล์ word)');
       // เพิ่ม folderId และ folderName ใน response
       return NextResponse.json({ success: false, error: `ไม่พบไฟล์: ${personName}`, folderId: subFolder.id, folderName: subFolder.name, files });

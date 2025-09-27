@@ -25,14 +25,14 @@ export async function POST(req: NextRequest) {
 
     console.log(`[API/fetch-file-link] Searching for ${fileType} file for: ${personName} in folder ${DRIVE_FOLDER_ID}`);
 
-    const { best: foundFile, files } = await findFileByName(DRIVE_FOLDER_ID, personName, mimeTypes);
+    const { best: foundFile, bestScore, files } = await findFileByName(DRIVE_FOLDER_ID, personName, mimeTypes);
 
     if (!foundFile) {
       console.log(`[API/fetch-file-link] ${fileType} file not found for: ${personName}`);
-      return NextResponse.json({ success: false, error: `File not found for ${personName}`, files });
+      return NextResponse.json({ success: false, error: `File not found for ${personName}`, score: bestScore, files });
     }
 
-    console.log(`[API/fetch-file-link] Found file: ${foundFile.name}`);
+    console.log(`[API/fetch-file-link] Found file: ${foundFile.name} with score ${bestScore}`);
 
     const link = getDownloadLink(foundFile);
 
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Could not get download link' });
     }
 
-    return NextResponse.json({ success: true, link, fileName: foundFile.name });
+    return NextResponse.json({ success: true, link, fileName: foundFile.name, score: bestScore });
 
   } catch (error: any) {
     console.error('[API/fetch-file-link] ERROR:', error);

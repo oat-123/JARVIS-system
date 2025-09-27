@@ -34,6 +34,7 @@
     "fix": "chmod +x fix.sh && ./fix.sh"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.63.1",
     "@fullcalendar/core": "^6.1.15",
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/interaction": "6.1.15",

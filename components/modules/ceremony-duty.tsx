@@ -207,13 +207,16 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
   }
 
   const loadSheetData = async (force: boolean = false) => {
+    console.log(`[CeremonyDuty] loadSheetData called. Force refresh: ${force}`);
     setIsLoadingData(true)
     setError(null)
 
     const cacheKey = `ceremony-data-${sheetName}`;
     if (!force) {
+      console.log(`[CeremonyDuty] Attempting to load from cache with key: ${cacheKey}`);
       const cachedData = loadFromCache<PersonData[]>(cacheKey);
       if (cachedData) {
+        console.log(`[CeremonyDuty] Cache hit. Loaded ${cachedData.length} records.`);
         setAllPersons(cachedData);
         setConnectionStatus("connected");
         setLastUpdated(new Date());
@@ -221,28 +224,35 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
         setIsLoadingData(false);
         return;
       }
+      console.log(`[CeremonyDuty] Cache miss.`);
     }
 
     try {
+      console.log(`[CeremonyDuty] Fetching data from /api/sheets/ceremony?sheetName=${sheetName}`);
       const response = await fetch(`/api/sheets/ceremony?sheetName=${encodeURIComponent(sheetName)}`)
       const result: ApiResponse = await response.json()
       if (result.success && result.data) {
         const dataRows = result.data.slice(1)
+        console.log(`[CeremonyDuty] Successfully fetched ${dataRows.length} records.`);
         setAllPersons(dataRows)
         setConnectionStatus("connected")
         setLastUpdated(new Date())
         saveToCache(cacheKey, dataRows);
+        console.log(`[CeremonyDuty] Saved fetched data to cache.`);
         toast({ title: "เชื่อมต่อสำเร็จ", description: `โหลดข้อมูล ${dataRows.length} คน จาก ${sheetName}` })
       } else {
+        console.error(`[CeremonyDuty] API error: ${result.error}`, result.details);
         throw new Error(result.error || "Failed to load data")
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error occurred"
+      console.error(`[CeremonyDuty] Fetch failed: ${errorMessage}`, err);
       setError(errorMessage)
       setConnectionStatus("error")
       toast({ title: "เกิดข้อผิดพลาดในการเชื่อมต่อ", description: errorMessage, variant: "destructive" })
     } finally {
       setIsLoadingData(false)
+      console.log("[CeremonyDuty] loadSheetData finished.");
     }
   }
 
@@ -273,30 +283,41 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
   }, [allPersons]);
 
   const handleExclusionFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("[CeremonyDuty] handleExclusionFileChange triggered.");
     const files = Array.from(event.target.files || []).filter(f => f.name.endsWith('.xlsx'))
     if (files.length === 0) {
+      console.warn("[CeremonyDuty] No .xlsx files selected.");
       toast({ title: "ไฟล์ไม่ถูกต้อง", description: "กรุณาเลือกไฟล์ .xlsx เท่านั้น", variant: "destructive" })
       return
     }
+    console.log(`[CeremonyDuty] ${files.length} .xlsx file(s) selected.`);
     setExclusionFiles(prev => {
       const existingNames = new Set(prev.map(f => f.name))
-      return [...prev, ...files.filter(f => !existingNames.has(f.name))]
+      const newFiles = files.filter(f => !existingNames.has(f.name));
+      console.log(`[CeremonyDuty] Adding ${newFiles.length} new exclusion files.`);
+      return [...prev, ...newFiles]
     })
     for (const file of files) {
+      console.log(`[CeremonyDuty] Processing exclusion file: ${file.name}`);
       const arrayBuffer = await file.arrayBuffer()
       const workbook = XLSX.read(arrayBuffer, { type: "array" })
+      console.log(`[CeremonyDuty] Found sheets in ${file.name}: ${workbook.SheetNames.join(', ')}`);
       setExclusionSheetNames(prev => ({ ...prev, [file.name]: workbook.SheetNames }))
       setSelectedExclusionSheets(prev => ({ ...prev, [file.name]: [] }))
     }
     setNamesToExclude(new Set())
+    console.log("[CeremonyDuty] handleExclusionFileChange finished.");
   }
 
   useEffect(() => {
     const processExclusionFiles = async () => {
+      console.log("[CeremonyDuty] useEffect for processing exclusion files triggered.");
       if (!exclusionFiles.length) {
+        console.log("[CeremonyDuty] No exclusion files to process.");
         setNamesToExclude(new Set())
         return
       }
+      console.log(`[CeremonyDuty] Starting to process ${exclusionFiles.length} exclusion file(s).`);
       const names = new Set<string>()
       for (const file of exclusionFiles) {
         const arrayBuffer = await file.arrayBuffer()
@@ -304,6 +325,9 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
         const sheetsToProcess = checkAllSheets
           ? exclusionSheetNames[file.name] || []
           : selectedExclusionSheets[file.name] || []
+        
+        console.log(`[CeremonyDuty] Processing file '${file.name}', sheets: ${sheetsToProcess.join(', ') || 'None'}`);
+
         for (const sheetName of sheetsToProcess) {
           const ws = workbook.Sheets[sheetName]
           if (!ws) continue
@@ -315,6 +339,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
           })
         }
       }
+      console.log(`[CeremonyDuty] Finished processing exclusion files. Found ${names.size} unique names to exclude.`);
       setNamesToExclude(names)
     }
     processExclusionFiles()
@@ -338,7 +363,9 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
     }
 
   const generateDutyAssignment = async () => {
+    console.log("[CeremonyDuty] generateDutyAssignment started.");
     if (!dutyName.trim()) {
+      console.warn("[CeremonyDuty] Duty name is empty. Aborting.");
       toast({ title: "กรุณากรอกชื่อยอด", variant: "destructive" })
       return
     }
@@ -346,25 +373,29 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
 
     try {
         const namesToExcludeArray = Array.from(namesToExclude);
+        const payload = {
+            allPersons,
+            requiredByYear,
+            namesToExclude: namesToExcludeArray,
+            statMax,
+            statDomain,
+            excludedPositions,
+            excludedClubs,
+        };
+        console.log("[CeremonyDuty] Calling /api/ceremony-duty/assign with payload:", payload);
 
         const response = await fetch('/api/ceremony-duty/assign', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                allPersons,
-                requiredByYear,
-                namesToExclude: namesToExcludeArray,
-                statMax,
-                statDomain,
-                excludedPositions,
-                excludedClubs,
-            }),
+            body: JSON.stringify(payload),
         });
 
         const result = await response.json();
+        console.log("[CeremonyDuty] API response received:", result);
 
         if (response.ok && result.success) {
             setSelectedPersons(result.selectedPersons);
+            console.log(`[CeremonyDuty] Successfully assigned ${result.selectedPersons.length} persons.`);
             
             if (result.message.includes("แต่จัดได้เพียง")) {
                  toast({
@@ -379,6 +410,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
                 });
             }
         } else {
+            console.error("[CeremonyDuty] API assignment failed:", result);
             toast({
                 title: result.error || "เกิดข้อผิดพลาดในการจัดยอด",
                 description: result.description || "ไม่สามารถจัดยอดได้",
@@ -395,6 +427,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
         });
     } finally {
         setIsLoading(false);
+        console.log("[CeremonyDuty] generateDutyAssignment finished.");
     }
   }
 
@@ -418,6 +451,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
   }
 
   async function sendFileToGoogleSheets(fileName: string, fileData: string) {
+    console.log(`[CeremonyDuty] sendFileToGoogleSheets called for file: ${fileName}`);
     try {
       const APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
       
@@ -432,6 +466,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
         sheetId: '1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw',
         sheetName: 'file'
       };
+      console.log("[CeremonyDuty] Sending payload to Google Apps Script (file data truncated for brevity):", { ...payload, fileData: payload.fileData.substring(0, 100) + '...' });
 
       const response = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
@@ -442,8 +477,10 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
       });
 
       const result = await response.json();
+      console.log("[CeremonyDuty] Google Apps Script response:", result);
       
       if (result.success) {
+        console.log("[CeremonyDuty] Successfully sent file to Google Sheets.");
         return { success: true, message: 'ส่งไฟล์ไปยัง Google Sheets สำเร็จ' };
       } else {
         throw new Error(result.error || 'Unknown error');
@@ -466,10 +503,13 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
   }
 
   const exportToExcelXlsx = async () => {
+  console.log("[CeremonyDuty] exportToExcelXlsx started.");
   if (selectedPersons.length === 0) {
+    console.warn("[CeremonyDuty] No selected persons to export.");
     toast({ title: "ไม่มีข้อมูลให้ส่งออก", variant: "destructive" });
     return;
   }
+  console.log(`[CeremonyDuty] Exporting ${selectedPersons.length} persons to Excel.`);
 
   const workbook = new ExcelJS.Workbook();
   const ws = workbook.addWorksheet("ยอดพิธี");
@@ -607,6 +647,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
   document.body.removeChild(link);
 
   if (saveToHistory) {
+    console.log("[CeremonyDuty] Saving export to history and sending to Google Sheets.");
     const result = await sendFileToGoogleSheets(`${dutyName}.xlsx`, dataUrl);
     if (result.success) {
       toast({ title: "ส่งไฟล์สำเร็จ", description: result.message });
@@ -618,13 +659,17 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
   }
 
   toast({ title: "ส่งออกไฟล์ .xlsx สำเร็จ", description: `ไฟล์ ${dutyName}.xlsx ถูกดาวน์โหลดแล้ว` });
+  console.log("[CeremonyDuty] exportToExcelXlsx finished.");
 };
 
   const createReport = async () => {
+    console.log("[CeremonyDuty] createReport started.");
     if (selectedPersons.length === 0) {
+      console.warn("[CeremonyDuty] No selected persons to create report.");
       toast({ title: "ไม่มีข้อมูลให้สร้างรายงาน", variant: "destructive" })
       return
     }
+    console.log(`[CeremonyDuty] Creating report for ${selectedPersons.length} persons.`);
 
     let exclusionFilesSummary = 'ไม่มี';
     if (exclusionFiles.length > 0) {
@@ -664,6 +709,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
     document.body.removeChild(link)
 
     if (saveToHistory) {
+      console.log("[CeremonyDuty] Saving report to history and sending to Google Sheets.");
       const result = await sendFileToGoogleSheets(`รายงาน_${dutyName}.txt`, textContent);
       if (result.success) {
         toast({ title: "ส่งรายงานสำเร็จ", description: result.message });
@@ -675,6 +721,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
     }
 
     toast({ title: "สร้างรายงานสำเร็จ", description: `รายงาน ${dutyName} ถูกดาวน์โหลดแล้ว` })
+    console.log("[CeremonyDuty] createReport finished.");
   }
 
   const refreshData = () => {

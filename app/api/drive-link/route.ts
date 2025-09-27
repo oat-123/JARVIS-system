@@ -130,18 +130,36 @@ export async function POST(req: NextRequest) {
       console.log('[drive-link] ไม่สามารถดึงรายการไฟล์เพื่อ log ได้:', e instanceof Error ? e.message : e)
     }
 
-    if (!wordFile || bestScore < 60) { // <--- Use score threshold
-      // ดึงรายการไฟล์ทั้งหมดเพื่อ log ช่วยดีบัก
-      const fileList = await (await getDriveService()).files.list({
-        q: `('${subFolder.id}' in parents) and trashed = false and (mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or mimeType = 'application/msword')`,
-        fields: 'files(id, name)',
-        pageSize: 100,
-      });
-      const names = (fileList.data.files || []).map(f => f.name).join(', ');
-      console.log(`❌ ไม่พบไฟล์ Word ที่ตรงกับชื่อ (คะแนน: ${bestScore} < 60):`, personName, 'ใน', subFolder.name);
-      console.log('[drive-link] ไฟล์ที่พบในโฟลเดอร์นี้:', names || '(ไม่มีไฟล์ word)');
-      // เพิ่ม folderId และ folderName ใน response
-      return NextResponse.json({ success: false, error: `ไม่พบไฟล์: ${personName}`, folderId: subFolder.id, folderName: subFolder.name, files });
+    if (!wordFile || bestScore < 60) {
+      console.log(`[API/drive-link] Word file not found for: ${personName} (Score: ${bestScore}).`);
+      
+      try {
+        const drive = await getDriveService();
+        const allFilesInFolder = await drive.files.list({
+          q: `'${subFolder.id}' in parents and trashed = false`,
+          fields: 'files(id, name, mimeType)',
+          pageSize: 100,
+        });
+        const filesInFolder = allFilesInFolder.data.files || [];
+
+        if (filesInFolder.length > 0) {
+          console.log(`[API/drive-link] No matching Word file. Found ${filesInFolder.length} other files in folder "${subFolder.name}":`);
+          filesInFolder.forEach(f => console.log(`  - ${f.name} (${f.mimeType})`));
+          
+          return NextResponse.json({
+            success: false,
+            error: `ไม่พบไฟล์ Word ที่ตรงกันสำหรับ: ${personName}`,
+            folderId: subFolder.id,
+            alternativeFiles: filesInFolder.map(f => ({ id: f.id, name: f.name }))
+          });
+        } else {
+          console.log(`[API/drive-link] No other files found in folder: ${subFolder.name}`);
+          return NextResponse.json({ success: false, error: `ไม่พบไฟล์ Word และไฟล์อื่นๆ ในโฟลเดอร์: ${subFolder.name}`, folderId: subFolder.id });
+        }
+      } catch (e) {
+        console.error('[API/drive-link] Error fetching alternative files:', e);
+        return NextResponse.json({ success: false, error: `ไม่พบไฟล์ Word และเกิดข้อผิดพลาดในการค้นหาไฟล์อื่น`, folderId: subFolder.id });
+      }
     }
     console.log('✅ เจอไฟล์ Word:', wordFile);
 

@@ -280,6 +280,10 @@ export const findImageFileByName = async (parentId: string, targetName: string) 
     pageSize: 1000,
   });
   const files = res.data.files || [];
+  if (!files.length) {
+    return { best: null, files: [] };
+  }
+
   // fuzzy match
   const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
   const target = norm(targetName);
@@ -298,19 +302,21 @@ export const findImageFileByName = async (parentId: string, targetName: string) 
   }
 
   // If no good match, try a more fuzzy search just based on the first name
-  if (bestScore < 70) {
+  if (bestScore < 70 && targetName) {
     const firstName = targetName.split(' ')[0];
-    const targetFirstName = norm(firstName);
-    for (const f of files) {
-        const n = norm(f.name || '');
-        if (n.startsWith(targetFirstName)) {
-            best = f;
-            break;
-        }
+    if (firstName) {
+      const targetFirstName = norm(firstName);
+      for (const f of files) {
+          const n = norm(f.name || '');
+          if (n.startsWith(targetFirstName)) {
+              best = f;
+              break;
+          }
+      }
     }
   }
 
-  return best;
+  return { best, files };
 };
 
 // New function for user authentication from Google Sheet

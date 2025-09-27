@@ -4,7 +4,16 @@ import React, { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Calendar } from 'lucide-react'
+import { Calendar, Download } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 export function CreateFiles({ onBack }: { onBack: () => void }) {
   const [name, setName] = useState('')
@@ -19,7 +28,6 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
   const [showProgress, setShowProgress] = useState<boolean>(false)
   const [progressText, setProgressText] = useState<string>('')
 
-  // per-person link generation state
   type LinkState = {
     status: 'idle' | 'loading' | 'ok' | 'error'
     url?: string
@@ -27,7 +35,6 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     percent?: number
     message?: string
     folderId?: string
-    // image link state (extra)
     imageStatus?: 'idle' | 'loading' | 'ok' | 'error'
     imageUrl?: string
     imageFilename?: string
@@ -44,14 +51,14 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
   const ROOT_DRIVE_FOLDER_ID = '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_'
   const IMAGE_DRIVE_FOLDER_ID = '17h7HzW7YQqXeVH7-A-EhkJKQOmGNUC5s'
 
-  // sanitize helpers to prevent duplicated 'นนร.' tokens and extra spaces
+  const [alternativeFilesInfo, setAlternativeFilesInfo] = useState<{ type: 'word' | 'image', files: any[], originalIndex: number } | null>(null);
+
   const normalizeSpaces = (s: string) => s.replace(/\s+/g, ' ').trim()
   const stripDuplicatePrefix = (s: string) => {
     if (!s) return ''
     let out = s
-      .replace(/(นนร\.?\s*){2,}/gi, 'นนร. ') // collapse repeated นนร.
+      .replace(/(นนร\.?\s*){2,}/gi, 'นนร. ')
     out = out.replace(/\s+/g, ' ').trim()
-    // ensure at most one leading 'นนร.'
     out = out.replace(/^นนร\.?\s*นนร\.?/i, 'นนร.')
     return out
   }
@@ -63,7 +70,6 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     return name
   }
 
-  // Next weekend text in Thai format
   const nextWeekendRange = (now: Date = new Date()) => {
     const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const day = base.getDay()
@@ -97,7 +103,6 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
 
   const importNames = async () => {
     if (!date) { setMessage('กรุณาเลือกวันที่'); return }
-    // cancel any ongoing per-person link generation and clear states before new import
     try { cancelAllLinks() } catch {}
     setLoading(true)
     setMessage(null)
@@ -109,11 +114,9 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         body: JSON.stringify({ date, sheetName })
       })
       const json = await res.json()
-      // json.names: array of {first,last,full,fullNorm}
       setMatches(json.names || [])
       setSelectedIndex(json.names && json.names.length > 0 ? 0 : null)
-      setMessage(`พบ ${(json.names || []).length} รายการ`) 
-      // reset all link-related states so old links from previous import are cleared
+      setMessage(`พบ ${(json.names || []).length} รายการ`)
       setLinkStates({})
       setAbortMap({})
       setTimerMap({})
@@ -127,7 +130,6 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     setLoading(false)
   }
 
-  // format date into tab label like "23-24 ส.ค." and short display like "23-24 ส.ค. 68"
   const formatDateLabel = (iso: string) => {
     try {
       const d = new Date(iso)
@@ -135,11 +137,11 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       d2.setDate(d.getDate() + 1)
       const day1 = d.getDate()
       const day2 = d2.getDate()
-      const month = d.getMonth() // 0-based
+      const month = d.getMonth()
       const thaiMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
       const year = d.getFullYear() + 543
       const shortYear = String(year).slice(-2)
-      const label = `${day1}-${day2} ${thaiMonths[month]}` // sheet tab (no year)
+      const label = `${day1}-${day2} ${thaiMonths[month]}`
       const display = `${day1}-${day2} ${thaiMonths[month]} ${shortYear}`
       setDisplayDateLabel(label)
       setFolderLabel(display)
@@ -150,43 +152,6 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     }
   }
 
-  const matchNameAgainstList = (q:string, list:any[]) => {
-    if (!q) return []
-    const qNorm = normalizeStr(q)
-    const scored = list.map((it:any) => {
-      const full = normalizeStr(it.full || `${it.first} ${it.last}`)
-      const lev = levenshtein(qNorm, full)
-      // score between 0..1
-      const maxLen = Math.max(qNorm.length, full.length) || 1
-      const score = 1 - lev / maxLen
-      return { ...it, score, full }
-    })
-    return scored.filter(s => s.score >= 0.6).sort((a,b) => b.score - a.score)
-  }
-
-  function normalizeStr(s:string){
-    return s.toString().normalize('NFKD').replace(/\s+/g, '').toLowerCase()
-  }
-
-  function levenshtein(a:string, b:string){
-    const m = a.length, n = b.length
-    if (m === 0) return n
-    if (n === 0) return m
-    const dp = Array.from({length: m+1}, () => new Array(n+1).fill(0))
-    for (let i=0;i<=m;i++) dp[i][0] = i
-    for (let j=0;j<=n;j++) dp[0][j] = j
-    for (let i=1;i<=m;i++){
-      for (let j=1;j<=n;j++){
-        const cost = a[i-1] === b[j-1] ? 0 : 1
-        dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost)
-      }
-    }
-    return dp[m][n]
-  }
-
-  // build direct download link for a specific row
-// build direct download link for a specific row
-// build direct download link for a specific row
   const createLinkForIndex = async (idx: number) => {
     const person = matches[idx]
     if (!person || !date) return
@@ -204,7 +169,6 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     }, 250)
     setTimerMap(t => ({ ...t, [idx]: timer as unknown as number }))
 
-    // staged logs to show live step hints while waiting
     const staged: number[] = []
     const stage = (ms: number, text: string) => {
       const h = window.setTimeout(() => {
@@ -223,20 +187,14 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     setStagedTimerMap(m => ({ ...m, [idx]: staged }))
 
     try {
-      // ใช้รูปแบบเต็มสำหรับค้นหาไฟล์และโฟลเดอร์: "นนร. {ชื่อ} {นามสกุล}"
       const personFolderName = buildFolderName(person.first, person.last)
       const personName = personFolderName
 
-      // fetch document link and image link in parallel
       const docPromise = fetch('/api/drive-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({ 
-          personName,
-          folderName: personFolderName,
-          rootFolderId: ROOT_DRIVE_FOLDER_ID
-        })
+        body: JSON.stringify({ personName, folderName: personFolderName, rootFolderId: ROOT_DRIVE_FOLDER_ID })
       }).then(r => r.json())
 
       const imgPromise = fetch('/api/image-link', {
@@ -253,30 +211,40 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       const [docRes, imgRes] = await Promise.allSettled([docPromise, imgPromise])
       clearInterval(timer)
       setTimerMap(t => { const { [idx]: _, ...rest } = t; return rest })
-      // clear staged timers
       const stagedTimers = stagedTimerMap[idx] || []
       stagedTimers.forEach(id => { try { clearTimeout(id) } catch {} })
       setStagedTimerMap(m => { const { [idx]: _, ...rest } = m; return rest })
-      let nextState: LinkState = { status: 'idle' }
-      // document result handling
-      if (docRes.status === 'fulfilled' && docRes.value && docRes.value.success && docRes.value.link) {
-        nextState = { ...nextState, status: 'ok', url: docRes.value.link, filename: docRes.value.fileName, percent: 100, message: 'พร้อมดาวน์โหลด', folderId: undefined }
-      } else if (docRes.status === 'fulfilled') {
-        const val = docRes.value || {}
-        const msg = typeof val.error === 'string' && val.error.trim().length > 0 ? val.error : 'ไม่พบไฟล์'
-        nextState = { ...nextState, status: 'error', percent: 100, message: msg, folderId: val.folderId }
+      
+      let nextState: LinkState = { ...(linkStates[idx] || {}), status: 'idle', imageStatus: 'idle' };
+
+      if (docRes.status === 'fulfilled' && docRes.value) {
+        const val = docRes.value;
+        if (val.success && val.link) {
+          nextState = { ...nextState, status: 'ok', url: val.link, filename: val.fileName, percent: 100, message: 'พร้อมดาวน์โหลด', folderId: undefined };
+        } else {
+          nextState = { ...nextState, status: 'error', percent: 100, message: val.error || 'ไม่พบไฟล์', folderId: val.folderId };
+          if (val.alternativeFiles && val.alternativeFiles.length > 0) {
+            setAlternativeFilesInfo({ type: 'word', files: val.alternativeFiles, originalIndex: idx });
+          }
+        }
       } else {
-        nextState = { ...nextState, status: 'error', percent: 100, message: 'เกิดข้อผิดพลาด' }
+        nextState = { ...nextState, status: 'error', percent: 100, message: 'เกิดข้อผิดพลาด' };
       }
-      // image result handling (independent)
-      if (imgRes.status === 'fulfilled' && imgRes.value && imgRes.value.success && imgRes.value.link) {
-        nextState = { ...nextState, imageStatus: 'ok', imageUrl: imgRes.value.link, imageFilename: imgRes.value.fileName, imageFolderId: undefined }
-      } else if (imgRes.status === 'fulfilled') {
-        const val = imgRes.value || {}
-        nextState = { ...nextState, imageStatus: 'error', imageUrl: undefined, imageFilename: undefined, imageFolderId: val.folderId || IMAGE_DRIVE_FOLDER_ID }
+
+      if (imgRes.status === 'fulfilled' && imgRes.value) {
+        const val = imgRes.value;
+        if (val.success && val.link) {
+          nextState = { ...nextState, imageStatus: 'ok', imageUrl: val.link, imageFilename: val.fileName, imageFolderId: undefined };
+        } else {
+          nextState = { ...nextState, imageStatus: 'error', imageFolderId: val.folderId || IMAGE_DRIVE_FOLDER_ID };
+          if (val.alternativeFiles && val.alternativeFiles.length > 0) {
+            setAlternativeFilesInfo({ type: 'image', files: val.alternativeFiles, originalIndex: idx });
+          }
+        }
       } else {
-        nextState = { ...nextState, imageStatus: 'error', imageFolderId: IMAGE_DRIVE_FOLDER_ID }
+        nextState = { ...nextState, imageStatus: 'error', imageFolderId: IMAGE_DRIVE_FOLDER_ID };
       }
+
       setLinkStates(s => ({ ...s, [idx]: nextState }))
     } catch (e:any) {
       clearInterval(timer)
@@ -291,7 +259,33 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     }
   }
 
-  // build links for all
+  const createLinkFromId = async (fileId: string, fileName: string, type: 'word' | 'image', originalIndex: number) => {
+    setAlternativeFilesInfo(null); // Close dialog
+    const stateKey = type === 'word' ? 'status' : 'imageStatus';
+    setLinkStates(s => ({ ...s, [originalIndex]: { ...(s[originalIndex] || {}), [stateKey]: 'loading', message: 'กำลังสร้างลิงก์...' } }));
+
+    try {
+      const res = await fetch(`/api/get-download-link?fileId=${fileId}`);
+      const json = await res.json();
+      if (json.success && json.link) {
+        if (type === 'word') {
+          setLinkStates(s => ({ ...s, [originalIndex]: { ...(s[originalIndex] || {}), status: 'ok', url: json.link, filename: json.fileName, message: 'พร้อมดาวน์โหลด' } }));
+        } else {
+          setLinkStates(s => ({ ...s, [originalIndex]: { ...(s[originalIndex] || {}), imageStatus: 'ok', imageUrl: json.link, imageFilename: json.fileName } }));
+        }
+      } else {
+        throw new Error(json.error || 'ไม่สามารถสร้างลิงก์ได้');
+      }
+    } catch (e: any) {
+      const message = e.message || 'เกิดข้อผิดพลาด';
+      if (type === 'word') {
+        setLinkStates(s => ({ ...s, [originalIndex]: { ...(s[originalIndex] || {}), status: 'error', message } }));
+      } else {
+        setLinkStates(s => ({ ...s, [originalIndex]: { ...(s[originalIndex] || {}), imageStatus: 'error' } }));
+      }
+    }
+  };
+
   const createLinksForAll = async () => {
     if (!matches || matches.length === 0) return
     setProcessingAll(true)
@@ -333,7 +327,6 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     setProgress(5)
     setProgressText('กำลังค้นหาไฟล์บน Drive...')
     timer = window.setInterval(() => setProgress(p => Math.min(p + 3, 90)), 250)
-    // staged progress text for single download
     window.setTimeout(() => setProgressText('กำลังเข้าถึงโฟลเดอร์หลักบน Drive...'), 1500)
     window.setTimeout(() => setProgressText('กำลังอ่านโฟลเดอร์ย่อย (ชั้น 1)...'), 4000)
     window.setTimeout(() => setProgressText('กำลังค้นหาในโฟลเดอร์ย่อย (ชั้น 2)...'), 8000)
@@ -342,7 +335,6 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     setSingleAbort(controller)
     try {
       const chosen = matches[selectedIndex]
-      // ใช้รูปแบบเต็มสำหรับค้นหาไฟล์และโฟลเดอร์: "นนร. {ชื่อ} {นามสกุล}"
       const folderName = buildFolderName(chosen?.first, chosen?.last)
       const personName = folderName
       
@@ -350,11 +342,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({ 
-          personName,
-          folderName,
-          rootFolderId: ROOT_DRIVE_FOLDER_ID
-        })
+        body: JSON.stringify({ personName, folderName, rootFolderId: ROOT_DRIVE_FOLDER_ID })
       })
       const json = await res.json()
       if (json.success && json.link) {
@@ -364,6 +352,9 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         setMessage('ลิงก์ดาวน์โหลด: ' + json.link)
         setTimeout(() => setShowProgress(false), 1200)
       } else {
+        if (json.alternativeFiles && json.alternativeFiles.length > 0) {
+            setAlternativeFilesInfo({ type: 'word', files: json.alternativeFiles, originalIndex: selectedIndex });
+        }
         const msg = typeof json.error === 'string' && json.error.trim().length > 0 ? json.error : 'ไม่พบไฟล์'
         setMessage(msg)
         if (timer) clearInterval(timer)
@@ -381,9 +372,46 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     setLoading(false)
   }
 
+  const AlternativeFileDialog = () => {
+    if (!alternativeFilesInfo) return null;
+    const { type, files, originalIndex } = alternativeFilesInfo;
+    const person = matches[originalIndex];
+    const personName = buildPersonName(person.first, person.last);
+
+    return (
+      <Dialog open={!!alternativeFilesInfo} onOpenChange={() => setAlternativeFilesInfo(null)}>
+        <DialogContent className="bg-slate-800 text-white border-slate-700">
+          <DialogHeader>
+            <DialogTitle>ไม่พบไฟล์ที่ตรงกันสำหรับ "{personName}"</DialogTitle>
+            <DialogDescription>
+              แต่พบไฟล์{type === 'word' ? 'เอกสาร' : 'รูปภาพ'}อื่นในโฟลเดอร์ คุณต้องการใช้ไฟล์ใดไฟล์หนึ่งต่อไปนี้แทนหรือไม่?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-60 overflow-y-auto my-4 pr-4">
+            <ul className="space-y-2">
+              {files.map(file => (
+                <li key={file.id} className="flex items-center justify-between p-2 bg-slate-700/50 rounded">
+                  <span className="truncate text-sm">{file.name}</span>
+                  <Button size="sm" onClick={() => createLinkFromId(file.id, file.name, type, originalIndex)} className="bg-blue-600 hover:bg-blue-700">
+                    <Download className="h-4 w-4 mr-2" />
+                    ใช้ไฟล์นี้
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAlternativeFilesInfo(null)}>ปิด</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
       <div className="max-w-4xl mx-auto">
+        <AlternativeFileDialog />
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Button onClick={onBack} variant="ghost" className="text-white/90 bg-slate-800/40 border border-slate-700">ย้อนกลับ</Button>

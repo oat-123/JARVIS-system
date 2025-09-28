@@ -40,9 +40,8 @@ interface Person {
   เบอร์โทรศัพท์: string;
   หน้าที่?: string;
   ชมรม?: string;
-  สถิติโดนยอด: string;
+  สถิติโดนยอด?: string;
 }
-
 interface ApiResponse {
   success: boolean;
   data?: Person[];

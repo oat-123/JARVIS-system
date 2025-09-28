@@ -1231,7 +1231,7 @@ const findPersonByName = (name: string) => {
         </div>
 
         {/* Enhanced Calendar with Detailed Daily Information */}
-        <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-6">
+        <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-6 max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <h4 className="text-xl font-bold text-center flex items-center gap-2">
               <Calendar className="h-6 w-6 text-blue-400" />

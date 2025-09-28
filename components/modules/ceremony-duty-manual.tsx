@@ -949,13 +949,13 @@ function CeremonyDutyManualInternal() {
                         <TableRow key={idx} className={`border-b border-slate-700 ${idx % 2 === 0 ? "bg-slate-800/60" : "bg-slate-900/60"}`}>
                           <TableCell className="text-center align-middle text-slate-300 px-2 py-1 whitespace-nowrap text-xs">{toThaiNumber(idx + 1)}</TableCell>
                           <TableCell className="px-2 py-1 whitespace-nowrap">
-                            <Input value={row.ยศ || ''} onChange={e => handleNameChange(idx, "ยศ", e.target.value)} placeholder="ยศ" className="bg-transparent border-slate-600 text-white w-20 text-xs" />
+                            <Input value={row.ยศ || ''} onChange={e => handleNameChange(idx, "ยศ", e.target.value)} placeholder="ยศ" className="bg-transparent border-slate-600 text-white w-16 text-xs" />
                           </TableCell>
                           <TableCell className="px-2 py-1 whitespace-nowrap">
-                            <Input value={row.ชื่อ || ''} onChange={e => handleNameChange(idx, "ชื่อ", e.target.value)} placeholder="ชื่อ" className="bg-transparent border-slate-600 text-white text-xs" />
+                            <Input value={row.ชื่อ || ''} onChange={e => handleNameChange(idx, "ชื่อ", e.target.value)} placeholder="ชื่อ" className="bg-transparent border-slate-600 text-white w-40 text-xs" />
                           </TableCell>
                           <TableCell className="px-2 py-1 whitespace-nowrap">
-                            <Input value={row.สกุล || ''} onChange={e => handleNameChange(idx, "สกุล", e.target.value)} placeholder="สกุล" className="bg-transparent border-slate-600 text-white text-xs" />
+                            <Input value={row.สกุล || ''} onChange={e => handleNameChange(idx, "สกุล", e.target.value)} placeholder="สกุล" className="bg-transparent border-slate-600 text-white w-40 text-xs" />
                           </TableCell>
                           <TableCell className="text-center align-middle text-slate-300 px-2 py-1 whitespace-nowrap text-xs">{row.ชั้นปีที่}</TableCell>
                           <TableCell className="text-center align-middle text-slate-300 px-2 py-1 whitespace-nowrap text-xs">{row.ตอน}</TableCell>

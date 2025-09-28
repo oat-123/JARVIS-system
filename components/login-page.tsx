@@ -23,6 +23,7 @@ import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { Checkbox } from "./ui/checkbox"
 import { X } from "lucide-react"
+import Link from "next/link"
 
 interface LoginPageProps {
   onLogin: (username: string, password: string, rememberMe?: boolean) => boolean
@@ -68,7 +69,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between p-6">
-        <div className="text-white text-xl font-bold drop-shadow-lg">Logo</div>
+        <div className="text-white text-xl font-bold drop-shadow-lg">CRMA@74</div>
         <nav className="hidden md:flex items-center space-x-8">
           <a href="#" className="text-white/90 hover:text-white transition-colors drop-shadow-sm">
             Home
@@ -148,9 +149,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                     Remember me
                   </Label>
                 </div>
-                <a href="#" className="text-sm text-white/80 hover:text-white transition-colors drop-shadow-sm">
+                <Link href="/register" className="text-sm text-white/80 hover:text-white transition-colors drop-shadow-sm">
                   Forgot Password?
-                </a>
+                </Link>
               </div>
 
               {error && (
@@ -169,9 +170,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
               <div className="text-center text-sm text-white/80 drop-shadow-sm">
                 {"Don't have an account? "}
-                <a href="#" className="text-white hover:text-white/80 font-medium transition-colors">
+                <Link href="/register" className="text-white hover:text-white/80 font-medium transition-colors">
                   Register
-                </a>
+                </Link>
               </div>
             </form>
           </div>

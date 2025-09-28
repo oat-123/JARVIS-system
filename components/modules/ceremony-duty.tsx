@@ -782,7 +782,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
             <Button
               variant="outline"
               className="bg-yellow-500/90 text-white hover:bg-yellow-600"
-              onClick={() => router.push(isAdmin ? "/ceremony-duty/manual?sheetName=Admin" : "/ceremony-duty/manual")}
+              onClick={() => router.push(`/ceremony-duty/manual?sheetName=${encodeURIComponent(sheetName)}`)}
             >
               จัดยอดด้วยตัวเอง
             </Button>

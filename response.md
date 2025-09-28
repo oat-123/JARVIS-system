@@ -245,7 +245,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
         setConnectionStatus("connected")
         setLastUpdated(new Date())
         saveToCache(cacheKey, dataRows);
-        toast({ title: "เชื่อมต่อสำเร็จ", description: `โหลดข้อมูล ${dataRows.length} คน จาก ${sheetName}` })
+        toast({ title: "เชื่อมต่อสำเร็จ", description: `มี ${dataRows.length} คน จากชีท ${sheetName}` })
       } else {
         throw new Error(result.error || "Failed to load data")
       }

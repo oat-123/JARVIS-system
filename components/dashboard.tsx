@@ -351,7 +351,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
       {/* Header */}
-      <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 p-4">
+      <header className="relative z-20 bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between flex-col sm:flex-row gap-3 sm:gap-0">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
@@ -400,7 +400,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
 
               {/* Profile Popup */}
               {showProfilePopup && (
-                <div className="fixed sm:absolute inset-0 sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-full sm:w-80 bg-slate-800 border border-slate-700 rounded-none sm:rounded-lg shadow-xl z-50 backdrop-blur-sm">
+                <div className="fixed sm:absolute inset-0 sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-full sm:w-80 bg-slate-800 border border-slate-700 rounded-none sm:rounded-lg shadow-xl z-[100] backdrop-blur-sm">
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold text-white">ข้อมูลผู้ใช้</h3>

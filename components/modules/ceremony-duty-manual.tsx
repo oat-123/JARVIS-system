@@ -40,8 +40,9 @@ interface Person {
   เบอร์โทรศัพท์: string;
   หน้าที่?: string;
   ชมรม?: string;
-  สถิติโดนยอด?: string;
+  สถิติโดนยอด: string;
 }
+
 interface ApiResponse {
   success: boolean;
   data?: Person[];
@@ -928,60 +929,60 @@ function CeremonyDutyManualInternal() {
                 <CardTitle className="text-white">รายชื่อ (ใส่ชื่อ-สกุล เพื่อล็อคคน)</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto rounded-lg border border-slate-700">
-                  <Table className="min-w-full text-sm">
-                    <TableHeader>
-                      <TableRow className="bg-slate-700/80 hover:bg-slate-700/70 border-b-slate-600">
-                        <TableHead className="px-2 py-2 text-center text-white font-semibold w-16 whitespace-nowrap">ลำดับ</TableHead>
-                        <TableHead className="px-2 py-2 text-center text-white font-semibold whitespace-nowrap">ยศ</TableHead>
-                        <TableHead className="px-2 py-2 text-center text-white font-semibold whitespace-nowrap">ชื่อ</TableHead>
-                        <TableHead className="px-2 py-2 text-center text-white font-semibold whitespace-nowrap">สกุล</TableHead>
-                        <TableHead className="px-2 py-2 text-center text-white font-semibold whitespace-nowrap">ชั้นปี</TableHead>
-                        <TableHead className="px-2 py-2 text-center text-white font-semibold whitespace-nowrap">ตอน</TableHead>
-                        <TableHead className="px-2 py-2 text-center text-white font-semibold whitespace-nowrap">ตำแหน่ง</TableHead>
-                        <TableHead className="px-2 py-2 text-center text-white font-semibold whitespace-nowrap">สังกัด</TableHead>
-                        <TableHead className="px-2 py-2 text-center text-white font-semibold whitespace-nowrap">สถิติ</TableHead>
-                        <TableHead className="px-2 py-2 text-right text-white font-semibold w-12 whitespace-nowrap"></TableHead>
+              <div className="overflow-x-auto w-full max-w-full rounded-lg border border-slate-700 p-1">
+                <Table className="min-w-full text-[11px]">
+                  <TableHeader>
+                    <TableRow className="bg-slate-700/80 hover:bg-slate-700/70 border-b-slate-600">
+                      <TableHead className="px-1 py-2 text-center text-white font-semibold w-12 whitespace-nowrap">ลำดับ</TableHead>
+                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap min-w-[80px]">ยศ</TableHead>
+                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap min-w-[120px]">ชื่อ</TableHead>
+                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap min-w-[120px]">สกุล</TableHead>
+                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">ชั้นปี</TableHead>
+                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">ตอน</TableHead>
+                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">ตำแหน่ง</TableHead>
+                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">สังกัด</TableHead>
+                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">สถิติ</TableHead>
+                      <TableHead className="px-1 py-2 text-right text-white font-semibold w-10 whitespace-nowrap"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((row, idx) => (
+                      <TableRow key={idx} className={`border-b border-slate-700 ${idx % 2 === 0 ? "bg-slate-800/60" : "bg-slate-900/60"}`}>
+                        <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{toThaiNumber(idx + 1)}</TableCell>
+                        <TableCell className="px-1 py-1 whitespace-nowrap">
+                          <Input value={row.ยศ || ''} onChange={e => handleNameChange(idx, "ยศ", e.target.value)} placeholder="ยศ" className="bg-transparent border-slate-600 text-white w-12 text-[11px] h-7" />
+                        </TableCell>
+                        <TableCell className="px-1 py-1 whitespace-nowrap">
+                          <Input value={row.ชื่อ || ''} onChange={e => handleNameChange(idx, "ชื่อ", e.target.value)} placeholder="ชื่อ" className="bg-transparent border-slate-600 text-white text-[11px] h-7" />
+                        </TableCell>
+                        <TableCell className="px-1 py-1 whitespace-nowrap">
+                          <Input value={row.สกุล || ''} onChange={e => handleNameChange(idx, "สกุล", e.target.value)} placeholder="สกุล" className="bg-transparent border-slate-600 text-white text-[11px] h-7" />
+                        </TableCell>
+                        <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.ชั้นปีที่}</TableCell>
+                        <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.ตอน}</TableCell>
+                        <TableCell className="text-left align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.ตำแหน่ง}</TableCell>
+                        <TableCell className="text-left align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.สังกัด}</TableCell>
+                        <TableCell className="text-center align-middle px-1 py-1 whitespace-nowrap">
+                          {row.สถิติโดนยอด && <Badge variant="secondary" className="text-[11px]">{row.สถิติโดนยอด}</Badge>}
+                        </TableCell>
+                         <TableCell className="text-right align-middle px-1 py-1 whitespace-nowrap">
+                          <Button variant="ghost" size="icon" onClick={() => removeRow(idx)} className="text-red-400 hover:bg-red-500/20 h-7 w-7">
+                              <X className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {rows.map((row, idx) => (
-                        <TableRow key={idx} className={`border-b border-slate-700 ${idx % 2 === 0 ? "bg-slate-800/60" : "bg-slate-900/60"}`}>
-                          <TableCell className="text-center align-middle text-slate-300 px-2 py-1 whitespace-nowrap text-xs">{toThaiNumber(idx + 1)}</TableCell>
-                          <TableCell className="px-2 py-1 whitespace-nowrap">
-                            <Input value={row.ยศ || ''} onChange={e => handleNameChange(idx, "ยศ", e.target.value)} placeholder="ยศ" className="bg-transparent border-slate-600 text-white w-16 text-xs" />
+                    ))}
+                      <TableRow className="bg-slate-900/50">
+                          <TableCell colSpan={10} className="p-2 text-right">
+                              <Button onClick={addRow} size="sm" className="bg-green-500 hover:bg-green-600 text-white">
+                                  <PlusCircle className="h-4 w-4 mr-2"/>
+                                  เพิ่มแถว
+                              </Button>
                           </TableCell>
-                          <TableCell className="px-2 py-1 whitespace-nowrap">
-                            <Input value={row.ชื่อ || ''} onChange={e => handleNameChange(idx, "ชื่อ", e.target.value)} placeholder="ชื่อ" className="bg-transparent border-slate-600 text-white w-40 text-xs" />
-                          </TableCell>
-                          <TableCell className="px-2 py-1 whitespace-nowrap">
-                            <Input value={row.สกุล || ''} onChange={e => handleNameChange(idx, "สกุล", e.target.value)} placeholder="สกุล" className="bg-transparent border-slate-600 text-white w-40 text-xs" />
-                          </TableCell>
-                          <TableCell className="text-center align-middle text-slate-300 px-2 py-1 whitespace-nowrap text-xs">{row.ชั้นปีที่}</TableCell>
-                          <TableCell className="text-center align-middle text-slate-300 px-2 py-1 whitespace-nowrap text-xs">{row.ตอน}</TableCell>
-                          <TableCell className="text-left align-middle text-slate-300 px-2 py-1 whitespace-nowrap text-xs">{row.ตำแหน่ง}</TableCell>
-                          <TableCell className="text-left align-middle text-slate-300 px-2 py-1 whitespace-nowrap text-xs">{row.สังกัด}</TableCell>
-                          <TableCell className="text-center align-middle px-2 py-1 whitespace-nowrap">
-                            {row.สถิติโดนยอด && <Badge variant="secondary" className="text-xs">{row.สถิติโดนยอด}</Badge>}
-                          </TableCell>
-                           <TableCell className="text-right align-middle px-2 py-1 whitespace-nowrap">
-                            <Button variant="ghost" size="icon" onClick={() => removeRow(idx)} className="text-red-400 hover:bg-red-500/20 h-8 w-8">
-                                <X className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                        <TableRow className="bg-slate-900/50">
-                            <TableCell colSpan={10} className="p-2 text-right">
-                                <Button onClick={addRow} size="sm" className="bg-green-500 hover:bg-green-600 text-white">
-                                    <PlusCircle className="h-4 w-4 mr-2"/>
-                                    เพิ่มแถว
-                                </Button>
-                            </TableCell>
-                        </TableRow>
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
               </CardContent>
             </Card>
           </div>

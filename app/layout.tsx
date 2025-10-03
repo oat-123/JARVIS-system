@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { InactivityTimeout } from "@/components/modules/inactivity-timeout"
 
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Analytics } from "@vercel/analytics/react"
@@ -32,6 +33,7 @@ export default function RootLayout({
         <link rel="icon" href="/jarvis-favicon.png" type="image/png" />
       </head>
       <body className={inter.className}>
+        <InactivityTimeout />
         <TooltipProvider>
           {children}
         </TooltipProvider>

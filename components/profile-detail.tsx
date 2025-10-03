@@ -74,7 +74,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   const position = person['ตำแหน่ง ทกท.'] || person.ตำแหน่ง || person['ทกท.'] || ''
 
   const fetchAvatar = useCallback(async () => {
-    if (person?.ชื่อ) {
+    if (person?.ชื่อ && person?.สกุล) {
       setIsLoadingImage(true); // Set loading to true
       const cacheKey = `avatar_${person.ชื่อ}_${person.สกุล}`;
       const cachedUrl = localStorage.getItem(cacheKey);
@@ -86,13 +86,10 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
       }
 
       try {
-        const lastNameInitial = person.สกุล ? person.สกุล.charAt(0) : '';
-        const searchName = `${person.ชื่อ} ${lastNameInitial}`.trim();
-
         const res = await fetch('/api/image-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ personName: searchName }),
+          body: JSON.stringify({ first: person.ชื่อ, last: person.สกุล }),
         });
         const data = await res.json();
 
@@ -126,7 +123,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   }, [person, setAvatarUrl, setIsLoadingImage]);
 
   useEffect(() => {
-    if (person?.ชื่อ) {
+    if (person?.ชื่อ && person?.สกุล) {
       fetchAvatar();
     }
   }, [person, fetchAvatar]);

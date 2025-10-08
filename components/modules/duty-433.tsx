@@ -147,7 +147,9 @@ export function Duty433({ onBack, user }: Duty433Props) {
         }
 
         const res = await fetch(`/api/sheets/433`)
-        const json = await res.json()
+        const text = await res.text();
+        console.log("Raw response text:", text);
+        const json = JSON.parse(text);
         if (json.success && json.data) {
           const normalizedPeople = normalizePeopleArray(json.data.people || [])
           const toStore = { ...json.data, people: normalizedPeople }
@@ -181,6 +183,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
           console.error('❌ Failed to fetch data from API:', json)
         }
       } catch (e) {
+        console.error('❌ Error caught in fetch block:', e);
         setPeople([])
       } finally {
         setIsLoading(false)
@@ -372,150 +375,65 @@ export function Duty433({ onBack, user }: Duty433Props) {
     return ''
   }
 
-  // Normalize incoming sheet rows to canonical fields and compute a consistent stat
+  // Simplified normalization function
   const normalizePerson = (row: any) => {
-    if (!row || typeof row !== 'object') return row
+    if (!row || typeof row !== 'object') return row;
     const pick = (keys: string[]) => {
-      for (const k of keys) if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k]
-      return undefined
-    }
-    const normalized: any = { ...row }
-    normalized.ลำดับ = pick(['ลำดับ', 'No', 'no', 'index']) || row.ลำดับ || ''
-    normalized.ยศ = pick(['ยศ', 'rank']) || row.ยศ || ''
-    normalized.ชื่อ = pick(['ชื่อ', 'firstName', 'firstname', 'name']) || row.ชื่อ || ''
-    normalized.สกุล = pick(['สกุล', 'lastName', 'lastname', 'surname']) || row.สกุล || ''
-  normalized.ตำแหน่ง = pick(['ตำแหน่ง ทกท.', 'ตำแหน่ง', 'position', 'pos']) || row.ตำแหน่ง || ''
-    normalized.สังกัด = pick(['สังกัด', 'affiliation']) || row.สังกัด || ''
-    normalized.หน้าที่ = pick(['หน้าที่', 'role']) || row.หน้าที่ || ''
-    normalized.นักกีฬา = pick(['นักกีฬา', 'sport']) || row.นักกีฬา || ''
-  // additional mapped fields
-  normalized.คัดเกรด = pick(['คัดเกรด', 'grade', 'grading']) || row.คัดเกรด || row['คัดเกรด'] || ''
-  normalized.ตัวชน = pick(['ตัวชน', 'ตัว ชน']) || row.ตัวชน || ''
-  normalized.ส่วนสูง = pick(['ส่วนสูง', 'height']) || row.ส่วนสูง || ''
-  normalized.เบอร์โทรศัพท์ = pick(['เบอร์โทรศัพท์', 'phone', 'โทร']) || row.เบอร์โทรศัพท์ || ''
-    normalized['ธุรการ ฝอ.'] = pick(['ธุรการ ฝอ.', 'ธุรการ', 'admin']) || row['ธุรการ ฝอ.'] || row['ธุรการ'] || ''
-    // surface fields possibly provided by server route
-    if (!normalized.คัดเกรด && row.คัดเกรด) normalized.คัดเกรด = row.คัดเกรด
-    if ((!normalized['ธุรการ ฝอ.'] || normalized['ธุรการ ฝอ.'] === '') && row['ธุรการ ฝอ.']) normalized['ธุรการ ฝอ.'] = row['ธุรการ ฝอ.']
-    if (!normalized.ตัวชน && row.ตัวชน) normalized.ตัวชน = row.ตัวชน
-    if (!normalized.ส่วนสูง && row.ส่วนสูง) normalized.ส่วนสูง = row.ส่วนสูง
-    if (!normalized.นักกีฬา && row.นักกีฬา) normalized.นักกีฬา = row.นักกีฬา
-    // compute stat by summing possible numeric columns if present
-    const candidates = ['สถิติโดนยอด', 'จำนวนครั้ง', 'count', 'stat', 'ครั้ง', 'report', '_433', 'admin']
-    let stat = 0
-    for (const k of candidates) {
-      const v = row[k]
-      if (v == null) continue
-      const n = parseInt(String(v).replace(/[^0-9\-]/g, ''), 10)
-      if (!Number.isNaN(n)) stat += n
-    }
-    if (stat === 0) {
-      const alt = row.สถิติโดนยอด || row.count || row.จำนวนครั้ง || 0
-      stat = parseInt(String(alt).replace(/[^0-9\-]/g, ''), 10) || 0
-    }
-    normalized.stat = stat
-    // Try to extract partner/คู่พี่นายทหาร
-    const partner = pick(['คู่พี่นายทหาร', 'คู่พี่', 'partner', 'คู่', 'คู่พี่นายทหาร']) || row['คู่พี่นายทหาร'] || ''
-    normalized.partner = partner || row.partner || ''
+      for (const k of keys) if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+      return undefined;
+    };
+    const normalized: any = { ...row };
+    normalized.ลำดับ = pick(['ลำดับ', 'No', 'no', 'index']) || row.ลำดับ || '';
+    normalized.ยศ = pick(['ยศ', 'rank']) || row.ยศ || '';
+    normalized.ชื่อ = pick(['ชื่อ', 'firstName', 'firstname', 'name']) || row.ชื่อ || '';
+    normalized.สกุล = pick(['สกุล', 'lastName', 'lastname', 'surname']) || row.สกุล || '';
+    normalized.ตำแหน่ง = pick(['ตำแหน่ง ทกท.', 'ตำแหน่ง', 'position', 'pos']) || row.ตำแหน่ง || '';
+    normalized.สังกัด = pick(['สังกัด', 'affiliation']) || row.สังกัด || '';
+    normalized.หน้าที่ = pick(['หน้าที่', 'role']) || row.หน้าที่ || '';
+    normalized.นักกีฬา = pick(['นักกีฬา', 'sport']) || row.นักกีฬา || '';
+    normalized.คัดเกรด = pick(['คัดเกรด', 'grade', 'grading']) || row.คัดเกรด || row['คัดเกรด'] || '';
+    normalized.ตัวชน = pick(['ตัวชน', 'ตัว ชน']) || row.ตัวชน || '';
+    normalized.ส่วนสูง = pick(['ส่วนสูง', 'height']) || row.ส่วนสูง || '';
+    normalized.เบอร์โทรศัพท์ = pick(['เบอร์โทรศัพท์', 'phone', 'โทร']) || row.เบอร์โทรศัพท์ || '';
+    normalized['ธุรการ ฝอ.'] = pick(['ธุรการ ฝอ.', 'ธุรการ', 'admin']) || row['ธุรการ ฝอ.'] || row['ธุรการ'] || '';
 
-    // Build reportHistory robustly from multiple possible sources:
-    // - row.ถวายรายงาน (string | array)
-    // - any columns that include 'ถวาย' in the header
-    const reportHistory: any[] = []
-    const addReport = (to: any, date?: any) => {
-      const toStr = (to == null) ? '' : (typeof to === 'string' ? to : (Array.isArray(to) ? to.join(', ') : String(to)))
-      if (!toStr) return
-      const existing = reportHistory.find(r => r.to === toStr && (r.date || '') === (date || ''))
-      if (!existing) reportHistory.push({ to: toStr, date: date || '', partner: normalized.partner || '' })
-    }
-
-    const rCell = row['ถวายรายงาน'] || row['ถวาย'] || row['report_to'] || row['report']
-    if (rCell != null) {
-      if (Array.isArray(rCell)) {
-        rCell.forEach((v:any) => addReport(v))
-      } else if (typeof rCell === 'object') {
-        // object-like: try values
-        try { Object.values(rCell).forEach((v:any) => addReport(v)) } catch (e) { addReport(String(rCell)) }
-      } else {
-        // string: split common separators but preserve tokens like 'HMSV' and date-like tokens
-        // split only on semicolon, comma, or pipe; do not split on slash to preserve dd/mm/yy dates
-        const parts = String(rCell).split(/[;,.\|]+/).map(s => s.trim()).filter(Boolean)
-        if (parts.length <= 1) {
-          // maybe space-separated tokens; try splitting by spaces but keep Thai name groups when hyphen present
-          addReport(String(rCell))
-        } else {
-          parts.forEach(p => addReport(p))
-        }
-      }
-    }
-
-    // also check any other columns with 'ถวาย' in the header
-    Object.keys(row || {}).forEach(k => {
-      try {
-        if (/ถวาย/i.test(k)) {
-          const v = row[k]
-          if (v == null) return
-          if (Array.isArray(v)) v.forEach((x:any) => addReport(x))
-          else if (typeof v === 'object') Object.values(v).forEach((x:any) => addReport(x))
-          else addReport(String(v))
-        }
-      } catch (e) { /* ignore */ }
-    })
-
-  normalized.reportHistory = reportHistory
-
-    // Map server-provided _433_dates and _admin_dates (if present) into enter433 / enterChp arrays
-    const enter433: any[] = []
-    const enterChp: any[] = []
+    // The backend now provides clean _433_dates and _admin_dates arrays.
+    // We will use these as the single source of truth.
+    const enter433: any[] = [];
     if (Array.isArray(row._433_dates)) {
-      row._433_dates.forEach((d:any, idx:number) => {
-        if (d == null) return
-        const ds = (typeof d === 'string' ? d.trim() : String(d))
-        if (ds) enter433.push({ idx: idx+1, date: ds, note: '' })
-      })
+      row._433_dates.forEach((d: any, idx: number) => {
+        if (d == null) return;
+        const ds = (typeof d === 'string' ? d.trim() : String(d));
+        if (ds) enter433.push({ idx: idx + 1, date: ds, note: '' });
+      });
     }
-    // also detect columns with header containing '433' and take their values
-    Object.keys(row || {}).forEach(k => {
-      if (/433/i.test(k)) {
-        const v = row[k]
-        if (!v) return
-        if (Array.isArray(v)) v.forEach((x:any,i) => { if (x) enter433.push({ idx: i+1, date: String(x) }) })
-        else if (typeof v === 'object') Object.values(v).forEach((x:any,i) => { if (x) enter433.push({ idx: i+1, date: String(x) }) })
-        else enter433.push({ idx: undefined, date: String(v) })
-      }
-    })
 
+    const enterChp: any[] = [];
     if (Array.isArray(row._admin_dates)) {
-      row._admin_dates.forEach((d:any, idx:number) => {
-        if (d == null) return
-        const ds = (typeof d === 'string' ? d.trim() : String(d))
-        if (ds) enterChp.push({ idx: idx+1, date: ds, note: '' })
-      })
+      row._admin_dates.forEach((d: any, idx: number) => {
+        if (d == null) return;
+        const ds = (typeof d === 'string' ? d.trim() : String(d));
+        if (ds) enterChp.push({ idx: idx + 1, date: ds, note: '' });
+      });
     }
-    // admin columns
-    Object.keys(row || {}).forEach(k => {
-      if (/ธุรการ|ชป/i.test(k)) {
-        const v = row[k]
-        if (!v) return
-        if (Array.isArray(v)) v.forEach((x:any,i) => { if (x) enterChp.push({ idx: i+1, date: String(x) }) })
-        else if (typeof v === 'object') Object.values(v).forEach((x:any,i) => { if (x) enterChp.push({ idx: i+1, date: String(x) }) })
-        else enterChp.push({ idx: undefined, date: String(v) })
-      }
-    })
+    
+    // Build reportHistory from the 'ถวายรายงาน' field
+    const reportHistory: any[] = [];
+    const addReport = (to: any, date?: any) => {
+      const toStr = (to == null) ? '' : String(to);
+      if (!toStr) return;
+      reportHistory.push({ to: toStr, date: date || '', partner: row['น.กำกับยาม'] || '' });
+    };
+    const rCell = row['ถวายรายงาน'];
+    if (rCell) {
+        addReport(rCell, row['วันที่']);
+    }
 
-    // dedupe simple by string match
-    const dedupe = (arr:any[]) => {
-      const out:any[] = []
-      arr.forEach(a => {
-        const key = JSON.stringify(a)
-        if (!out.find(x => JSON.stringify(x) === key)) out.push(a)
-      })
-      return out
-    }
-  // normalize enter433/enterChp entries to strings for safe display
-  normalized.enter433 = dedupe(enter433).map((e:any) => ({ idx: e.idx, date: e.date || '', note: e.note || '' }))
-  normalized.enterChp = dedupe(enterChp).map((c:any) => ({ idx: c.idx, date: c.date || '', note: c.note || '' }))
-    return normalized
+    normalized.reportHistory = reportHistory;
+    normalized.enter433 = enter433;
+    normalized.enterChp = enterChp;
+
+    return normalized;
   }
 
   const normalizePeopleArray = (arr: any[]) => Array.isArray(arr) ? arr.map((x:any) => postProcessPerson(normalizePerson(x))) : []
@@ -553,7 +471,8 @@ export function Duty433({ onBack, user }: Duty433Props) {
   // Accepts ISO, dd/mm/yyyy, dd-mm-yy, yyyy-mm-dd and Thai BE years (>=2500)
   const parseDateFromText = (raw: string) => {
     if (!raw || typeof raw !== 'string') return ''
-    const s = raw.trim()
+    // Clean any trailing timestamp-like strings in parentheses (e.g., "(T17:00:00.000Z)")
+    const s = raw.trim().replace(/\s*\([^)]*\)$/, '');
     // Normalize Thai digits and prepare month mapping
     const toArabic = (txt: string) => txt.replace(/[๐-๙]/g, ch => '0123456789'["๐๑๒๓๔๕๖๗๘๙".indexOf(ch)])
     const thMonths: Record<string, number> = { 'ม.ค.':1, 'ก.พ.':2, 'มี.ค.':3, 'เม.ย.':4, 'พ.ค.':5, 'มิ.ย.':6, 'ก.ค.':7, 'ส.ค.':8, 'ก.ย.':9, 'ต.ค.':10, 'พ.ย.':11, 'ธ.ค.':12 }
@@ -725,10 +644,10 @@ export function Duty433({ onBack, user }: Duty433Props) {
   const ranked = useMemo(() => {
     return [...people]
       .map(p => {
-        // คำนวณจำนวนครั้งที่เข้า 433 จาก _433_columns
+        // คำนวณจำนวนครั้งที่เข้า 433 จาก enter433
         let count = 0
-        if (p._433_columns && Array.isArray(p._433_columns)) {
-          count = p._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
+        if (Array.isArray(p.enter433)) {
+          count = p.enter433.length
         }
         
         return { ...p, stat: count }
@@ -756,8 +675,8 @@ export function Duty433({ onBack, user }: Duty433Props) {
     const q = (debouncedSearch || '').toString().trim().toLowerCase()
     // ใช้ลำดับเดิมจาก people และคำนวณจำนวนครั้ง 433 แบบไดนามิก
     const get433Count = (pp: any) => {
-      if (pp._433_columns && Array.isArray(pp._433_columns)) {
-        return pp._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
+      if (Array.isArray(pp.enter433)) {
+        return pp.enter433.length
       }
       return 0
     }
@@ -906,7 +825,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
                         <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ธุรการ ฝอ.'] || p.ธุรการ || '-'}</td>
                         <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ส่วนสูง || '-'}</td>
                         <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.นักกีฬา || '-'}</td>
-                        <td className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap">{(p._433_columns && Array.isArray(p._433_columns) ? p._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length : 0)}</td>
+                        <td className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap">{Array.isArray(p.enter433) ? p.enter433.length : 0}</td>
 
                                               </tr>
                   ))}
@@ -940,21 +859,42 @@ export function Duty433({ onBack, user }: Duty433Props) {
   
   // helper: find person by name (exact or partial)
 const findPersonByName = (name: string) => {
-    if (!name) return null
-    const norm = (s = '') => s.toString().replace(/\s+/g, '').toLowerCase()
-    const target = norm(name)
-    const lists: any[] = []
-    if (Array.isArray(people)) lists.push(...people)
-    if (aggData && Array.isArray(aggData.people)) lists.push(...aggData.people)
+    if (!name) return null;
+    const norm = (s: string) => s.toString().trim().toLowerCase();
+    const target = norm(name);
+    const lists: any[] = [];
+    if (Array.isArray(people)) lists.push(...people);
+    if (aggData && Array.isArray(aggData.people)) lists.push(...aggData.people);
+
+    // 1. Exact match on full name (most reliable)
     for (const p of lists) {
-      const full = norm(`${p.ชื่อ || ''}${p.สกุล || ''}`)
-      const full2 = norm(`${p.ยศ || ''}${p.ชื่อ || ''}${p.สกุล || ''}`)
-      const maybe = norm(p.fullName || p.name || '')
-      if (full === target || full2 === target || maybe === target) return p
-      // allow partial matches
-      if (maybe && maybe.includes(target)) return p
+      const fullName = norm(`${p.ชื่อ || ''} ${p.สกุล || ''}`);
+      if (fullName === target) {
+        return p;
+      }
     }
-    return null
+
+    // 2. Prefix-based matching for first and last name (handles abbreviations)
+    const searchTerms = target.split(/\s+/).filter(Boolean);
+    if (searchTerms.length > 1) {
+        for (const p of lists) {
+            const firstName = norm(p.ชื่อ || '');
+            const lastName = norm(p.สกุล || '');
+            if (firstName.startsWith(searchTerms[0]) && lastName.startsWith(searchTerms[1])) {
+                return p;
+            }
+        }
+    }
+
+    // 3. Fallback to the original logic with a small improvement (startsWith instead of includes)
+    for (const p of lists) {
+        const maybe = norm(p.fullName || p.name || '');
+        if (maybe && maybe.startsWith(target)) {
+            return p;
+        }
+    }
+
+    return null;
   }
 
   // open profile by raw full name from popup; back will return to this view (dashboard)
@@ -1116,24 +1056,16 @@ const findPersonByName = (name: string) => {
                           count = people.filter(p => (p as any).ถวายรายงาน || (Array.isArray((p as any).reportHistory) && (p as any).reportHistory.length > 0)).length
                           break
                         case 'เข้าเวร433':
-                          count = people.filter(p => {
-                            // ตรวจสอบข้อมูลจาก _433_columns
-                            if (p._433_columns && Array.isArray(p._433_columns)) {
-                              return p._433_columns.some((col: any) => col.value && col.value.toString().trim() && col.value !== '-')
-                            }
-                            return false
-                          }).length
+                          count = people.filter(p => Array.isArray(p.enter433) && p.enter433.length > 0).length
                           break
                         case 'ธุรการ':
                           count = people.filter(p => (p as any)['ธุรการ ฝอ.'] || (p as any)['ธุรการ']).length
                           break
                         case 'ยังไม่เคย':
                           count = people.filter(p => {
-                            // ตรวจสอบข้อมูลจาก _433_columns และ _admin_columns
-                            const has433 = p._433_columns && Array.isArray(p._433_columns) && p._433_columns.some((col: any) => col.value && col.value.toString().trim() && col.value !== '-')
-                            const hasReport = p.ถวายรายงาน
-                            const hasAdmin = p._admin_columns && Array.isArray(p._admin_columns) && p._admin_columns.some((col: any) => col.value && col.value.toString().trim() && col.value !== '-')
-                            
+                            const has433 = Array.isArray(p.enter433) && p.enter433.length > 0
+                            const hasReport = (p as any).ถวายรายงาน || (Array.isArray((p as any).reportHistory) && (p as any).reportHistory.length > 0)
+                            const hasAdmin = Array.isArray(p.enterChp) && p.enterChp.length > 0
                             return !has433 && !hasReport && !hasAdmin
                           }).length
                           break
@@ -1180,15 +1112,16 @@ const findPersonByName = (name: string) => {
                   const rows = list.map(pp => {
                     let count = 0
                     if (topCardMetric === 'report') {
-                      if (pp.ถวายรายงาน && pp['น.กำกับยาม'] && pp.วันที่) count = 1
-                      else if (Array.isArray(pp.reportHistory)) count = pp.reportHistory.length || 0
-                    } else if (topCardMetric === '_433') {
-                      if (pp._433_columns && Array.isArray(pp._433_columns)) {
-                        count = pp._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
+                      if (Array.isArray(pp.reportHistory)) {
+                        count = pp.reportHistory.length
                       }
-                    } else {
-                      if (pp._admin_columns && Array.isArray(pp._admin_columns)) {
-                        count = pp._admin_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length
+                    } else if (topCardMetric === '_433') {
+                      if (Array.isArray(pp.enter433)) {
+                        count = pp.enter433.length
+                      }
+                    } else { // admin
+                      if (Array.isArray(pp.enterChp)) {
+                        count = pp.enterChp.length
                       }
                     }
                     const fullName = `${pp.ยศ || ''} ${pp.ชื่อ || ''} ${pp.สกุล || ''}`.trim()

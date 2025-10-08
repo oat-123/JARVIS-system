@@ -20,6 +20,7 @@ import { loadFromCache, saveToCache } from "@/lib/ccache";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useUserSession } from "@/hooks/useUserSession";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { PersonAutocomplete } from "./person-autocomplete";
 
 
 // Helper to convert Thai numerals to Arabic numerals
@@ -260,81 +261,25 @@ function CeremonyDutyManualInternal() {
     return `${first} ${last}`.trim()
   }
 
-  const findPersonByName = (first: string, last: string) => {
-    return allPersons.find(p => p.ชื่อ === first && p.สกุล === last);
-  };
-
-  const handleNameChange = (idx: number, field: "ยศ" | "ชื่อ" | "สกุล", value: string) => {
-    if (field === 'ชื่อ' && value.includes('\n')) {
-        const lines = value.split('\n').map(l => l.trim()).filter(l => l);
-        if (lines.length > 0) {
-            setRows(prev => {
-                let newRows = [...prev];
-                
-                const firstLine = lines[0];
-                const firstLineParts = firstLine.split(' ').filter(p => p.trim() !== '');
-                const firstLineFirstName = firstLineParts[0] || '';
-                const firstLineLastName = firstLineParts.slice(1).join(' ') || '';
-
-                let updatedRow = { ...newRows[idx], ชื่อ: firstLineFirstName, สกุล: firstLineLastName };
-                const foundFirst = findPersonByName(updatedRow.ชื่อ, updatedRow.สกุล);
-                if (foundFirst) {
-                    updatedRow = { ...updatedRow, ...foundFirst };
-                }
-                newRows[idx] = updatedRow;
-
-                const additionalRows = lines.slice(1).map(line => {
-                    const parts = line.split(' ').filter(p => p.trim() !== '');
-                    const firstName = parts[0] || '';
-                    const lastName = parts.slice(1).join(' ') || '';
-                    const newRowData: RowData = {
-                        ลำดับ: "0",
-                        ยศ: "นนร.",
-                        ชื่อ: firstName,
-                        สกุล: lastName,
-                    };
-                    const found = findPersonByName(firstName, lastName);
-                    if (found) {
-                        return { ...newRowData, ...found };
-                    }
-                    return newRowData;
-                });
-
-                const finalRows = newRows.concat(additionalRows);
-
-                return finalRows.map((row, index) => ({ ...row, ลำดับ: (index + 1).toString() }));
-            });
-            return;
-        }
-    }
-    
+  const handlePersonSelect = (idx: number, person: Person | null) => {
     setRows(prev => {
       const newRows = [...prev];
-      let newRow = { ...newRows[idx] };
-
-      if (field === 'ชื่อ' && value.includes(' ')) {
-        const parts = value.split(' ').filter(p => p.trim() !== '' );
-        const firstName = parts[0] || '';
-        const lastName = parts.slice(1).join(' ') || '';
-        newRow.ชื่อ = firstName;
-        if (lastName) {
-            newRow.สกุล = lastName;
-        }
+      if (person) {
+        // A person was selected from autocomplete
+        newRows[idx] = { ...newRows[idx], ...person };
       } else {
-        newRow = { ...newRow, [field]: value };
+        // Selection was cleared
+        const clearedRow: RowData = { ลำดับ: newRows[idx].ลำดับ, ยศ: newRows[idx].ยศ, ชื่อ: "", สกุล: "" };
+        newRows[idx] = clearedRow;
       }
+      return newRows;
+    });
+  };
 
-      newRows[idx] = newRow;
-
-      if (newRow.ชื่อ && newRow.สกุล) {
-        const found = findPersonByName(newRow.ชื่อ, newRow.สกุล);
-        if (found) {
-          newRows[idx] = { ...newRow, ...found, ลำดับ: (idx + 1).toString() };
-        } else {
-          const clearedRow: RowData = { ลำดับ: newRow.ลำดับ, ยศ: newRow.ยศ, ชื่อ: newRow.ชื่อ, สกุล: newRow.สกุล };
-          newRows[idx] = clearedRow;
-        }
-      }
+  const handleNameChange = (idx: number, field: "ยศ", value: string) => {
+    setRows(prev => {
+      const newRows = [...prev];
+      newRows[idx] = { ...newRows[idx], [field]: value };
       return newRows;
     });
   };
@@ -934,9 +879,8 @@ function CeremonyDutyManualInternal() {
                   <TableHeader>
                     <TableRow className="bg-slate-700/80 hover:bg-slate-700/70 border-b-slate-600">
                       <TableHead className="px-1 py-2 text-center text-white font-semibold w-12 whitespace-nowrap">ลำดับ</TableHead>
-                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap min-w-[80px]">ยศ</TableHead>
-                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap min-w-[120px]">ชื่อ</TableHead>
-                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap min-w-[120px]">สกุล</TableHead>
+                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap w-14">ยศ</TableHead>
+                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap min-w-[240px]" colSpan={2}>ชื่อ-สกุล</TableHead>
                       <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">ชั้นปี</TableHead>
                       <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">ตอน</TableHead>
                       <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">ตำแหน่ง</TableHead>
@@ -950,13 +894,14 @@ function CeremonyDutyManualInternal() {
                       <TableRow key={idx} className={`border-b border-slate-700 ${idx % 2 === 0 ? "bg-slate-800/60" : "bg-slate-900/60"}`}>
                         <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{toThaiNumber(idx + 1)}</TableCell>
                         <TableCell className="px-1 py-1 whitespace-nowrap">
-                          <Input value={row.ยศ || ''} onChange={e => handleNameChange(idx, "ยศ", e.target.value)} placeholder="ยศ" className="bg-transparent border-slate-600 text-white w-12 text-[11px] h-7" />
+                          <Input value={row.ยศ || ''} onChange={e => handleNameChange(idx, "ยศ", e.target.value)} placeholder="ยศ" className="bg-transparent border-slate-600 text-white w-full text-[4px] h-7" />
                         </TableCell>
-                        <TableCell className="px-1 py-1 whitespace-nowrap">
-                          <Input value={row.ชื่อ || ''} onChange={e => handleNameChange(idx, "ชื่อ", e.target.value)} placeholder="ชื่อ" className="bg-transparent border-slate-600 text-white text-[11px] h-7" />
-                        </TableCell>
-                        <TableCell className="px-1 py-1 whitespace-nowrap">
-                          <Input value={row.สกุล || ''} onChange={e => handleNameChange(idx, "สกุล", e.target.value)} placeholder="สกุล" className="bg-transparent border-slate-600 text-white text-[11px] h-7" />
+                        <TableCell className="px-1 py-1 whitespace-nowrap" colSpan={2}>
+                            <PersonAutocomplete
+                                people={allPersons}
+                                value={row.ชื่อ ? row as Person : null}
+                                onSelect={(person) => handlePersonSelect(idx, person)}
+                            />
                         </TableCell>
                         <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.ชั้นปีที่}</TableCell>
                         <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.ตอน}</TableCell>

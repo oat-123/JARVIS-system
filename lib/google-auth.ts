@@ -1,5 +1,5 @@
-import { GoogleAuth } from "google-auth-library"
-import { google } from "googleapis"
+import { GoogleAuth } from "google-auth-library";
+import { google } from "googleapis";
 
 // Initialize Google Auth with proper private key handling
 export async function getGoogleAuth() {
@@ -13,7 +13,7 @@ export async function getGoogleAuth() {
     
     // Ensure the private key has proper formatting
     if (!privateKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
-      privateKey = `-----BEGIN PRIVATE KEY-----\\n${privateKey}\\n-----END PRIVATE KEY-----`
+      privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----`
     }
 
     // Validate required environment variables
@@ -144,7 +144,7 @@ export const SCOPES: string[] = [
 export const getDriveService = async () => {
   try {
     const auth = await getGoogleAuth()
-    const drive = google.drive({ version: 'v3', auth })
+    const drive = google.drive({version: 'v3', auth})
     return drive
   } catch (error) {
     console.error('Error getting Google Drive service:', error)
@@ -284,39 +284,79 @@ export const findImageFileByName = async (parentId: string, targetName: string) 
     return { best: null, files: [] };
   }
 
-  // fuzzy match
-  const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
-  const target = norm(targetName);
-  let best = null;
-  let bestScore = 0;
-  for (const f of files) {
-    const n = norm(f.name || '');
-    let score = 0;
-    if (n === target) score = 100;
-    else if (n.includes(target) || target.includes(n)) score = 80;
-    else if (n.split('.')[0] === target.split('.')[0]) score = 70;
-    if (score > bestScore) {
-      best = f;
-      bestScore = score;
-    }
+  const normalizeAndTokenize = (str: string): string[] => {
+    return (str || '')
+      .replace(/\.(jpg|jpeg|png)$/i, '') // Remove image file extensions
+      .replace(/[\s\._-]+/g, ' ') // Replace separators with space
+      .trim()
+      .toLowerCase()
+      .split(' ')
+      .filter(Boolean);
+  };
+
+  const targetTokens = normalizeAndTokenize(targetName);
+  if (targetTokens.length === 0) {
+      return { best: null, files };
   }
 
-  // If no good match, try a more fuzzy search just based on the first name
-  if (bestScore < 70 && targetName) {
-    const firstName = targetName.split(' ')[0];
-    if (firstName) {
-      const targetFirstName = norm(firstName);
-      for (const f of files) {
-          const n = norm(f.name || '');
-          if (n.startsWith(targetFirstName)) {
-              best = f;
-              break;
+  let bestFile: any | null = null;
+  let bestScore = 0;
+
+  for (const file of files) {
+    if (!file.name) continue;
+
+    const fileTokens = normalizeAndTokenize(file.name);
+    if (fileTokens.length === 0) continue;
+
+    let currentScore = 0;
+    const targetFullName = targetTokens.join(' ');
+    const fileFullName = fileTokens.join(' ');
+
+    // Highest score for exact match
+    if (fileFullName === targetFullName) {
+      currentScore = 100;
+    } else {
+      // Score based on token matching
+      const [targetFirst, ...targetRest] = targetTokens;
+      const targetLast = targetRest.pop() || '';
+
+      const [fileFirst, ...fileRest] = fileTokens;
+      const fileLast = fileRest.pop() || '';
+
+      // Strong match for first name
+      if (targetFirst === fileFirst) {
+        currentScore += 50;
+      } else if (fileFirst.startsWith(targetFirst)) {
+        currentScore += 30;
+      }
+
+      // Strong match for last name
+      if (targetTokens.length > 1 && fileTokens.length > 1) {
+          if (targetLast === fileLast) {
+              currentScore += 50;
+          } else if (fileLast.startsWith(targetLast)) {
+              currentScore += 20;
           }
       }
+      
+      // Penalize for different lengths
+      if (targetTokens.length !== fileTokens.length) {
+          currentScore -= 10;
+      }
+    }
+
+    if (currentScore > bestScore) {
+      bestScore = currentScore;
+      bestFile = file;
     }
   }
+  
+  // Only return a match if the score is reasonably high
+  if (bestScore < 50) {
+      return { best: null, files };
+  }
 
-  return { best, files };
+  return { best: bestFile, files };
 };
 
 // New function for user authentication from Google Sheet

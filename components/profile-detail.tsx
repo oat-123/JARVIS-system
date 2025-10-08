@@ -1,4 +1,3 @@
-
 "use client"
 import { getFriendlySheetName } from "@/components/modules/ceremony-duty"
 
@@ -368,38 +367,9 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   console.log('enterChp array:', person.enterChp)
   console.log('===============================')
 
-  // Clean and format enter433 data - ใช้ข้อมูลจาก Google Sheets ทั้งหมด (_433_dates)
-  const formatEnter433 = (enter433: any[]) => {
-    const dates: any[] = Array.isArray(person._433_dates) ? person._433_dates : []
-    const entries: string[] = []
-    dates.forEach((d, i) => {
-      if (d && d.toString().trim()) entries.push(`ครั้งที่ ${i + 1} เมื่อ ${d}`)
-    })
-    return entries.length ? entries.join('\n') : '-'
-  }
-
-  // Clean and format report history - ใช้ข้อมูลจาก Google Sheets ทั้งหมด
-  const formatReportHistory = (reportHistory: any[]) => {
-    if (person.ถวายรายงาน && person['น.กำกับยาม'] && person.วันที่) {
-      return `${person.ถวายรายงาน} คู่ ${person['น.กำกับยาม']} เมื่อ ${person.วันที่}`
-    }
-    return '-'
-  }
-
-  // Clean and format enterChp - ใช้หลักการเดียวกับ enter433 (_admin_dates)
-  const formatEnterChp = (enterChp: any[]) => {
-    const dates: any[] = Array.isArray(person._admin_dates) ? person._admin_dates : []
-    const entries: string[] = []
-    dates.forEach((d, i) => {
-      if (d && d.toString().trim()) entries.push(`ครั้งที่ ${i + 1} เมื่อ ${d}`)
-    })
-    return entries.length ? entries.join('\n') : '-'
-  }
-
-  // คำนวณจำนวนครั้งที่เข้า 433 สำหรับสถิติ - ใช้ข้อมูลจาก Google Sheets เท่านั้น (_433_dates)
+  // Calculate 433 count from the processed enter433 array
   const calculate433Count = () => {
-    const dates: any[] = Array.isArray(person._433_dates) ? person._433_dates : []
-    return dates.filter(d => d && d.toString().trim()).length
+    return Array.isArray(person.enter433) ? person.enter433.length : 0;
   }
 
   return (
@@ -588,12 +558,50 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
 
 
             {/* Report History */}
-            <div className="grid grid-cols-2 items-start px-6 py-4">
-              <div className="text-sm text-slate-300">ประวัติถวายรายงาน</div>
-              <div className="text-base font-medium text-white text-right whitespace-pre-line">
-                {formatReportHistory(person.reportHistory)}
+            {person.reportHistory && person.reportHistory.length > 0 && (
+              <div className="grid grid-cols-2 items-start px-6 py-4">
+                <div className="text-sm text-slate-300">ประวัติถวายรายงาน</div>
+                <div className="text-base font-medium text-white text-right">
+                  {person.reportHistory.map((entry: any, index: number) => (
+                    <div key={index} className="mb-1">
+                      {entry.to}
+                      {entry.partner && <span className="text-slate-400 text-xs"> (คู่ {entry.partner})</span>}
+                      {entry.date && <span className="text-slate-400 text-xs ml-2">{toThaiShortDate(entry.date)}</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* 433 History */}
+            {person.enter433 && person.enter433.length > 0 && (
+              <div className="grid grid-cols-2 items-start px-6 py-4">
+                <div className="text-sm text-slate-300">ประวัติเข้าเวร 433</div>
+                <div className="text-base font-medium text-white text-right">
+                  {person.enter433.map((entry: any, index: number) => (
+                    <div key={index} className="mb-1">
+                      {toThaiShortDate(entry.date)}
+                      {entry.note && <span className="text-slate-400 text-xs ml-2">({entry.note})</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Admin/CHP History */}
+            {person.enterChp && person.enterChp.length > 0 && (
+              <div className="grid grid-cols-2 items-start px-6 py-4">
+                <div className="text-sm text-slate-300">ประวัติเข้าเวรธุรการ</div>
+                <div className="text-base font-medium text-white text-right">
+                  {person.enterChp.map((entry: any, index: number) => (
+                    <div key={index} className="mb-1">
+                      {toThaiShortDate(entry.date)}
+                      {entry.note && <span className="text-slate-400 text-xs ml-2">({entry.note})</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Dynamic 433 Columns */}
             {person._433_columns && person._433_columns.length > 0 && (

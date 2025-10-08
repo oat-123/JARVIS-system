@@ -21,17 +21,60 @@ function safeParseDateCell(cell: string | undefined): string | null {
     return kept.length ? kept.join(' ') : trimmed;
 }
 
+function createFuzzyMatcher(query: string) {
+    const normalizedQuery = query.trim().replace(/\s+/g, ' ').toLowerCase();
+    const queryParts = normalizedQuery.split(' ');
+
+    return (person: any) => {
+        const fullName = person.name || '';
+        const normalizedFullName = fullName.trim().replace(/\s+/g, ' ').toLowerCase();
+        
+        if (normalizedFullName.includes(normalizedQuery)) {
+            return true;
+        }
+
+        const nameParts = normalizedFullName.split(' ');
+        const rank = nameParts.length > 2 ? nameParts[0] : '';
+        const firstName = nameParts.length > 1 ? nameParts[1] : nameParts[0];
+        const lastName = nameParts.length > 2 ? nameParts[2] : (nameParts.length > 1 ? nameParts[1] : '');
+
+        if (queryParts.length === 1) {
+            const q = queryParts[0];
+            if (firstName.startsWith(q) || lastName.startsWith(q)) {
+                return true;
+            }
+        }
+
+        if (queryParts.length === 2) {
+            const [qFirst, qLast] = queryParts;
+            if (firstName === qFirst && lastName.startsWith(qLast)) {
+                return true;
+            }
+            if (rank === qFirst && firstName.startsWith(qLast)) {
+                return true;
+            }
+        }
+        
+        return false;
+    };
+}
+
 export async function GET(request: NextRequest) {
+    console.log("[API/433] Received GET request.");
+    const { searchParams } = new URL(request.url);
+    const searchQuery = searchParams.get('q');
     const cookieStore = await cookies();
     const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
     const user = session.username;
     const role = session.role;
 
     if (!user || !role) {
+        console.log("[API/433] Unauthorized access attempt.");
         return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
     try {
+        console.log(`[API/433] Starting execution for user: ${user}, role: ${role}`);
         const sheets = await getSheetsService();
         let values: any[][] = [];
 
@@ -39,9 +82,7 @@ export async function GET(request: NextRequest) {
             console.log(`[API/433] Admin user '${user}' fetching combined data.`);
             values = await getCombinedSheetData(SPREADSHEET_ID_433);
         } else {
-            // If role is not a valid sheet, fallback to 'รวม'
             const sheetName = role && typeof role === 'string' ? role : 'รวม';
-            // If sheetName is 'Admin' or 'admin', fallback to 'รวม'
             const validSheetName = (sheetName.toLowerCase() === 'admin' || sheetName.toLowerCase() === 'oat') ? 'รวม' : sheetName;
             console.log(`[API/433] User '${user}' fetching data from sheet: ${validSheetName}`);
             const response = await sheets.spreadsheets.values.get({
@@ -50,12 +91,15 @@ export async function GET(request: NextRequest) {
             });
             values = response.data.values || [];
         }
+        console.log(`[API/433] Fetched ${values.length} rows from Google Sheets.`);
 
         if (values.length === 0) {
-            return NextResponse.json({ success: true, data: { totals: {}, topReporters: [], topByReportPerson: [], topBy433Person: [], topByAdminPerson: [], people: [] }, message: 'empty' });
+            console.log("[API/433] No data found in sheet, returning empty success response.");
+            return NextResponse.json({ success: true, data: { totals: {}, topReporters: [], people: [] }, message: 'empty' });
         }
 
         const headers = values[0].map((h: any) => (h || '').toString().trim());
+        console.log("[API/433] Processing headers.");
         const idxOf = (name: string) => headers.findIndex(h => h.includes(name));
 
         const idxOrder = idxOf('ลำดับ') >= 0 ? idxOf('ลำดับ') : 0;
@@ -82,102 +126,98 @@ export async function GET(request: NextRequest) {
 
         const idx433Cols: number[] = [];
         headers.forEach((header, index) => {
-            if (header && header.toString().trim().match(/^433\s*ครั้งที่\s*\d+$/)) {
+            if (header && header.toString().match(/^\s*(433|๔๓๓)\s*ครั้งที่\s*[\d๐-๙]+\s*$/)) {
                 idx433Cols.push(index);
             }
         });
 
         const idxAdminCols: number[] = [];
         headers.forEach((header, index) => {
-            if (header && header.toString().trim().match(/^ธุรการ\s*ครั้งที่\s*\d+$/)) {
+            if (header && header.toString().match(/^\s*ธุรการ\s*ครั้งที่\s*[\d๐-๙]+\s*$/)) {
                 idxAdminCols.push(index);
             }
         });
+        console.log(`[API/433] Found ${idx433Cols.length} 433-duty columns and ${idxAdminCols.length} admin-duty columns.`);
 
         const people: any[] = [];
+        console.log("[API/433] Starting to process people rows.");
         for (let i = 1; i < values.length; i++) {
             const row = values[i];
             if (!row || row.length === 0 || !row[idxFirstName]) continue;
             const get = (j: number) => (j >= 0 && j < row.length ? row[j] : '');
-            const person = {
-                ลำดับ: get(idxOrder),
-                ยศ: get(idxRank),
-                ชื่อ: get(idxFirstName),
-                สกุล: get(idxLastName),
-                ชั้นปีที่: get(idxYear),
-                ตอน: get(idxClass),
-                ตำแหน่ง: get(idxPosition),
-                สังกัด: get(idxUnit),
-                เบอร์โทรศัพท์: get(idxPhone),
-                คัดเกรด: get(idxGrade),
-                "ธุรการ ฝอ.": get(idxAdminField),
-                ตัวชน: get(idxTua),
-                ส่วนสูง: get(idxHeight),
-                นักกีฬา: get(idxSport),
-                "ภารกิจอื่น ๆ": get(idxOtherMission),
-                "ดูงานต่างประเทศ": get(idxOverseasWork),
-                "เจ็บ (ใบรับรองแพทย์)": get(idxMedicalCert),
-                หมายเหตุ: get(idxNote),
-                ถวายรายงาน: get(idxReport),
-                "น.กำกับยาม": get(idxDutyOfficer),
-                "วันที่": get(idxDate),
-                _433_dates: idx433Cols.map(c => safeParseDateCell(get(c))),
-                _admin_dates: idxAdminCols.map(c => safeParseDateCell(get(c))),
-                _433_columns: idx433Cols.map((c, index) => ({
-                    column: headers[c] || `433 ครั้งที่ ${index + 1}`,
-                    value: get(c)
-                })),
-                _admin_columns: idxAdminCols.map((c, index) => ({
-                    column: headers[c] || `ธุรการ ครั้งที่ ${index + 1}`,
-                    value: get(c)
-                }))
+
+            const _433_dates = idx433Cols.map(c => safeParseDateCell(get(c))).filter(Boolean);
+            const _admin_dates = idxAdminCols.map(c => safeParseDateCell(get(c))).filter(Boolean);
+
+            const person: any = {
+                'ลำดับ': get(idxOrder),
+                'ยศ': get(idxRank),
+                'ชื่อ': get(idxFirstName),
+                'สกุล': get(idxLastName),
+                'ชั้นปีที่': get(idxYear),
+                'ตอน': get(idxClass),
+                'ตำแหน่ง': get(idxPosition),
+                'สังกัด': get(idxUnit),
+                'เบอร์โทรศัพท์': get(idxPhone),
+                'คัดเกรด': get(idxGrade),
+                'ธุรการ ฝอ.': get(idxAdminField),
+                'ตัวชน': get(idxTua),
+                'ส่วนสูง': get(idxHeight),
+                'นักกีฬา': get(idxSport),
+                'ภารกิจอื่น ๆ': get(idxOtherMission),
+                'ดูงานต่างประเทศ': get(idxOverseasWork),
+                'เจ็บ (ใบรับรองแพทย์)': get(idxMedicalCert),
+                'หมายเหตุ': get(idxNote),
+                'ถวายรายงาน': get(idxReport),
+                'น.กำกับยาม': get(idxDutyOfficer),
+                'วันที่': get(idxDate),
+                _433_dates: _433_dates,
+                _admin_dates: _admin_dates,
+                enter433: [],
+                enterChp: [],
+                partner: "",
+                reportHistory: [],
+                stat: 0,
+                หน้าที่: ""
             };
+            person.name = `${person['ยศ'] || ''} ${person['ชื่อ'] || ''} ${person['สกุล'] || ''}`.trim();
+            
             people.push(person);
         }
+        console.log(`[API/433] Finished processing ${people.length} people.`);
 
         let countReport = 0, count433 = 0, countAdmin = 0, countNever = 0;
         const reportCounts: Record<string, number> = {};
         people.forEach(p => {
-            const reportCell = (p.ถวายรายงาน || '').toString();
-            const hasReport = !!(reportCell && reportCell.toString().trim());
-            const has433 = p._433_columns && p._433_columns.some((col: any) => col.value && col.value.toString().trim() && col.value !== '-');
-            const hasAdmin = p._admin_columns && p._admin_columns.some((col: any) => col.value && col.value.toString().trim() && col.value !== '-');
+            const reportCell = (p['ถวายรายงาน'] || '').toString();
+            const hasReport = !!(reportCell && reportCell.trim());
+            const has433 = p._433_dates.length > 0;
+            const hasAdmin = p._admin_dates.length > 0;
+
             if (hasReport) countReport++;
             if (has433) count433++;
             if (hasAdmin) countAdmin++;
             if (!hasReport && !has433 && !hasAdmin) countNever++;
+
             if (hasReport) {
-                const tokens = reportCell.toString().split(/[\s,;\/]+/).map((t: string) => t.trim()).filter(Boolean);
+                const tokens = reportCell.split(/[\s,;\/]+/).map((t: string) => t.trim()).filter(Boolean);
                 tokens.forEach((tok: string) => {
                     reportCounts[tok] = (reportCounts[tok] || 0) + 1;
                 });
             }
         });
+        console.log("[API/433] Finished calculating totals.");
 
         const topReporters = Object.entries(reportCounts).map(([k, v]) => ({ name: k, count: v })).sort((a, b) => b.count - a.count);
-        const personStats = people.map((p: any) => {
-            const reportDates = (p.ถวายรายงาน || '').toString() ? 1 : 0;
-            const num433 = p._433_columns ? p._433_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length : 0;
-            const numAdmin = p._admin_columns ? p._admin_columns.filter((col: any) => col.value && col.value.toString().trim() && col.value !== '-').length : 0;
-            return {
-                fullName: `${p.ยศ || ''} ${p.ชื่อ || ''} ${p.สกุล || ''}`.trim(),
-                report: reportDates,
-                _433: num433,
-                admin: numAdmin,
-            };
-        });
 
-        const topByReportPerson = [...personStats].sort((a, b) => b.report - a.report).slice(0, 5);
-        const topBy433Person = [...personStats].sort((a, b) => b._433 - a._433).slice(0, 5);
-        const topByAdminPerson = [...personStats].sort((a, b) => b.admin - a.admin).slice(0, 5);
+        const finalPeople = searchQuery && searchQuery.trim()
+            ? people.filter(createFuzzyMatcher(searchQuery))
+            : people;
 
         const responseData = {
             totals: { report: countReport, duty433: count433, admin: countAdmin, never: countNever },
             topReporters,
-            topByReportPerson,
-            topBy433Person,
-            topByAdminPerson,
-            people,
+            people: finalPeople,
             metadata: {
                 detected_433_columns: idx433Cols.map(c => headers[c] || `Column ${c}`),
                 detected_admin_columns: idxAdminCols.map(c => headers[c] || `Column ${c}`),
@@ -187,6 +227,7 @@ export async function GET(request: NextRequest) {
             }
         };
 
+        console.log("[API/433] Preparing to send success response.");
         return NextResponse.json({ success: true, data: responseData });
 
     } catch (error) {

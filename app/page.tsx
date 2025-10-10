@@ -94,7 +94,6 @@ export default function Home() {
     const onLoginAsync = async (username: string, password: string): Promise<boolean> => {
         return await handleLogin(username, password);
     };
-    // @ts-ignore
     return <LoginPage onLogin={onLoginAsync} />;
   }
 

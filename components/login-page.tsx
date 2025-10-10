@@ -22,11 +22,11 @@ import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { Checkbox } from "./ui/checkbox"
-import { X } from "lucide-react"
+import { Loader2, X } from "lucide-react"
 import Link from "next/link"
 
 interface LoginPageProps {
-  onLogin: (username: string, password: string, rememberMe?: boolean) => boolean
+  onLogin: (username: string, password: string, rememberMe?: boolean) => Promise<boolean>
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
@@ -45,9 +45,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     // Log login attempt (user, pass, timestamp)
-    logLoginAttempt(username, password)
+    await logLoginAttempt(username, password)
 
-    const success = onLogin(username, password, rememberMe)
+    const success = await onLogin(username, password, rememberMe)
     if (!success) {
       setError("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
     }
@@ -163,9 +163,16 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-white/15 hover:bg-white/25 text-white py-3 rounded-lg font-medium transition-all duration-300 backdrop-blur-sm border border-white/20 hover:border-white/40"
+                className="w-full bg-white/15 hover:bg-white/25 text-white py-3 rounded-lg font-medium transition-all duration-300 backdrop-blur-sm border border-white/20 hover:border-white/40 flex items-center justify-center"
               >
-                {isLoading ? "กำลังเข้าสู่ระบบ..." : "Login"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    กำลังเข้าสู่ระบบ...
+                  </>
+                ) : (
+                  "Login"
+                )}
               </Button>
 
               <div className="text-center text-sm text-white/80 drop-shadow-sm">

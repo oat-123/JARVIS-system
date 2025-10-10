@@ -1,49 +1,50 @@
 import { NextResponse } from 'next/server'
-import fetch from 'node-fetch'
+import { getSheetsService } from '@/lib/google-auth'
 
-// POST { date }
+// POST { date, sheetName }
 export async function POST(req: Request) {
+  console.log('--- IMPORT NAMES API START ---');
   try {
-    const { date, sheetName } = await req.json()
-    // Fetch Google Sheet CSV using sheet name when provided, fallback to gid
-    const sheetId = '1VLyX1Ug7wY0SENaBzyl50i7HoJIhhOGAnPTbd02hqqw'
-    const gid = '992125215'
-    let url = ''
-    if (sheetName) {
-      // use gviz CSV export for named sheet (works when sheet name exists)
-      const enc = encodeURIComponent(sheetName)
-      url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${enc}`
-    } else {
-      url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
+    const { sheetName } = await req.json();
+    console.log('Request Body:', { sheetName });
+
+    if (!sheetName) {
+      console.error('Error: sheetName is required.');
+      return NextResponse.json({ error: 'sheetName is required' }, { status: 400 });
     }
-    const res = await fetch(url)
-    if (!res.ok) return NextResponse.json({ names: [] })
-    const text = await res.text()
-    // Parse CSV robustly into rows with simple quote-aware parser
-    const rowsRaw = text.split('\n').filter(Boolean)
-    const rows:any[] = rowsRaw.map(line => {
-      const cols:any[] = []
-      let cur = ''
-      let inQuotes = false
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i]
-        if (ch === '"') { inQuotes = !inQuotes; continue }
-        if (ch === ',' && !inQuotes) { cols.push(cur.trim()); cur = ''; continue }
-        cur += ch
-      }
-      cols.push(cur.trim())
-      return cols
-    })
-    // Heuristic: columns: ยศ, ชื่อ, สกุล OR index 1,2,3
-    // Use header row to map columns if present
+
+    const sheets = await getSheetsService();
+    const spreadsheetId = '1TwqqgEhug2_oe2iIPlR9q-1pGuGIqMGswtPEnLzzcSk';
+
+    console.log(`Fetching sheet: '${sheetName}' from spreadsheet: ${spreadsheetId}`);
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: sheetName, // Fetch the entire sheet by its name
+    });
+
+    const rows = response.data.values;
+
+    // Header is on row 2, data starts from row 3. Need at least 2 rows.
+    if (!rows || rows.length < 2) {
+      console.log('No data or not enough rows for the new structure.');
+      return NextResponse.json({ names: [] });
+    }
+
+    console.log(`Found ${rows.length} rows in sheet.`);
+    
     const names: any[] = []
-    const header = rows[0] || []
+    const header = rows[1] || [] // Header is now on the 2nd row (index 1)
+    console.log('Sheet Header (Row 2):', header);
+
+    // Extract headers for additional columns E-M (indices 4 to 12)
+    const additionalHeaders = header.slice(4, 13);
+
     const findIdx = (candidates: string[]) => {
       for (let i = 0; i < header.length; i++) {
         const h = (header[i] || '').toString().trim()
         for (const c of candidates) if (h === c) return i
       }
-      // try case-insensitive contains
       for (let i = 0; i < header.length; i++) {
         const h = (header[i] || '').toString().trim().toLowerCase()
         for (const c of candidates) if (h.includes(c.replace(/\s+/g,'').toLowerCase())) return i
@@ -51,33 +52,58 @@ export async function POST(req: Request) {
       return -1
     }
 
-    const idxTitle = findIdx(['ยศ','title'])
-    // บังคับอ่าน ชื่อ จากคอลัมน์ C (index 2) และ สกุล จากคอลัมน์ D (index 3)
-    // เพื่อให้สอดคล้องกับรูปแบบชีทของคุณเสมอ
-    const idxFirst = 2
-    const idxLast = 3
-    const idxPos = findIdx(['ตำแหน่ง ทกท.','ตำแหน่ง','position'])
-    const idxPartner = findIdx(['คู่พี่นายทหาร','คู่พี่นาย','คู่พี่','partner'])
-    const idxShift = findIdx(['ผลัด','ผัด','shift'])
-    const idxNote = findIdx(['หมายเหตุ','note','หมายเหตุ'])
+    let idxTitle = findIdx(['ยศ','title'])
+    let idxFirst = findIdx(['ชื่อ'])
+    let idxLast = findIdx(['สกุล'])
+    let idxPos = findIdx(['ตำแหน่ง ทกท.','ตำแหน่ง','position'])
+    let idxPartner = findIdx(['คู่พี่นายทหาร','คู่พี่นาย','คู่พี่','partner'])
+    let idxShift = findIdx(['ผลัด','ผัด','shift'])
+    let idxNote = findIdx(['หมายเหตุ','note'])
+
+    console.log('Column Indexes:', { idxTitle, idxFirst, idxLast, idxPos, idxPartner, idxShift, idxNote });
 
     const norm = (s:string) => s.toString().normalize('NFKD').replace(/\s+/g, '').toLowerCase()
-    for (let i = 1; i < rows.length; i++) {
+    // Start from row 3 (index 2) to skip header
+    for (let i = 2; i < rows.length; i++) {
       const r = rows[i]
-      if (!r || r.length === 0) continue
-      const title = (idxTitle >= 0 ? r[idxTitle] : (r[1] || '')).toString().trim()
-      const first = (r[2] || '').toString().trim()
-      const last = (r[3] || '').toString().trim()
+      if (!r || r.length === 0 || r.every(cell => !cell)) continue // Skip empty rows
+
+      const title = (idxTitle >= 0 ? r[idxTitle] : '').toString().trim()
+      const first = (idxFirst >= 0 ? r[idxFirst] : '').toString().trim()
+      const last = (idxLast >= 0 ? r[idxLast] : '').toString().trim()
+
+      if (!first && !last) continue;
+
       const position = idxPos >= 0 ? (r[idxPos] || '').toString().trim() : ''
       const partner = idxPartner >= 0 ? (r[idxPartner] || '').toString().trim() : ''
       const shift = idxShift >= 0 ? (r[idxShift] || '').toString().trim() : ''
       const note = idxNote >= 0 ? (r[idxNote] || '').toString().trim() : ''
       const full = `${title} ${first} ${last}`.trim()
-      names.push({ title, first, last, full, position, partner, shift, note, fullNorm: norm(full) })
+
+      // Extract additional data from columns E-M (4-12)
+      const additionalData: { [key: string]: string } = {};
+      for (let j = 4; j <= 12; j++) {
+        const headerName = header[j];
+        if (headerName) {
+          additionalData[headerName] = (r[j] || '').toString().trim();
+        }
+      }
+
+      names.push({ title, first, last, full, position, partner, shift, note, additionalData, fullNorm: norm(full) })
     }
-    return NextResponse.json({ names })
-  } catch (e) {
-    console.error(e)
-    return NextResponse.json({ names: [] })
+
+    console.log(`Successfully parsed ${names.length} names.`);
+    console.log('--- IMPORT NAMES API END ---');
+    return NextResponse.json({ names, additionalHeaders })
+
+  } catch (e: any) {
+    console.error('--- IMPORT NAMES API ERROR ---');
+    if (e.code === 404) {
+      console.error('Sheet not found. Ensure the sheetName is correct and the service account has access.');
+    } else if (e.code === 403) {
+      console.error('Permission denied. Ensure the service account email has been added to the Google Sheet with at least Viewer permissions.');
+    }
+    console.error(e);
+    return NextResponse.json({ names: [], error: e.message || 'An unknown error occurred.' }, { status: 500 })
   }
 }

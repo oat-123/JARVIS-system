@@ -20,6 +20,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
   const [date, setDate] = useState('')
   const [displayDateLabel, setDisplayDateLabel] = useState('')
   const [matches, setMatches] = useState<any[]>([])
+  const [additionalHeaders, setAdditionalHeaders] = useState<string[]>([])
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -111,10 +112,11 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       const res = await fetch('/api/import-names', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, sheetName })
+        body: JSON.stringify({ sheetName })
       })
       const json = await res.json()
       setMatches(json.names || [])
+      setAdditionalHeaders(json.additionalHeaders || [])
       setSelectedIndex(json.names && json.names.length > 0 ? 0 : null)
       setMessage(`พบ ${(json.names || []).length} รายการ`)
       setLinkStates({})
@@ -410,7 +412,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
         <AlternativeFileDialog />
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -438,7 +440,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
             <div className="flex items-center justify-between">
               <Label>รายการในชีท (เลือกชื่อ)</Label>
             </div>
-            <div className="bg-slate-900/40 rounded border border-slate-700 overflow-auto max-h-96">
+            <div className="bg-slate-900/40 rounded border border-slate-700 overflow-auto max-h-[60vh]">
               {matches.length === 0 ? (
                 <div className="p-4 text-slate-400">ยังไม่มีชื่อที่นำเข้า</div>
               ) : (
@@ -451,6 +453,9 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
                       <th className="p-3 text-left">คู่พี่นายทหาร</th>
                       <th className="p-3 text-left">ผลัด</th>
                       <th className="p-3 text-left">หมายเหตุ</th>
+                      {additionalHeaders.map(header => (
+                        <th key={header} className="p-3 text-left">{header}</th>
+                      ))}
                       <th className="p-3 text-left">ไฟล์ ฉก.</th>
                       <th className="p-3 text-left">รูปภาพ</th>
                     </tr>
@@ -477,6 +482,9 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
                           <td className="p-3">{m.partner || '-'}</td>
                           <td className="p-3">{m.shift || '-'}</td>
                           <td className="p-3">{m.note || '-'}</td>
+                          {additionalHeaders.map(header => (
+                            <td key={header} className="p-3">{m.additionalData?.[header] || '-'}</td>
+                          ))}
                           <td className="p-3" onClick={e=>e.stopPropagation()}>
                             {st.status === 'ok' && st.url ? (
                               <a href={st.url} target="_blank" download={st.filename || undefined} className="text-emerald-400 underline">ไฟล์ ฉก.</a>

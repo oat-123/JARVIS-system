@@ -1375,7 +1375,7 @@ const findPersonByName = (name: string) => {
                       ไม่มีข้อมูล
                       <div className="flex justify-center gap-2 mt-4">
                
-                        <a href="https://docs.google.com/spreadsheets/d/1VLyX1Ug7wY0SENaBzyl50i7HoJIhhOGAnPTbd02hqqw/edit?gid=2008232260#gid=2008232260" target="_blank" rel="noopener noreferrer">
+                        <a href="https://docs.google.com/spreadsheets/d/1TwqqgEhug2_oe2iIPlR9q-1pGuGIqMGswtPEnLzzcSk/edit?gid=1911292113#gid=1911292113" target="_blank" rel="noopener noreferrer">
                           <Button>ตรวจสอบชีท</Button>
                         </a>
                       </div>

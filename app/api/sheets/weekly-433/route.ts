@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSheetsService } from '@/lib/google-auth'
 
 // Spreadsheet provided by user for weekly 433 duty tabs (each sheet = weekend)
-const SPREADSHEET_ID_WEEKLY = '1VLyX1Ug7wY0SENaBzyl50i7HoJIhhOGAnPTbd02hqqw'
+const SPREADSHEET_ID_WEEKLY = '1TwqqgEhug2_oe2iIPlR9q-1pGuGIqMGswtPEnLzzcSk'
 
 export const runtime = 'nodejs'
 

@@ -786,6 +786,13 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
             >
               จัดยอดด้วยตัวเอง
             </Button>
+            <Button
+              variant="outline"
+              className="bg-purple-500/90 text-white hover:bg-purple-600"
+              onClick={() => router.push(`/ceremony-duty/grade?sheetName=${encodeURIComponent(sheetName)}`)}
+            >
+              จัดยอดตามเกรด
+            </Button>
             <Button onClick={refreshData} variant="outline" size="sm" disabled={isLoadingData} className="text-white border-white/30 hover:bg-white/10 bg-transparent backdrop-blur-sm w-full sm:w-auto">
               <Database className={`h-4 w-4 mr-2 ${isLoadingData ? "animate-spin" : ""}`} />
               รีเฟรชข้อมูล

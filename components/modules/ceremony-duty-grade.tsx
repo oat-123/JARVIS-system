@@ -1,7 +1,7 @@
 'use client';
-import { useState, useEffect, useMemo, Suspense, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Users, Settings, CheckSquare, Square, FileCheck, FileText, BarChart3, X, Download, Shuffle, Database, Award, AlertCircle, Wifi, WifiOff, PlusCircle } from "lucide-react";
+import { useState, useEffect, useMemo, Suspense } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Users, Settings, FileCheck, FileText, BarChart3, X, Download, Shuffle, Database, Award, AlertCircle, Wifi, WifiOff, PlusCircle, Check, ChevronsUpDown } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,18 +17,18 @@ import ExcelJS from "exceljs";
 import type { BorderStyle } from "exceljs";
 import { saveModuleState, loadModuleState, clearModuleState, ModuleState } from "@/lib/state-persistence";
 import { loadFromCache, saveToCache } from "@/lib/ccache";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert } from "@/components/ui/alert";
 import { useUserSession } from "@/hooks/useUserSession";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { PersonAutocomplete } from "./person-autocomplete";
-
+import { cn } from "@/lib/utils";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Helper to convert Thai numerals to Arabic numerals
 function toArabic(str: string) {
   return (str || '').replace(/[๐-๙]/g, (d: string) => "0123456789"["๐๑๒๓๔๕๖๗๘๙".indexOf(d)]);
 }
 
-// Define the types for the data
+// Define the types for the data to match the new Google Sheet structure
 interface Person {
   ลำดับ: string;
   ยศ: string;
@@ -36,44 +36,149 @@ interface Person {
   สกุล: string;
   ชั้นปีที่: string;
   ตอน: string;
-  ตำแหน่ง: string;
+  'ตำแหน่ง ทกท.': string;
   สังกัด: string;
   เบอร์โทรศัพท์: string;
-  หน้าที่?: string;
-  ชมรม?: string;
-  สถิติโดนยอด: string;
+  คัดเกรด: string;
+  'ธุรการ ฝอ.': string;
+  ตัวชน: string;
+  ส่วนสูง: string;
+  นักกีฬา: string;
+  'ภารกิจอื่น ๆ': string;
+  'ดูงานต่างประเทศ': string;
 }
 
 interface ApiResponse {
   success: boolean;
   data?: Person[];
   error?: string;
-  sheetName?: string; // Add this field
 }
 
 // Define the type for a row in the table
 type RowData = Partial<Person> & { ลำดับ: string; ยศ?: string; };
 
+// --- Inlined PersonAutocomplete Component ---
+interface InlinedPersonAutocompleteProps {
+  people: Person[];
+  value: Person | null;
+  onSelect: (person: Person | null) => void;
+}
+
+function InlinedPersonAutocomplete({ people, value, onSelect }: InlinedPersonAutocompleteProps) {
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+
+  const handleSelect = (person: Person) => {
+    onSelect(person);
+    setInputValue("");
+    setOpen(false);
+  };
+
+  const filterPeople = (search: string): Person[] => {
+    if (!search) {
+      return people.slice(0, 100); // Limit initial results
+    }
+
+    const lowercasedSearch = search.toLowerCase().trim();
+    const searchTerms = lowercasedSearch.split(/\s+/).filter(Boolean);
+
+    if (searchTerms.length === 0) {
+      return people.slice(0, 100);
+    }
+
+    const firstTerm = searchTerms[0];
+    const secondTerm = searchTerms.length > 1 ? searchTerms[1] : null;
+
+    return people
+      .filter((person) => {
+        const firstName = (person.ชื่อ || '').toLowerCase();
+        const lastName = (person.สกุล || '').toLowerCase();
+
+        if (searchTerms.length === 1) {
+          return firstName.startsWith(firstTerm) || lastName.startsWith(firstTerm);
+        }
+
+        if (secondTerm) {
+          return firstName.startsWith(firstTerm) && lastName.startsWith(secondTerm);
+        }
+
+        return false;
+      })
+      .slice(0, 100);
+  };
+  
+  const filtered = filterPeople(inputValue);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between bg-transparent border-slate-600 text-white hover:bg-slate-700"
+        >
+          {value ? `${value.ชื่อ || ''} ${value.สกุล || ''}`.trim() : "เลือกรายชื่อ..."}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0 bg-slate-800 border-slate-700 text-white">
+        <Command>
+          <CommandInput
+            placeholder="ค้นหาชื่อ..."
+            value={inputValue}
+            onValueChange={setInputValue}
+            className="h-9"
+          />
+          <CommandList>
+            <CommandEmpty>ไม่พบรายชื่อ</CommandEmpty>
+            <CommandGroup>
+              {filtered.map((person) => (
+                <CommandItem
+                  key={person.ลำดับ}
+                  value={`${person.ชื่อ || ''} ${person.สกุล || ''}`.trim()}
+                  onSelect={() => handleSelect(person)}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value?.ลำดับ === person.ลำดับ ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <div>
+                    <p>{`${person.ชื่อ || ''} ${person.สกุล || ''}`.trim()}</p>
+                    <p className="text-xs text-slate-400">{person.สังกัด} - ชั้นปี {person.ชั้นปีที่}</p>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+// --- End Inlined PersonAutocomplete Component ---
+
+
 // Define the state for persistence
-interface CeremonyDutyManualState extends ModuleState {
+interface CeremonyDutyGradeState extends ModuleState {
   dutyName: string;
   requiredByYear: { [year: string]: number };
   rows: RowData[];
   saveToHistory: boolean;
   selectedAffiliations: string[];
-  excludedPositions: string[];
-  excludedClubs: string[];
-  statMax: number;
+  excludedAdminDuties: string[];
+  excludedAthletes: string[];
+  excludedGrades: string[];
+  heightRange: [number, number];
   checkAllSheets: boolean;
 }
 
-const MODULE_NAME = 'ceremony-duty-manual';
+const MODULE_NAME = 'ceremony-duty-grade';
 
-function CeremonyDutyManualInternal() {
+function CeremonyDutyGradeInternal() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const sheetName = searchParams.get('sheetName') || 'รวม';
-  const [displayedSheetName, setDisplayedSheetName] = useState(sheetName === 'Admin' ? 'รวม' : sheetName);
   const { toast } = useToast();
 
   const [allPersons, setAllPersons] = useState<Person[]>([]);
@@ -84,9 +189,7 @@ function CeremonyDutyManualInternal() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const [dutyName, setDutyName] = useState("");
-  const [requiredByYear, setRequiredByYear] = useState<{ [year: string]: number }>({
-    "1": 0, "2": 0, "3": 0, "4": 0, "5": 0
-  });
+  const [requiredByYear, setRequiredByYear] = useState<{ [year: string]: number }>({ "4": 0 });
   const [rows, setRows] = useState<RowData[]>([
     { ลำดับ: "1", ยศ: "นนร.", ชื่อ: "", สกุล: "" },
   ]);
@@ -98,25 +201,22 @@ function CeremonyDutyManualInternal() {
   const [checkAllSheets, setCheckAllSheets] = useState(true);
   const [selectedExclusionSheets, setSelectedExclusionSheets] = useState<{ [filename: string]: string[] }>({});
   const [namesToExclude, setNamesToExclude] = useState<Set<string>>(new Set());
-  const [excludedPositions, setExcludedPositions] = useState<string[]>([]);
-  const [excludedClubs, setExcludedClubs] = useState<string[]>([])
-  const [statDomain, setStatDomain] = useState<[number, number]>([0, 10]);
-  const [statMax, setStatMax] = useState(10);
+  
+  const [excludedAdminDuties, setExcludedAdminDuties] = useState<string[]>([]);
+  const [excludedAthletes, setExcludedAthletes] = useState<string[]>([]);
+  const [excludedGrades, setExcludedGrades] = useState<string[]>([]);
+  const [heightDomain, setHeightDomain] = useState<[number, number]>([150, 200]);
+  const [heightRange, setHeightRange] = useState<[number, number]>([150, 200]);
 
   const { user, isLoading: isLoadingUser, isError: isErrorUser } = useUserSession();
-  console.log("[CeremonyDutyManual] User from session:", user);
-  console.log("[CeremonyDutyManual] User role:", user?.role);
-  console.log("[CeremonyDutyManual] User role (lowercase):", user?.role?.toLowerCase());
   const canAccessPage = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'oat' || user?.role?.toLowerCase() === 'user';
   const isSuperAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'oat';
-  console.log("[CeremonyDutyManual] canAccessPage:", canAccessPage);
-  console.log("[CeremonyDutyManual] isSuperAdmin:", isSuperAdmin);
 
   const [isStateLoaded, setIsStateLoaded] = useState(false);
 
   const allAffiliations = useMemo(() => {
     const set = new Set<string>();
-    allPersons.forEach((p: Person) => {
+    allPersons.forEach((p) => {
       if (p.สังกัด && typeof p.สังกัด === "string" && p.สังกัด.trim() && !/^๐-๙$/.test(p.สังกัด.trim())) {
         set.add(p.สังกัด.trim());
       }
@@ -125,109 +225,118 @@ function CeremonyDutyManualInternal() {
   }, [allPersons]);
 
   useEffect(() => {
-    setSelectedAffiliations(allAffiliations);
-  }, [allAffiliations]);
+    if (isStateLoaded) setSelectedAffiliations(allAffiliations);
+  }, [allAffiliations, isStateLoaded]);
 
-  const positions = useMemo(() => {
+  const adminDuties = useMemo(() => {
     const set = new Set<string>()
     allPersons.forEach(p => {
-      if (p.หน้าที่ && p.หน้าที่.trim()) set.add(p.หน้าที่.trim())
+      if (p['ธุรการ ฝอ.'] && p['ธุรการ ฝอ.'].trim()) set.add(p['ธุรการ ฝอ.'].trim())
     })
     return Array.from(set).sort((a, b) => a.localeCompare(b, "th"))
   }, [allPersons])
 
-  const clubs = useMemo(() => {
+  const athletes = useMemo(() => {
     const set = new Set<string>()
     allPersons.forEach(p => {
-      if (p.ชมรม && p.ชมรม.trim()) set.add(p.ชมรม.trim())
+      if (p.นักกีฬา && p.นักกีฬา.trim()) set.add(p.นักกีฬา.trim())
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "th"))
+  }, [allPersons])
+  
+  const grades = useMemo(() => {
+    const set = new Set<string>()
+    allPersons.forEach(p => {
+      if (p.คัดเกรด && p.คัดเกรด.trim()) set.add(p.คัดเกรด.trim())
     })
     return Array.from(set).sort((a, b) => a.localeCompare(b, "th"))
   }, [allPersons])
 
   useEffect(() => {
     if (allPersons.length > 0) {
-      const stats = allPersons.map(p => parseInt(p.สถิติโดนยอด, 10) || 0);
-      const min = Math.min(...stats);
-      const max = Math.max(...stats);
-      setStatDomain([min, max]);
-      setStatMax(max);
+      const heights = allPersons.map(p => parseInt(toArabic(p.ส่วนสูง), 10) || 0).filter(h => h > 0);
+      if (heights.length > 0) {
+        const min = Math.min(...heights);
+        const max = Math.max(...heights);
+        setHeightDomain([min, max]);
+        if (!isStateLoaded) {
+            setHeightRange([min, max]);
+        }
+      }
     }
-  }, [allPersons]);
+  }, [allPersons, isStateLoaded]);
 
   const saveCurrentState = () => {
     if (!isStateLoaded) return;
-    const state: CeremonyDutyManualState = {
+    const state: CeremonyDutyGradeState = {
       dutyName,
       requiredByYear,
       rows,
       saveToHistory,
       selectedAffiliations,
-      excludedPositions,
-      excludedClubs,
-      statMax,
+      excludedAdminDuties,
+      excludedAthletes,
+      excludedGrades,
+      heightRange,
       checkAllSheets,
     };
-    console.log('[CeremonyDutyManual] Saving state:', state);
     saveModuleState(MODULE_NAME, state);
   };
 
   const loadSavedState = () => {
     const savedState = loadModuleState(MODULE_NAME);
     if (savedState) {
-      console.log('[CeremonyDutyManual] Loading saved state:', savedState);
       if (savedState.dutyName) setDutyName(savedState.dutyName);
       if (savedState.requiredByYear) setRequiredByYear(savedState.requiredByYear);
-      if (savedState.rows && savedState.rows.length > 0) {
-        setRows(savedState.rows);
-      } else {
-        setRows([{ ลำดับ: "1", ยศ: "นนร.", ชื่อ: "", สกุล: "" }]);
-      }
+      if (savedState.rows && savedState.rows.length > 0) setRows(savedState.rows);
       if (typeof savedState.saveToHistory === 'boolean') setSaveToHistory(savedState.saveToHistory);
       if (savedState.selectedAffiliations) setSelectedAffiliations(savedState.selectedAffiliations);
-      if (savedState.excludedPositions) setExcludedPositions(savedState.excludedPositions);
-      if (savedState.excludedClubs) setExcludedClubs(savedState.excludedClubs);
-      if (savedState.statMax) setStatMax(savedState.statMax);
+      if (savedState.excludedAdminDuties) setExcludedAdminDuties(savedState.excludedAdminDuties);
+      if (savedState.excludedAthletes) setExcludedAthletes(savedState.excludedAthletes);
+      if (savedState.excludedGrades) setExcludedGrades(savedState.excludedGrades);
+      if (savedState.heightRange) setHeightRange(savedState.heightRange);
       if (typeof savedState.checkAllSheets === 'boolean') setCheckAllSheets(savedState.checkAllSheets);
-      console.log('[CeremonyDutyManual] State loaded successfully');
-    } else {
-      console.log('[CeremonyDutyManual] No saved state found');
-    }
+    } 
     setIsStateLoaded(true);
   };
 
   const loadSheetData = async (force: boolean = false) => {
     setIsLoadingData(true);
     setError(null);
-    const cacheKey = `ceremony-data-${sheetName}`;
+    const cacheKey = `ceremony-grade-data`;
 
     if (!force) {
-      const cachedData = loadFromCache<Person[]>(cacheKey);
+      const cachedData = loadFromCache<any[]>(cacheKey);
       if (cachedData) {
-        setAllPersons(cachedData);
+        const dataRows = cachedData.map((p: any) => ({
+          ...p,
+          สกุล: p.สกุล || p.สกุุล || ''
+        }));
+        setAllPersons(dataRows);
         setConnectionStatus("connected");
         setLastUpdated(new Date());
-        toast({ title: "โหลดข้อมูลสำเร็จ", description: `ใช้ข้อมูลจากแคช ${cachedData.length} คน` });
+        toast({ title: "โหลดข้อมูลสำเร็จ", description: `ใช้ข้อมูลจากแคช ${dataRows.length} คน` });
         setIsLoadingData(false);
         return;
       }
     }
 
     try {
-      const response = await fetch(`/api/sheets/ceremony?sheetName=${encodeURIComponent(sheetName)}`);
+      const response = await fetch(`/api/sheets/grade-data`);
       const result: ApiResponse = await response.json();
+
       if (result.success && result.data) {
-        const dataRows = result.data.slice(1);
+        const dataRows = result.data.map((p: any) => ({
+          ...p,
+          สกุล: p.สกุล || p.สกุุล || ''
+        }));
         setAllPersons(dataRows);
         saveToCache(cacheKey, dataRows);
         setConnectionStatus("connected");
         setLastUpdated(new Date());
-        // Update displayedSheetName from API response
-        if (result.sheetName) {
-          setDisplayedSheetName(result.sheetName === 'all_sheets' ? 'รวม' : result.sheetName);
-        }
-        toast({ title: "เชื่อมต่อสำเร็จ", description: `โหลดข้อมูล ${dataRows.length} คน จาก ${result.sheetName === 'all_sheets' ? 'รวม' : result.sheetName}` });
+        toast({ title: "เชื่อมต่อสำเร็จ", description: `โหลดข้อมูล ${dataRows.length} คน` });
       } else {
-        throw new Error(result.error || "Failed to load data");
+        throw new Error(result.error || "Failed to load data from Google Sheet");
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
@@ -241,7 +350,7 @@ function CeremonyDutyManualInternal() {
 
   useEffect(() => {
     loadSheetData();
-  }, [sheetName]);
+  }, []);
 
   useEffect(() => {
     if (!isLoadingData && allPersons.length > 0) {
@@ -250,10 +359,8 @@ function CeremonyDutyManualInternal() {
   }, [isLoadingData, allPersons]);
 
   useEffect(() => {
-    if (isStateLoaded) {
-      saveCurrentState();
-    }
-  }, [dutyName, requiredByYear, rows, saveToHistory, selectedAffiliations, excludedPositions, excludedClubs, statMax, checkAllSheets, isStateLoaded]);
+    saveCurrentState();
+  }, [dutyName, requiredByYear, rows, saveToHistory, selectedAffiliations, excludedAdminDuties, excludedAthletes, excludedGrades, heightRange, checkAllSheets, isStateLoaded]);
 
   const normalizeName = (firstName?: string, lastName?: string): string => {
     const first = (firstName || "").toString().trim()
@@ -265,10 +372,8 @@ function CeremonyDutyManualInternal() {
     setRows(prev => {
       const newRows = [...prev];
       if (person) {
-        // A person was selected from autocomplete
         newRows[idx] = { ...newRows[idx], ...person };
       } else {
-        // Selection was cleared
         const clearedRow: RowData = { ลำดับ: newRows[idx].ลำดับ, ยศ: newRows[idx].ยศ, ชื่อ: "", สกุล: "" };
         newRows[idx] = clearedRow;
       }
@@ -297,39 +402,46 @@ function CeremonyDutyManualInternal() {
 
   const handleClearRows = () => {
     if (window.confirm('คุณต้องการลบรายชื่อทั้งหมดในตารางใช่หรือไม่?')) {
-      setRows([{ ลำดับ: "1", ยศ: "นนร.", ชื่อ: "", สกุล: "" }]);
+      setRows([]);
       toast({ title: "ลบรายชื่อทั้งหมดเรียบร้อยแล้ว" });
     }
   };
 
   const handleAssignDuty = () => {
     setIsAssigning(true);
-    if (isLoadingData) {
-        toast({ title: "กรุณารอให้โหลดข้อมูลเสร็จสิ้น", variant: "destructive" });
-        setIsAssigning(false);
-        return;
-    }
-
+    
     let availablePersons = [...allPersons];
     
     const assignedNames = new Set(rows.filter(r => r.ชื่อ && r.สกุล).map(r => normalizeName(r.ชื่อ, r.สกุล)));
-    availablePersons = availablePersons.filter(p => !assignedNames.has(normalizeName(p.ชื่อ, p.สกุล)));
+    if (assignedNames.size > 0) {
+        availablePersons = availablePersons.filter(p => !assignedNames.has(normalizeName(p.ชื่อ, p.สกุล)));
+    }
 
     if (namesToExclude.size > 0) {
         availablePersons = availablePersons.filter(p => !namesToExclude.has(normalizeName(p.ชื่อ, p.สกุล)));
     }
-    availablePersons = availablePersons.filter(p => {
-        const stat = parseInt(p.สถิติโดนยอด, 10) || 0;
-        return stat >= statDomain[0] && stat <= statMax;
-    });
+
     const normalize = (str?: string) => (str ? str.trim().toLowerCase() : "");
-    if (excludedPositions.length > 0) {
-        const normPositions = excludedPositions.map(normalize);
-        availablePersons = availablePersons.filter(p => !normPositions.includes(normalize(p.หน้าที่)));
+
+    // Apply height filter
+    availablePersons = availablePersons.filter(p => {
+        const heightStr = (p.ส่วนสูง || '').toString();
+        const height = parseInt(toArabic(heightStr).match(/\d+/)?.[0] || "0", 10);
+        return height >= heightRange[0] && height <= heightRange[1];
+    });
+
+    // Apply other filters
+    if (excludedAdminDuties.length > 0) {
+        const normDuties = excludedAdminDuties.map(normalize);
+        availablePersons = availablePersons.filter(p => !normDuties.includes(normalize(p['ธุรการ ฝอ.'])));
     }
-    if (excludedClubs.length > 0) {
-        const normClubs = excludedClubs.map(normalize);
-        availablePersons = availablePersons.filter(p => !normClubs.includes(normalize(p.ชมรม)));
+    if (excludedAthletes.length > 0) {
+        const normAthletes = excludedAthletes.map(normalize);
+        availablePersons = availablePersons.filter(p => !normAthletes.includes(normalize(p.นักกีฬา)));
+    }
+    if (excludedGrades.length > 0) {
+        const normGrades = excludedGrades.map(normalize);
+        availablePersons = availablePersons.filter(p => !normGrades.includes(normalize(p.คัดเกรด)));
     }
     if (selectedAffiliations.length < allAffiliations.length) {
         availablePersons = availablePersons.filter(p => selectedAffiliations.includes(p.สังกัด));
@@ -341,11 +453,28 @@ function CeremonyDutyManualInternal() {
     Object.keys(needsByYear).sort((a,b) => Number(b) - Number(a)).forEach(year => {
       const needed = needsByYear[year];
       if (needed > 0) {
-        let candidates = availablePersons.filter(p => toArabic(p.ชั้นปีที่) === year);
-        for (let i = candidates.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-        }
+        let candidates = availablePersons.filter(p => toArabic(p.ชั้นปีที่).includes(year));
+        
+        const gradePriority = ['F', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+'];
+        candidates.sort((a, b) => {
+            const gradeA = (a.คัดเกรด || '').trim().toUpperCase();
+            const gradeB = (b.คัดเกรด || '').trim().toUpperCase();
+            
+            const rankA = gradePriority.indexOf(gradeA);
+            const rankB = gradePriority.indexOf(gradeB);
+
+            // Grades not in the priority list are ranked lowest
+            const effectiveRankA = rankA === -1 ? gradePriority.length : rankA;
+            const effectiveRankB = rankB === -1 ? gradePriority.length : rankB;
+
+            // Prioritize lower grades (lower index in gradePriority)
+            if (effectiveRankA !== effectiveRankB) {
+                return effectiveRankA - effectiveRankB;
+            }
+            
+            // For candidates with the same grade, shuffle them randomly
+            return Math.random() - 0.5;
+        });
         const assignedForYear = candidates.slice(0, needed);
         newlyAssigned.push(...assignedForYear);
         const assignedForYearNames = new Set(assignedForYear.map(p => normalizeName(p.ชื่อ, p.สกุล)));
@@ -384,7 +513,7 @@ function CeremonyDutyManualInternal() {
       type,
       fileName,
       dutyName,
-      sheetName,
+      sheetName: "GradeDataSheet",
       date: new Date().toISOString(),
       count: rows.length,
       content: content || null,
@@ -435,14 +564,14 @@ function CeremonyDutyManualInternal() {
         const row = ws.getRow(rowIdx);
         row.values = [
             toThaiNumber(idx + 1),
-            person.ยศ,
-            person.ชื่อ,
-            person.สกุล,
-            person.ชั้นปีที่,
-            person.ตอน,
-            person.ตำแหน่ง,
-            person.สังกัด,
-            person.เบอร์โทรศัพท์,
+            person.ยศ || '',
+            person.ชื่อ || '',
+            person.สกุล || '',
+            person.ชั้นปีที่ || '',
+            person.ตอน || '',
+            person['ตำแหน่ง ทกท.'] || '',
+            person.สังกัด || '',
+            person.เบอร์โทรศัพท์ || '',
             ""
         ];
         row.eachCell((cell, colNumber) => {
@@ -483,17 +612,20 @@ function CeremonyDutyManualInternal() {
       `รายงานยอด${dutyName}`,
       `วันที่: ${new Date().toLocaleDateString("th-TH")}`,
       `จำนวนคนที่เลือก: ${rows.length} คน`,
-      `ฐานข้อมูล: ${sheetName}`,
+      `ฐานข้อมูล: Grade Data Sheet`,
       "",
       "เงื่อนไขการกรอง:",
-      `- ยกเว้นหน้าที่: ${excludedPositions.length > 0 ? excludedPositions.join(", ") : "ไม่มี"}`,
-      `- ยกเว้นชมรม: ${excludedClubs.length > 0 ? excludedClubs.join(", ") : "ไม่มี"}`,
+      `- กรองตามสังกัด: ${selectedAffiliations.length === allAffiliations.length ? "ทั้งหมด" : selectedAffiliations.join(", ")}`,
+      `- ยกเว้น ธุรการ/ฝอ.: ${excludedAdminDuties.length > 0 ? excludedAdminDuties.join(", ") : "ไม่มี"}`,
+      `- ยกเว้น นักกีฬา: ${excludedAthletes.length > 0 ? excludedAthletes.join(", ") : "ไม่มี"}`,
+      `- ยกเว้นตามเกรด: ${excludedGrades.length > 0 ? excludedGrades.join(", ") : "ไม่มี"}`,
+      `- กรองตามส่วนสูง: ${heightRange[0]} - ${heightRange[1]} ซม.`,
       `- ยกเว้นจากไฟล์: ${exclusionFilesSummary}`,
       "",
       "รายชื่อ:",
       ...rows.map(
         (person, index) =>
-          `${index + 1}. ${person.ยศ || ''} ${person.ชื่อ} ${person.สกุล} (${person.สังกัด || 'N/A'}) - สถิติ: ${person.สถิติโดนยอด || 'N/A'}`,
+          `${index + 1}. ${person.ยศ || ''} ${person.ชื่อ || ''} ${person.สกุล || ''} (${person.สังกัด || 'N/A'})`,
       ),
     ]
 
@@ -564,20 +696,28 @@ function CeremonyDutyManualInternal() {
     processExclusionFiles()
   }, [exclusionFiles, checkAllSheets, selectedExclusionSheets, exclusionSheetNames])
 
-  const handlePositionChange = (position: string, checked: boolean) => {
-    setExcludedPositions(prev => checked ? [...prev, position] : prev.filter(p => p !== position))
+  const handleAdminDutyChange = (duty: string, checked: boolean) => {
+    setExcludedAdminDuties(prev => checked ? [...prev, duty] : prev.filter(p => p !== duty))
   }
 
-  const handleClubChange = (club: string, checked: boolean) => {
-    setExcludedClubs(prev => checked ? [...prev, club] : prev.filter(c => c !== club))
+  const handleAthleteChange = (athlete: string, checked: boolean) => {
+    setExcludedAthletes(prev => checked ? [...prev, athlete] : prev.filter(c => c !== athlete))
+  }
+  
+  const handleGradeChange = (grade: string, checked: boolean) => {
+    setExcludedGrades(prev => checked ? [...prev, grade] : prev.filter(g => g !== grade))
   }
 
-  const handleSelectAllPositions = () => {
-    setExcludedPositions(prev => prev.length === positions.length ? [] : [...positions])
+  const handleSelectAllAdminDuties = () => {
+    setExcludedAdminDuties(prev => prev.length === adminDuties.length ? [] : [...adminDuties])
   }
 
-  const handleSelectAllClubs = () => {
-    setExcludedClubs(prev => prev.length === clubs.length ? [] : [...clubs])
+  const handleSelectAllAthletes = () => {
+    setExcludedAthletes(prev => prev.length === athletes.length ? [] : [...athletes])
+  }
+  
+  const handleSelectAllGrades = () => {
+    setExcludedGrades(prev => prev.length === grades.length ? [] : [...grades])
   }
 
   const refreshData = () => {
@@ -588,10 +728,11 @@ function CeremonyDutyManualInternal() {
     if (window.confirm('ต้องการล้างข้อมูลการทำงานทั้งหมดใช่หรือไม่?')) {
       setDutyName("");
       setRows([{ ลำดับ: "1", ยศ: "นนร.", ชื่อ: "", สกุล: "" }]);
-      setRequiredByYear({ "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 });
-      setExcludedPositions([]);
-      setExcludedClubs([]);
-      setStatMax(10);
+      setRequiredByYear({ "4": 0 });
+      setExcludedAdminDuties([]);
+      setExcludedAthletes([]);
+      setExcludedGrades([]);
+      if (heightDomain) setHeightRange(heightDomain);
       setCheckAllSheets(true);
       setExclusionFiles([]);
       setExclusionSheetNames({});
@@ -650,7 +791,6 @@ function CeremonyDutyManualInternal() {
 
   const hasPeople = rows.length > 0 && rows.some(r => r.ชื่อ);
 
-  console.log("[CeremonyDutyManual] Final canAccessPage check before render:", canAccessPage);
   if (!canAccessPage) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6 flex items-center justify-center">
@@ -680,7 +820,7 @@ function CeremonyDutyManualInternal() {
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent flex items-center justify-center gap-2">
                 <Award className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400" />
-                จัดยอดพิธี (ด้วยตัวเอง)
+                จัดยอดตามเกรด 433
             </h1>
             <Button onClick={refreshData} variant="outline" size="sm" disabled={isLoadingData} className="text-white border-white/30 hover:bg-white/10 bg-transparent backdrop-blur-sm w-full sm:w-auto">
                 <Database className={`h-4 w-4 mr-2 ${isLoadingData ? "animate-spin" : ""}`} />
@@ -703,7 +843,7 @@ function CeremonyDutyManualInternal() {
                 <span className="text-slate-400 text-xs sm:text-sm">อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString("th-TH")}</span>
               )}
             </div>
-            <div className="text-slate-400 text-xs sm:text-sm">Manual Assignment Mode</div>
+            <div className="text-slate-400 text-xs sm:text-sm">Grade Assignment Mode</div>
           </div>
         </div>
 
@@ -719,24 +859,22 @@ function CeremonyDutyManualInternal() {
             </Card>
             
             <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                <CardHeader><CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-blue-400"/>สุ่มเพิ่มตามจำนวน</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-blue-400"/>สุ่มเพิ่มตามจำนวน (เฉพาะชั้นปีที่ ๔)</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                  {["1", "2", "3", "4", "5"].map((year) => (
-                    <div key={year} className="flex items-center gap-2">
-                      <Label htmlFor={`year-${year}-count`} className="text-white text-sm w-20">ชั้นปีที่ {year}:</Label>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={`year-4-count`} className="text-white text-sm w-20">ชั้นปีที่ ๔:</Label>
                       <Input
-                        id={`year-${year}-count`}
+                        id={`year-4-count`}
                         type="number"
                         min="0"
-                        value={requiredByYear[year] === 0 ? "" : requiredByYear[year]}
+                        value={requiredByYear["4"] === 0 ? "" : requiredByYear["4"]}
                         onChange={(e) => {
                           const value = Math.max(0, parseInt(e.target.value, 10) || 0);
-                          setRequiredByYear(prev => ({ ...prev, [year]: value }));
+                          setRequiredByYear(prev => ({ ...prev, "4": value }));
                         }}
                         className="bg-slate-700/50 border-slate-600 text-white focus:border-blue-400 text-sm"
                       />
                     </div>
-                  ))}
                 </CardContent>
             </Card>
 
@@ -800,17 +938,17 @@ function CeremonyDutyManualInternal() {
             <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-red-400" />ไม่เลือกคนที่มีหน้าที่</CardTitle>
-                    <Button variant="ghost" size="sm" onClick={handleSelectAllPositions} className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
-                      {excludedPositions.length === positions.length ? 'ยกเลิก' : 'เลือกทั้งหมด'}
+                    <CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-red-400" />ตัด ธุรการ 433</CardTitle>
+                    <Button variant="ghost" size="sm" onClick={handleSelectAllAdminDuties} className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
+                      {excludedAdminDuties.length === adminDuties.length ? 'ยกเลิก' : 'เลือกทั้งหมด'}
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-2">
-                    {positions.map((position) => (
-                      <div key={position} className="flex items-center space-x-2">
-                        <Checkbox id={`position-${position}`} checked={excludedPositions.includes(position)} onCheckedChange={(checked) => handlePositionChange(position, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"/>
-                        <Label htmlFor={`position-${position}`} className="text-white text-xs cursor-pointer">{position}</Label>
+                    {adminDuties.map((duty) => (
+                      <div key={duty} className="flex items-center space-x-2">
+                        <Checkbox id={`duty-${duty}`} checked={excludedAdminDuties.includes(duty)} onCheckedChange={(checked) => handleAdminDutyChange(duty, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"/>
+                        <Label htmlFor={`duty-${duty}`} className="text-white text-xs cursor-pointer">{duty}</Label>
                       </div>
                     ))}
                 </CardContent>
@@ -819,29 +957,48 @@ function CeremonyDutyManualInternal() {
             <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-orange-400" />ไม่เลือกชมรม</CardTitle>
-                    <Button variant="ghost" size="sm" onClick={handleSelectAllClubs} className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
-                      {excludedClubs.length === clubs.length ? 'ยกเลิก' : 'เลือกทั้งหมด'}
+                    <CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-orange-400" />ไม่เลือกนักกีฬา</CardTitle>
+                    <Button variant="ghost" size="sm" onClick={handleSelectAllAthletes} className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
+                      {excludedAthletes.length === athletes.length ? 'ยกเลิก' : 'เลือกทั้งหมด'}
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-2">
-                    {clubs.map((club) => (
-                      <div key={club} className="flex items-center space-x-2">
-                        <Checkbox id={`club-${club}`} checked={excludedClubs.includes(club)} onCheckedChange={(checked) => handleClubChange(club, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"/>
-                        <Label htmlFor={`club-${club}`} className="text-white text-xs cursor-pointer">{club}</Label>
+                    {athletes.map((athlete) => (
+                      <div key={athlete} className="flex items-center space-x-2">
+                        <Checkbox id={`athlete-${athlete}`} checked={excludedAthletes.includes(athlete)} onCheckedChange={(checked) => handleAthleteChange(athlete, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"/>
+                        <Label htmlFor={`athlete-${athlete}`} className="text-white text-xs cursor-pointer">{athlete}</Label>
+                      </div>
+                    ))}
+                </CardContent>
+            </Card>
+            
+            <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-yellow-400" />ตัดเกรดที่ไม่ต้องการ</CardTitle>
+                    <Button variant="ghost" size="sm" onClick={handleSelectAllGrades} className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
+                      {excludedGrades.length === grades.length ? 'ยกเลิก' : 'เลือกทั้งหมด'}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-2">
+                    {grades.map((grade) => (
+                      <div key={grade} className="flex items-center space-x-2">
+                        <Checkbox id={`grade-${grade}`} checked={excludedGrades.includes(grade)} onCheckedChange={(checked) => handleGradeChange(grade, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-yellow-500 data-[state=checked]:border-yellow-500"/>
+                        <Label htmlFor={`grade-${grade}`} className="text-white text-xs cursor-pointer">{grade}</Label>
                       </div>
                     ))}
                 </CardContent>
             </Card>
 
             <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                <CardHeader><CardTitle className="flex items-center gap-2 text-white"><BarChart3 className="h-5 w-5 text-blue-400" />เลือกค่าสูงสุดของสถิติ</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2 text-white"><BarChart3 className="h-5 w-5 text-indigo-400" />กรองตามส่วนสูง (ซม.)</CardTitle></CardHeader>
                 <CardContent>
-                    <Slider min={statDomain[0]} max={statDomain[1]} value={[statMax]} onValueChange={([val]) => setStatMax(val)} step={1} />
+                    <Slider min={heightDomain[0]} max={heightDomain[1]} value={heightRange} onValueChange={(value) => setHeightRange(value as [number, number])} step={1} />
                     <div className="flex justify-between text-xs text-slate-400 mt-2">
-                      <span>ต่ำสุด: {statDomain[0]}</span>
-                      <span>สูงสุด: {statMax}</span>
+                      <span>ต่ำสุด: {heightRange[0]}</span>
+                      <span>สูงสุด: {heightRange[1]}</span>
                     </div>
                 </CardContent>
             </Card>
@@ -892,7 +1049,7 @@ function CeremonyDutyManualInternal() {
                       <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">ตอน</TableHead>
                       <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">ตำแหน่ง</TableHead>
                       <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">สังกัด</TableHead>
-                      <TableHead className="px-1 py-2 text-center text-white font-semibold whitespace-nowrap">สถิติ</TableHead>
+                      <TableHead className="px-1 py-2 text-right text-white font-semibold w-10 whitespace-nowrap">เกรด</TableHead>
                       <TableHead className="px-1 py-2 text-right text-white font-semibold w-10 whitespace-nowrap"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -904,7 +1061,7 @@ function CeremonyDutyManualInternal() {
                           <Input value={row.ยศ || ''} onChange={e => handleNameChange(idx, "ยศ", e.target.value)} placeholder="ยศ" className="bg-transparent border-slate-600 text-white w-full text-[4px] h-7" />
                         </TableCell>
                         <TableCell className="px-1 py-1 whitespace-nowrap" colSpan={2}>
-                            <PersonAutocomplete
+                            <InlinedPersonAutocomplete
                                 people={allPersons}
                                 value={row.ชื่อ ? row as Person : null}
                                 onSelect={(person) => handlePersonSelect(idx, person)}
@@ -912,11 +1069,9 @@ function CeremonyDutyManualInternal() {
                         </TableCell>
                         <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.ชั้นปีที่}</TableCell>
                         <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.ตอน}</TableCell>
-                        <TableCell className="text-left align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.ตำแหน่ง}</TableCell>
+                        <TableCell className="text-left align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row['ตำแหน่ง ทกท.']}</TableCell>
                         <TableCell className="text-left align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.สังกัด}</TableCell>
-                        <TableCell className="text-center align-middle px-1 py-1 whitespace-nowrap">
-                          {row.สถิติโดนยอด && <Badge variant="secondary" className="text-[11px]">{row.สถิติโดนยอด}</Badge>}
-                        </TableCell>
+                        <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.คัดเกรด}</TableCell>
                          <TableCell className="text-right align-middle px-1 py-1 whitespace-nowrap">
                           <Button variant="ghost" size="icon" onClick={() => removeRow(idx)} className="text-red-400 hover:bg-red-500/20 h-7 w-7">
                               <X className="h-4 w-4" />
@@ -950,7 +1105,7 @@ function CeremonyDutyManualInternal() {
   );
 }
 
-export function CeremonyDutyManual() {
+export function CeremonyDutyGrade() {
     return (
         <Suspense fallback={
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6 flex items-center justify-center">
@@ -960,7 +1115,7 @@ export function CeremonyDutyManual() {
                 </div>
             </div>
         }>
-            <CeremonyDutyManualInternal />
+            <CeremonyDutyGradeInternal />
         </Suspense>
     )
 }

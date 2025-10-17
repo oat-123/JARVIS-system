@@ -43,12 +43,12 @@ export default function Home() {
     checkSession();
   }, []);
 
-  const handleLogin = async (username: string, password: string) => {
+  const handleLogin = async (username: string, password: string, rememberMe?: boolean) => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, rememberMe }),
       });
 
       const data = await res.json();
@@ -91,8 +91,8 @@ export default function Home() {
 
   if (!isLoggedIn || !currentUser) {
     // The onLogin prop for LoginPage now expects an async function
-    const onLoginAsync = async (username: string, password: string): Promise<boolean> => {
-        return await handleLogin(username, password);
+    const onLoginAsync = async (username: string, password: string, rememberMe?: boolean): Promise<boolean> => {
+        return await handleLogin(username, password, rememberMe);
     };
     return <LoginPage onLogin={onLoginAsync} />;
   }

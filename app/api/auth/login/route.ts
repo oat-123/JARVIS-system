@@ -6,9 +6,20 @@ import { sessionOptions, SessionData } from "@/lib/session";
 import { authenticateUserFromSheet } from "@/lib/google-auth";
 
 export async function POST(req: NextRequest) {
+  const { username, password, rememberMe } = await req.json();
+
+  // Dynamically set session options based on "Remember Me"
+  const dynamicSessionOptions = {
+    ...sessionOptions,
+    cookieOptions: {
+      ...sessionOptions.cookieOptions,
+      // Set maxAge if rememberMe is true, otherwise it's a session cookie
+      maxAge: rememberMe ? 60 * 60 * 2 * 1 : undefined, // 2 hours
+    },
+  };
+
   const cookieStore = await cookies();
-  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
-  const { username, password } = await req.json();
+  const session = await getIronSession<SessionData>(cookieStore, dynamicSessionOptions);
 
   console.log(`[API/auth/login] Login attempt for user: '${username}'`);
 

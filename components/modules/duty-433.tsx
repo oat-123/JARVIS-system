@@ -932,6 +932,33 @@ const findPersonByName = (name: string) => {
     }
   }
 
+  const handleOverviewItemSelect = (label: string | null) => {
+    if (!label) {
+      setSelectedOverviewItem(null);
+      return;
+    }
+    
+    const newSelected = selectedOverviewItem === label ? null : label;
+    setSelectedOverviewItem(newSelected);
+
+    if (newSelected) {
+      switch (newSelected) {
+        case 'ถวายรายงาน':
+          setTopCardMetric('report');
+          break;
+        case 'เข้าเวร433':
+          setTopCardMetric('_433');
+          break;
+        case 'ธุรการ':
+          setTopCardMetric('admin');
+          break;
+        default:
+          // For 'ยังไม่เคย', do not change the Top 6 metric
+          break;
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
@@ -985,9 +1012,7 @@ const findPersonByName = (name: string) => {
                 <Pie
                   data={pieData}
                   selectedLabel={selectedOverviewItem || undefined}
-                  onSliceClick={(label) => {
-                    setSelectedOverviewItem(prev => prev === label ? null : label)
-                  }}
+                  onSliceClick={(label) => handleOverviewItemSelect(label)}
                 />
                 {selectedPie && (
                   <div className="mt-3 bg-slate-700/60 border border-slate-500 rounded-lg p-3 shadow-lg transform -translate-y-2">
@@ -1004,7 +1029,7 @@ const findPersonByName = (name: string) => {
                     ? 'bg-blue-600 text-white shadow-lg transform scale-105' 
                     : 'hover:bg-slate-700/50'
                 }`}
-                onClick={() => setSelectedOverviewItem(prev => prev === 'ถวายรายงาน' ? null : 'ถวายรายงาน')}
+                onClick={() => handleOverviewItemSelect('ถวายรายงาน')}
               >
                 ถวายรายงาน
               </span>
@@ -1015,7 +1040,7 @@ const findPersonByName = (name: string) => {
                     ? 'bg-green-600 text-white shadow-lg transform scale-105' 
                     : 'hover:bg-slate-700/50'
                 }`}
-                onClick={() => setSelectedOverviewItem(prev => prev === 'เข้าเวร433' ? null : 'เข้าเวร433')}
+                onClick={() => handleOverviewItemSelect('เข้าเวร433')}
               >
                 เข้าเวร433
               </span>
@@ -1026,7 +1051,7 @@ const findPersonByName = (name: string) => {
                     ? 'bg-yellow-600 text-white shadow-lg transform scale-105' 
                     : 'hover:bg-slate-700/50'
                 }`}
-                onClick={() => setSelectedOverviewItem(prev => prev === 'ธุรการ' ? null : 'ธุรการ')}
+                onClick={() => handleOverviewItemSelect('ธุรการ')}
               >
                 ธุรการ
               </span>
@@ -1037,7 +1062,7 @@ const findPersonByName = (name: string) => {
                     ? 'bg-red-600 text-white shadow-lg transform scale-105' 
                     : 'hover:bg-slate-700/50'
                 }`}
-                onClick={() => setSelectedOverviewItem(prev => prev === 'ยังไม่เคย' ? null : 'ยังไม่เคย')}
+                onClick={() => handleOverviewItemSelect('ยังไม่เคย')}
               >
                 ยังไม่เคย
               </span>

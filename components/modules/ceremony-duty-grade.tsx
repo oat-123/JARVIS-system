@@ -173,6 +173,7 @@ interface CeremonyDutyGradeState extends ModuleState {
   excludedGrades: string[];
   heightRange: [number, number];
   checkAllSheets: boolean;
+  excludeFaw?: boolean;
 }
 
 const MODULE_NAME = 'ceremony-duty-grade';
@@ -207,6 +208,7 @@ function CeremonyDutyGradeInternal() {
   const [excludedGrades, setExcludedGrades] = useState<string[]>([]);
   const [heightDomain, setHeightDomain] = useState<[number, number]>([150, 200]);
   const [heightRange, setHeightRange] = useState<[number, number]>([150, 200]);
+  const [excludeFaw, setExcludeFaw] = useState<boolean>(false);
 
   const { user, isLoading: isLoadingUser, isError: isErrorUser } = useUserSession();
   const canAccessPage = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'oat' || user?.role?.toLowerCase() === 'user';
@@ -279,6 +281,7 @@ function CeremonyDutyGradeInternal() {
       excludedGrades,
       heightRange,
       checkAllSheets,
+      excludeFaw,
     };
     saveModuleState(MODULE_NAME, state);
   };
@@ -296,6 +299,7 @@ function CeremonyDutyGradeInternal() {
       if (savedState.excludedGrades) setExcludedGrades(savedState.excludedGrades);
       if (savedState.heightRange) setHeightRange(savedState.heightRange);
       if (typeof savedState.checkAllSheets === 'boolean') setCheckAllSheets(savedState.checkAllSheets);
+      if (typeof savedState.excludeFaw === 'boolean') setExcludeFaw(savedState.excludeFaw);
     } 
     setIsStateLoaded(true);
   };
@@ -362,6 +366,11 @@ function CeremonyDutyGradeInternal() {
     saveCurrentState();
   }, [dutyName, requiredByYear, rows, saveToHistory, selectedAffiliations, excludedAdminDuties, excludedAthletes, excludedGrades, heightRange, checkAllSheets, isStateLoaded]);
 
+  // include excludeFaw in save effect
+  useEffect(() => {
+    saveCurrentState();
+  }, [excludeFaw]);
+
   const normalizeName = (firstName?: string, lastName?: string): string => {
     const first = (firstName || "").toString().trim()
     const last = (lastName || "").toString().trim()
@@ -420,6 +429,14 @@ function CeremonyDutyGradeInternal() {
     if (namesToExclude.size > 0) {
         availablePersons = availablePersons.filter(p => !namesToExclude.has(normalizeName(p.ชื่อ, p.สกุล)));
     }
+
+  // Exclude any position that contains ฝอ (case-insensitive) when enabled
+  if (excludeFaw) {
+    availablePersons = availablePersons.filter(p => {
+      const pos = (p['ตำแหน่ง ทกท.'] || '').toString();
+      return !/ฝอ/i.test(pos);
+    });
+  }
 
     const normalize = (str?: string) => (str ? str.trim().toLowerCase() : "");
 
@@ -580,8 +597,7 @@ function CeremonyDutyGradeInternal() {
             cell.border = { top: thin, left: thin, right: thin, bottom: thin };
         });
     });
-
-    ws.getColumn(1).width = 6; ws.getColumn(2).width = 5; ws.getColumn(3).width = 15; ws.getColumn(4).width = 15; ws.getColumn(5).width = 8; ws.getColumn(6).width = 8; ws.getColumn(7).width = 20; ws.getColumn(8).width = 15; ws.getColumn(9).width = 15; ws.getColumn(10).width = 15;
+ws.getColumn(1).width = 6; ws.getColumn(2).width = 5; ws.getColumn(3).width = 15; ws.getColumn(4).width = 15; ws.getColumn(5).width = 8; ws.getColumn(6).width = 8; ws.getColumn(7).width = 20; ws.getColumn(8).width = 15; ws.getColumn(9).width = 15; ws.getColumn(10).width = 15;
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -732,7 +748,8 @@ function CeremonyDutyGradeInternal() {
       setExcludedAdminDuties([]);
       setExcludedAthletes([]);
       setExcludedGrades([]);
-      if (heightDomain) setHeightRange(heightDomain);
+  if (heightDomain) setHeightRange(heightDomain);
+  setExcludeFaw(false);
       setCheckAllSheets(true);
       setExclusionFiles([]);
       setExclusionSheetNames({});
@@ -855,11 +872,18 @@ function CeremonyDutyGradeInternal() {
                 <CardContent>
                     <Label htmlFor="duty-name" className="text-white font-medium text-sm">ชื่อยอด</Label>
                     <Input id="duty-name" value={dutyName} onChange={(e) => setDutyName(e.target.value)} placeholder="กรอกชื่อยอด" className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 text-sm"/>
+                    <div className="flex items-center justify-between mt-3">
+                      <div>
+                        <Label className="text-white font-medium text-sm">ตัด ฝอ.</Label>
+                        <p className="text-xs text-slate-400">ยกเว้นผู้ที่มีคำว่า 'ฝอ' ในคอลัมน์ 'ตำแหน่ง ทกท.'</p>
+                      </div>
+                      <Switch checked={excludeFaw} onCheckedChange={setExcludeFaw} />
+                    </div>
                 </CardContent>
             </Card>
             
             <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                <CardHeader><CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-blue-400"/>สุ่มเพิ่มตามจำนวน (เฉพาะชั้นปีที่ ๔)</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-blue-400"/>สุ่มเพิ่มตามจำนวน (เฉพาะชั้น ๔)</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                     <div className="flex items-center gap-2">
                       <Label htmlFor={`year-4-count`} className="text-white text-sm w-20">ชั้นปีที่ ๔:</Label>
@@ -880,20 +904,21 @@ function CeremonyDutyGradeInternal() {
 
             {isSuperAdmin && (
                 <Card className="bg-slate-800/50 border-slate-700 shadow-xl">
-                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                        <CardTitle className="flex items-center gap-2 text-white text-base">กรองสังกัด</CardTitle>
-                        <div>
+                    <CardHeader className="pb-1"><CardTitle className="flex items-center gap-2 text-white text-base">กรองสังกัด</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex justify-end gap-2 mb-2">
                             <Button size="sm" variant="ghost" className="text-blue-200 hover:text-white" onClick={() => setSelectedAffiliations(allAffiliations)}>ทั้งหมด</Button>
                             <Button size="sm" variant="ghost" className="text-red-200 hover:text-white" onClick={() => setSelectedAffiliations([])}>ล้าง</Button>
                         </div>
-                    </CardHeader>
-                    <CardContent className="flex flex-wrap gap-2">
-                        {allAffiliations.map(aff => (
-                        <label key={aff} className="flex items-center gap-1 cursor-pointer bg-blue-800/60 rounded px-2 py-1 text-white border border-blue-700 hover:bg-blue-700 transition">
-                            <Checkbox id={`affiliation-${aff}`} checked={selectedAffiliations.includes(aff)} onCheckedChange={checked => { setSelectedAffiliations(prev => checked ? [...prev, aff] : prev.filter(a => a !== aff)); }} className="border-slate-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500" />
-                            <span className="text-xs truncate max-w-[80px]">{aff}</span>
-                        </label>
-                        ))}
+                        <div className="flex flex-wrap gap-2">
+                            {allAffiliations.map(aff => (
+                            <label key={aff} className="flex items-center gap-1 cursor-pointer bg-blue-800/60 rounded px-2 py-1 text-white border border-blue-700 hover:bg-blue-700 transition">
+                                <Checkbox id={`affiliation-${aff}`} checked={selectedAffiliations.includes(aff)} onCheckedChange={checked => { setSelectedAffiliations(prev => checked ? [...prev, aff] : prev.filter(a => a !== aff)); }} className="border-slate-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500" />
+                                <span className="text-xs truncate max-w-[80px]">{aff}</span>
+                            </label>
+                            ))}
+                        </div>
                     </CardContent>
                 </Card>
             )}

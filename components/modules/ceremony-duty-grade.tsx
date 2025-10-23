@@ -202,6 +202,16 @@ function CeremonyDutyGradeInternal() {
   const [checkAllSheets, setCheckAllSheets] = useState(true);
   const [selectedExclusionSheets, setSelectedExclusionSheets] = useState<{ [filename: string]: string[] }>({});
   const [namesToExclude, setNamesToExclude] = useState<Set<string>>(new Set());
+
+  const handleToggleSheetSelection = (fileName: string, sheetName: string, checked: boolean) => {
+    setSelectedExclusionSheets(prev => {
+      const cp = { ...prev };
+      const prevList = new Set(cp[fileName] || []);
+      if (checked) prevList.add(sheetName); else prevList.delete(sheetName);
+      cp[fileName] = Array.from(prevList);
+      return cp;
+    });
+  }
   
   const [excludedAdminDuties, setExcludedAdminDuties] = useState<string[]>([]);
   const [excludedAthletes, setExcludedAthletes] = useState<string[]>([]);
@@ -215,6 +225,21 @@ function CeremonyDutyGradeInternal() {
   const isSuperAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'oat';
 
   const [isStateLoaded, setIsStateLoaded] = useState(false);
+
+  // When checkAllSheets is enabled, select all sheets for every uploaded file.
+  useEffect(() => {
+    if (checkAllSheets) {
+      const next: { [filename: string]: string[] } = {};
+      Object.keys(exclusionSheetNames).forEach(fn => {
+        next[fn] = [...(exclusionSheetNames[fn] || [])];
+      });
+      // Also ensure files that exist but not yet in exclusionSheetNames are preserved
+      exclusionFiles.forEach(f => {
+        if (!next[f.name]) next[f.name] = [...(exclusionSheetNames[f.name] || [])];
+      })
+      setSelectedExclusionSheets(next);
+    }
+  }, [checkAllSheets, exclusionSheetNames, exclusionFiles]);
 
   const allAffiliations = useMemo(() => {
     const set = new Set<string>();
@@ -675,10 +700,34 @@ ws.getColumn(1).width = 6; ws.getColumn(2).width = 5; ws.getColumn(3).width = 15
       return [...prev, ...files.filter(f => !existingNames.has(f.name))]
     })
     for (const file of files) {
-      const arrayBuffer = await file.arrayBuffer()
-      const workbook = XLSX.read(arrayBuffer, { type: "array" })
-      setExclusionSheetNames(prev => ({ ...prev, [file.name]: workbook.SheetNames }))
-      setSelectedExclusionSheets(prev => ({ ...prev, [file.name]: [] }))
+      try {
+        const arrayBuffer = await file.arrayBuffer()
+        const workbook = XLSX.read(arrayBuffer, { type: "array" })
+        setExclusionSheetNames(prev => ({ ...prev, [file.name]: workbook.SheetNames }))
+        // default to selecting all sheets on upload
+        setSelectedExclusionSheets(prev => ({ ...prev, [file.name]: [...workbook.SheetNames] }))
+
+        // Extract and log all names found in this file (all sheets) with per-sheet previews
+        const found = new Set<string>()
+        for (const sheetName of workbook.SheetNames) {
+          const ws = workbook.Sheets[sheetName]
+          if (!ws) continue
+          const data = XLSX.utils.sheet_to_json(ws, { header: 1, range: 3 }) as any[][]
+          const filteredData = data.filter(row => row && row.length >= 4 && (row[0] || row[2] || row[3]))
+          const namesInSheet: string[] = []
+          filteredData.forEach(row => {
+            const fullName = normalizeName(row[2], row[3])
+            if (fullName) {
+              found.add(fullName)
+              namesInSheet.push(fullName)
+            }
+          })
+          console.log(`[exclusion][preview] File='${file.name}' Sheet='${sheetName}' -> ${namesInSheet.length} names`, namesInSheet)
+        }
+        console.log(`[exclusion] Uploaded file '${file.name}' contains ${found.size} extracted names (aggregate)`, Array.from(found))
+      } catch (err) {
+        console.error(`[exclusion] Failed to read uploaded file '${file.name}':`, err)
+      }
     }
     setNamesToExclude(new Set())
   }
@@ -691,20 +740,33 @@ ws.getColumn(1).width = 6; ws.getColumn(2).width = 5; ws.getColumn(3).width = 15
       }
       const names = new Set<string>()
       for (const file of exclusionFiles) {
-        const arrayBuffer = await file.arrayBuffer()
-        const workbook = XLSX.read(arrayBuffer, { type: "array" })
-        const sheetsToProcess = checkAllSheets
-          ? exclusionSheetNames[file.name] || []
-          : selectedExclusionSheets[file.name] || []
-        for (const sheetName of sheetsToProcess) {
-          const ws = workbook.Sheets[sheetName]
-          if (!ws) continue
-          const data = XLSX.utils.sheet_to_json(ws, { header: 1, range: 3 }) as any[][]
-          const filteredData = data.filter(row => row && row.length >= 4 && (row[0] || row[2] || row[3]))
-          filteredData.forEach(row => {
-            const fullName = normalizeName(row[2], row[3])
-            if (fullName) names.add(fullName)
-          })
+        try {
+          const arrayBuffer = await file.arrayBuffer()
+          const workbook = XLSX.read(arrayBuffer, { type: "array" })
+          const sheetsToProcess = checkAllSheets
+            ? exclusionSheetNames[file.name] || []
+            : selectedExclusionSheets[file.name] || []
+
+          const namesPerFile = new Set<string>()
+          for (const sheetName of sheetsToProcess) {
+            const ws = workbook.Sheets[sheetName]
+            if (!ws) continue
+            const data = XLSX.utils.sheet_to_json(ws, { header: 1, range: 3 }) as any[][]
+            const filteredData = data.filter(row => row && row.length >= 4 && (row[0] || row[2] || row[3]))
+            const namesInSheet: string[] = []
+            filteredData.forEach(row => {
+              const fullName = normalizeName(row[2], row[3])
+              if (fullName) {
+                names.add(fullName)
+                namesPerFile.add(fullName)
+                namesInSheet.push(fullName)
+              }
+            })
+            console.log(`[exclusion][process] File='${file.name}' Sheet='${sheetName}' -> ${namesInSheet.length} names`, namesInSheet)
+          }
+          console.log(`[exclusion] Processed file '${file.name}' sheets: [${sheetsToProcess.join(', ')}] -> found ${namesPerFile.size} names`)
+        } catch (err) {
+          console.error(`[exclusion] Failed to process file '${file.name}':`, err)
         }
       }
       setNamesToExclude(names)
@@ -950,6 +1012,22 @@ ws.getColumn(1).width = 6; ws.getColumn(2).width = 5; ws.getColumn(3).width = 15
                                 }}>
                                 <X className="w-4 h-4" />
                               </Button>
+                          </div>
+                        ))}
+                        {exclusionFiles.map((file) => (
+                          <div key={`sheets-${file.name}`} className="mt-2 border border-slate-700 rounded-lg p-2 bg-slate-800/40">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-white text-xs font-medium">ชีทในไฟล์: {file.name}</div>
+                              <div className="text-xs text-slate-300">{(exclusionSheetNames[file.name] || []).length} ชีท</div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {(exclusionSheetNames[file.name] || []).map(sheet => (
+                                <label key={`${file.name}-${sheet}`} className="flex items-center gap-2 cursor-pointer bg-slate-700/60 rounded px-2 py-1 text-white text-xs">
+                                  <input type="checkbox" checked={(selectedExclusionSheets[file.name] || []).includes(sheet)} onChange={(e) => handleToggleSheetSelection(file.name, sheet, e.target.checked)} className="w-4 h-4" />
+                                  <span className="truncate">{sheet}</span>
+                                </label>
+                              ))}
+                            </div>
                           </div>
                         ))}
                         <div className="mt-2 pt-2 border-t border-slate-600">

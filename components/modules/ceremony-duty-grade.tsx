@@ -215,6 +215,8 @@ function CeremonyDutyGradeInternal() {
   const [googleNamesToExclude, setGoogleNamesToExclude] = useState<Set<string>>(new Set())
   // per-sheet raw rows (for debugging) and extracted names per sheet
   const [googlePerSheetRaw, setGooglePerSheetRaw] = useState<Record<string, string[][]>>({})
+  const [isLoadingSheets, setIsLoadingSheets] = useState<boolean>(false)
+  const [loadingProgress, setLoadingProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 })
   const [googlePerSheetNames, setGooglePerSheetNames] = useState<Record<string, string[]>>({})
 
   const handleToggleSheetSelection = (fileName: string, sheetName: string, checked: boolean) => {
@@ -1042,89 +1044,6 @@ ws.getColumn(1).width = 6; ws.getColumn(2).width = 5; ws.getColumn(3).width = 15
                     </div>
                 </CardContent>
             </Card>
-            
-            {/* Google Sheets exclusion card: ดึงรายชื่อจาก Google Sheets (เลือกหลายชีท) */}
-            <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-cyan-400" />ตัดรายชื่อเข้า 433</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex gap-2 items-center">
-                    {/* Link is intentionally not shown in the UI per request; system uses configured spreadsheet ID or internal sample */}
-                    <Button size="sm" onClick={loadGoogleSheetTabs} className="bg-blue-600 hover:bg-blue-700 text-white">โหลดชีท</Button>
-                    <Button size="sm" variant="ghost" onClick={async () => {
-                      // Fetch only selected sheets (or all if checkAllGoogleSheets is enabled) and print per-sheet raw rows and extracted names to console
-                      const id = parseSpreadsheetIdFromUrl(googleSheetUrl || googleSheetId)
-                      const sheetsToSend = checkAllGoogleSheets ? googleSheetNames : selectedGoogleSheets
-                      if (!sheetsToSend || sheetsToSend.length === 0) {
-                        toast({ title: 'ไม่มีชีทที่เลือก', description: 'โปรดเลือกชีทที่ต้องการดึงก่อน', variant: 'destructive' })
-                        return
-                      }
-                      try {
-                        const resp = await fetch(`/api/sheets/google-exclude`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ spreadsheetId: id, sheets: sheetsToSend })
-                        })
-                        const body = await resp.json()
-                        if (body.success) {
-                          console.group(`[google-exclude] fetch for ${id} (sheets: ${sheetsToSend.join(', ')})`)
-                          console.log('perSheetRaw:', body.perSheetRaw || {})
-                          console.log('perSheet (extracted names):', body.perSheet || {})
-                          Object.keys(body.perSheet || {}).forEach(s => {
-                            console.log(`[google-exclude] sheet='${s}' -> ${ (body.perSheet[s] || []).length } names`, body.perSheet[s])
-                          })
-                          console.groupEnd()
-                          // update UI preview state
-                          setGooglePerSheetRaw(body.perSheetRaw || {})
-                          setGooglePerSheetNames(body.perSheet || {})
-                          // Only merge names from the requested sheets (server already returns only requested sheets)
-                          setGoogleNamesToExclude(new Set(body.names || []))
-                          toast({ title: 'ดึงและแสดงในคอนโซลเรียบร้อย', description: `พบ ${body.count || 0} ชื่อจาก ${sheetsToSend.length} ชีท` })
-                        } else {
-                          toast({ title: 'ไม่สำเร็จ', description: body.error || 'ดึงชื่อไม่สำเร็จ', variant: 'destructive' })
-                        }
-                      } catch (err) {
-                        toast({ title: 'เกิดข้อผิดพลาด', description: err instanceof Error ? err.message : 'unknown', variant: 'destructive' })
-                      }
-                    }} className="ml-2 text-slate-200">ดึงชื่อ</Button>
-                    <Button size="sm" variant="outline" onClick={() => { setSelectedGoogleSheets([]); setGoogleNamesToExclude(new Set()); toast({ title: 'ล้างการเลือก', description: 'ล้างรายการชีทที่เลือกและชื่อที่ดึงแล้ว' }); }} className="ml-2 text-slate-300">ล้างที่เลือก</Button>
-                  </div>
-
-                  {googleSheetNames.length > 0 && (
-                    <div className="mt-2 border-t border-slate-700 pt-2">
-                      <div className="text-white text-xs mb-2">ชีทในสเปรดชีทนี้</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {googleSheetNames.map(sheet => (
-                          <label key={sheet} className="flex items-center gap-2 cursor-pointer bg-slate-700/60 rounded px-2 py-1 text-white text-xs">
-                            <input type="checkbox" checked={(selectedGoogleSheets || []).includes(sheet)} onChange={(e) => {
-                              setSelectedGoogleSheets(prev => {
-                                const cp = new Set(prev || [])
-                                if (e.target.checked) cp.add(sheet); else cp.delete(sheet)
-                                return Array.from(cp)
-                              })
-                            }} className="w-4 h-4" />
-                            <span className="truncate">{sheet}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="mt-2 flex items-center justify-between">
-                        <div className="text-slate-400 text-xs">เลือก {selectedGoogleSheets.length} / {googleSheetNames.length} ชีท</div>
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" onClick={fetchGoogleNames} className="bg-emerald-600 hover:bg-emerald-700 text-white">ดึงชื่อจากชีทที่เลือก</Button>
-                        </div>
-                      </div>
-                      <div className="mt-2">
-                        <Badge className="bg-amber-500 text-xs">พบ {googleNamesToExclude.size} ชื่อจาก Google Sheets</Badge>
-                        <Badge className="ml-2 bg-green-600 text-xs">รวมแล้วยกเว้น {namesToExclude.size} ชื่อ</Badge>
-                      </div>
-                      {/* per-sheet preview removed — logs are printed to console instead */}
-                    </div>
-                  )}
-                </CardContent>
-            </Card>
 
             <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                 <CardHeader><CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-blue-400"/>สุ่มเพิ่มตามจำนวน (เฉพาะชั้น ๔)</CardTitle></CardHeader>
@@ -1143,6 +1062,185 @@ ws.getColumn(1).width = 6; ws.getColumn(2).width = 5; ws.getColumn(3).width = 15
                         className="bg-slate-700/50 border-slate-600 text-white focus:border-blue-400 text-sm"
                       />
                     </div>
+                </CardContent>
+            </Card>
+
+            {/* Google Sheets exclusion card: ดึงรายชื่อจาก Google Sheets (เลือกหลายชีท) */}
+            <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-cyan-400" />ตัดรายชื่อเข้า 433</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex gap-2 items-center">
+                    <Button 
+                      size="sm" 
+                      onClick={async () => {
+                        try {
+                          setIsLoadingSheets(true)
+                          setLoadingProgress({ current: 0, total: 0 })
+                          
+                          // First load the sheets
+                          const id = parseSpreadsheetIdFromUrl(googleSheetUrl || googleSheetId)
+                          setGoogleSheetId(id)
+                          
+                          toast({ 
+                            title: 'กำลังโหลดข้อมูล...', 
+                            description: 'กำลังตรวจสอบชีททั้งหมด' 
+                          })
+                          
+                          const resp = await fetch(`/api/sheets/google-exclude?spreadsheetId=${encodeURIComponent(id)}`)
+                          const body = await resp.json()
+                          
+                          if (body.success) {
+                            const sheets = body.sheets || []
+                            setGoogleSheetNames(sheets)
+                            setSelectedGoogleSheets(sheets) // Auto-select all sheets
+                            setLoadingProgress({ current: 0, total: sheets.length })
+                            
+                            toast({ 
+                              title: 'พบชีททั้งหมด', 
+                              description: `เริ่มดึงข้อมูลจาก ${sheets.length} ชีท` 
+                            })
+                            
+                            // Then immediately fetch names from all sheets
+                            const namesResp = await fetch(`/api/sheets/google-exclude`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ spreadsheetId: id, sheets })
+                            })
+                            const namesBody = await namesResp.json()
+                            
+                            if (namesBody.success) {
+                              // Simulate progressive loading for better UX
+                              const perSheet = namesBody.perSheet || {}
+                              const sheets = Object.keys(perSheet)
+                              
+                              for (let i = 0; i < sheets.length; i++) {
+                                const sheet = sheets[i]
+                                setLoadingProgress(prev => ({ ...prev, current: i + 1 }))
+                                await new Promise(resolve => setTimeout(resolve, 200)) // Add small delay for visual effect
+                                
+                                // Update UI with progress
+                                if (i < sheets.length - 1) {
+                                  toast({ 
+                                    title: 'กำลังโหลด...', 
+                                    description: `โหลดชีท ${i + 1} จาก ${sheets.length}` 
+                                  })
+                                }
+                              }
+                              
+                              setGooglePerSheetRaw(namesBody.perSheetRaw || {})
+                              setGooglePerSheetNames(namesBody.perSheet || {})
+                              setGoogleNamesToExclude(new Set(namesBody.names || []))
+                              
+                              toast({ 
+                                title: 'โหลดข้อมูลสำเร็จ', 
+                                description: `พบ ${namesBody.count || 0} ชื่อจาก ${sheets.length} ชีท`,
+                                variant: 'default'
+                              })
+                              
+                              // Log details to console
+                              Object.keys(namesBody.perSheet || {}).forEach(s => {
+                                console.log(`[google-exclude] sheet='${s}' -> ${(namesBody.perSheet[s] || []).length} names`, namesBody.perSheet[s])
+                              })
+                            }
+                          } else {
+                            toast({ title: 'ไม่สำเร็จ', description: body.error || 'โหลดชีทไม่สำเร็จ', variant: 'destructive' })
+                          }
+                        } catch (err) {
+                          toast({ title: 'เกิดข้อผิดพลาด', description: err instanceof Error ? err.message : 'unknown', variant: 'destructive' })
+                        } finally {
+                          setIsLoadingSheets(false)
+                          setLoadingProgress({ current: 0, total: 0 })
+                        }
+                      }} 
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={isLoadingSheets}
+                    >
+                      {isLoadingSheets ? (
+                        <span className="flex items-center gap-2">
+                          <span className="animate-spin">⚡</span>
+                          กำลังโหลด... {loadingProgress.total > 0 ? `(${loadingProgress.current}/${loadingProgress.total})` : ''}
+                        </span>
+                      ) : (
+                        'โหลดชีทและรายชื่อ'
+                      )}
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => { 
+                        setSelectedGoogleSheets([]); 
+                        setGoogleNamesToExclude(new Set()); 
+                        toast({ title: 'ล้างการเลือก', description: 'ล้างรายการชีทที่เลือกและชื่อที่ดึงแล้ว' }); 
+                      }} 
+                      className="text-slate-300"
+                      disabled={isLoadingSheets}
+                    >
+                      ล้างที่เลือก
+                    </Button>
+                  </div>
+
+                  {googleSheetNames.length > 0 && (
+                    <div className="mt-2 border-t border-slate-700 pt-2">
+                      <div className="text-white text-xs mb-2">เลือกสัปดาห์ที่จะตัดออก</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {googleSheetNames.map(sheet => (
+                          <label key={sheet} className="flex items-center gap-2 cursor-pointer bg-slate-700/60 rounded px-2 py-1 text-white text-xs">
+                            <input 
+                              type="checkbox" 
+                              checked={(selectedGoogleSheets || []).includes(sheet)} 
+                              onChange={async (e) => {
+                                // Update selected sheets
+                                const newSelected = e.target.checked 
+                                  ? [...selectedGoogleSheets, sheet]
+                                  : selectedGoogleSheets.filter(s => s !== sheet);
+                                setSelectedGoogleSheets(newSelected)
+                                
+                                // If checked, fetch names from this sheet
+                                if (e.target.checked) {
+                                  const id = parseSpreadsheetIdFromUrl(googleSheetUrl || googleSheetId)
+                                  try {
+                                    const resp = await fetch(`/api/sheets/google-exclude`, {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ spreadsheetId: id, sheets: [sheet] })
+                                    })
+                                    const body = await resp.json()
+                                    
+                                    if (body.success) {
+                                      // Update the raw data and names
+                                      setGooglePerSheetRaw(prev => ({
+                                        ...prev,
+                                        [sheet]: body.perSheetRaw?.[sheet] || []
+                                      }))
+                                      setGooglePerSheetNames(prev => ({
+                                        ...prev,
+                                        [sheet]: body.perSheet?.[sheet] || []
+                                      }))
+                                      // Merge new names with existing ones
+                                      setGoogleNamesToExclude(prev => new Set([...Array.from(prev), ...(body.names || [])]))
+                                      console.log(`[google-exclude] sheet='${sheet}' -> ${body.perSheet?.[sheet]?.length || 0} names`, body.perSheet?.[sheet])
+                                    }
+                                  } catch (err) {
+                                    toast({ title: 'เกิดข้อผิดพลาด', description: `ไม่สามารถดึงข้อมูลจากชีท ${sheet} ได้`, variant: 'destructive' })
+                                  }
+                                }
+                              }} 
+                              className="w-4 h-4" 
+                            />
+                            <span className="truncate">{sheet}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="mt-2">
+                        <Badge className="bg-amber-500 text-xs">พบ {googleNamesToExclude.size} ชื่อจาก Google Sheets</Badge>
+                        <Badge className="ml-2 bg-green-600 text-xs">รวมแล้วยกเว้น {namesToExclude.size} ชื่อ</Badge>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
             </Card>
 

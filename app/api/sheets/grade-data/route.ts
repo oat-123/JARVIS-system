@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { getSheetsService } from '@/lib/google-auth';
+import { rateLimitedSheetsOperation } from '@/lib/rate-limiter';
 
 export const runtime = 'nodejs';
 // This endpoint is designed to fetch data from a specific public Google Sheet.
@@ -31,9 +32,11 @@ export async function GET() {
     const sheets = await getSheetsService();
 
     // First, get spreadsheet metadata to find the sheet name for GID 0
-    const spreadsheetMeta = await sheets.spreadsheets.get({
-      spreadsheetId: SPREADSHEET_ID,
-    });
+    const spreadsheetMeta = await rateLimitedSheetsOperation(() =>
+      sheets.spreadsheets.get({
+        spreadsheetId: SPREADSHEET_ID,
+      })
+    );
 
     const sheet = spreadsheetMeta.data.sheets?.find(
       (s) => s.properties?.sheetId === parseInt(GID, 10)
@@ -45,11 +48,13 @@ export async function GET() {
 
     const sheetName = sheet.properties.title;
 
-    // Now, fetch the actual data from that sheet
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: sheetName, // Use the dynamically found sheet name
-    });
+    // Now, fetch the actual data from that sheet with rate limiting
+    const response = await rateLimitedSheetsOperation(() =>
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: sheetName, // Use the dynamically found sheet name
+      })
+    );
 
     const values = response.data.values;
     if (!values) {

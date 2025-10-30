@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Users, Settings, FileCheck, FileText, BarChart3, X, Download, Shuffle, Database, Award, AlertCircle, Wifi, WifiOff, PlusCircle, Check, ChevronsUpDown } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -1034,7 +1035,7 @@ ws.getColumn(1).width = 6; ws.getColumn(2).width = 5; ws.getColumn(3).width = 15
                 <CardHeader><CardTitle className="flex items-center gap-2 text-white"><Settings className="h-5 w-5 text-blue-400" />ข้อมูลพื้นฐาน</CardTitle></CardHeader>
                 <CardContent>
                     <Label htmlFor="duty-name" className="text-white font-medium text-sm">ชื่อยอด</Label>
-                    <Input id="duty-name" value={dutyName} onChange={(e) => setDutyName(e.target.value)} placeholder="กรอกชื่อยอด" className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 text-sm"/>
+                    <Textarea id="duty-name" value={dutyName} onChange={(e) => setDutyName(e.target.value)} placeholder="กรอกชื่อยอด" className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 text-sm" rows={3}/>
                     <div className="flex items-center justify-between mt-3">
                       <div>
                         <Label className="text-white font-medium text-sm">ตัด ฝอ.</Label>

@@ -72,6 +72,11 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   const displayName = (person.ชื่อ && person.ชื่อ !== "นนร.") ? fullName : "ไม่พบชื่อจริง"
   const position = person['ตำแหน่ง ทกท.'] || person.ตำแหน่ง || person['ทกท.'] || ''
 
+  useEffect(() => {
+    console.log('Profile Detail - reportHistory:', person.reportHistory);
+    console.log('Profile Detail - reportInfo:', person.reportInfo);
+  }, [person]);
+
   const fetchAvatar = useCallback(async () => {
     if (person?.ชื่อ && person?.สกุล) {
       setIsLoadingImage(true); // Set loading to true
@@ -277,10 +282,13 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
       const payload = {
         name: fullName,
         position,
+        // prefer structured reportInfo (mapping) and parsed reportHistory
         report: {
-          to: person.ถวายรายงาน || null,
+          raw: person.ถวายรายงาน || null,
           partner: person['น.กำกับยาม'] || null,
           date: person.วันที่ || null,
+          reportInfo: person.reportInfo || {},
+          reportHistory: person.reportHistory || [],
         },
         enter433Dates: Array.isArray(person._433_dates) ? person._433_dates : [],
         adminChpDates: Array.isArray(person._admin_dates) ? person._admin_dates : [],
@@ -347,25 +355,28 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   // เปลี่ยนเมื่อเป้าหมายเปลี่ยนคน
   }, [fullName, position, person._433_dates, person._admin_dates, person.ถวายรายงาน, person['น.กำกับยาม'], person.วันที่, person._433_columns, person._admin_columns])
 
-  // แสดงข้อมูลที่ดึงมาจาก Google Sheets ใน terminal
-  console.log('=== ข้อมูลจาก Google Sheets ===')
-  console.log('ข้อมูลทั้งหมด:', person)
-  console.log('433 ครั้งที่ 1:', person['433 ครั้งที่ 1'])
-  console.log('433 ครั้งที่ 2:', person['433 ครั้งที่ 2'])
-  console.log('433 ครั้งที่ 3:', person['433 ครั้งที่ 3'])
-  console.log('433 ครั้งที่ 4:', person['433 ครั้งที่ 4'])
-  console.log('ถวายรายงาน:', person.ถวายรายงาน)
-  console.log('น.กำกับยาม:', person['น.กำกับยาม'])
-  console.log('วันที่:', person.วันที่)
-  console.log('ธุรการ ครั้งที่ 1:', person['ธุรการ ครั้งที่ 1'])
-  console.log('ธุรการ ครั้งที่ 2:', person['ธุรการ ครั้งที่ 2'])
-  console.log('ธุรการ ครั้งที่ 3:', person['ธุรการ ครั้งที่ 3'])
-  console.log('ธุรการ ครั้งที่ 4:', person['ธุรการ ครั้งที่ 4'])
-  console.log('ธุรการ ครั้งที่ 5:', person['ธุรการ ครั้งที่ 5'])
-  console.log('enter433 array:', person.enter433)
-  console.log('reportHistory array:', person.reportHistory)
-  console.log('enterChp array:', person.enterChp)
-  console.log('===============================')
+  useEffect(() => {
+    console.log('Profile Detail - reportHistory:', person.reportHistory);
+    console.log('Profile Detail - reportInfo:', person.reportInfo);
+    console.log('=== ข้อมูลจาก Google Sheets ===')
+    console.log('ข้อมูลทั้งหมด:', person)
+    console.log('433 ครั้งที่ 1:', person['433 ครั้งที่ 1'])
+    console.log('433 ครั้งที่ 2:', person['433 ครั้งที่ 2'])
+    console.log('433 ครั้งที่ 3:', person['433 ครั้งที่ 3'])
+    console.log('433 ครั้งที่ 4:', person['433 ครั้งที่ 4'])
+    console.log('ถวายรายงาน:', person.ถวายรายงาน)
+    console.log('น.กำกับยาม:', person['น.กำกับยาม'])
+    console.log('วันที่:', person.วันที่)
+    console.log('ธุรการ ครั้งที่ 1:', person['ธุรการ ครั้งที่ 1'])
+    console.log('ธุรการ ครั้งที่ 2:', person['ธุรการ ครั้งที่ 2'])
+    console.log('ธุรการ ครั้งที่ 3:', person['ธุรการ ครั้งที่ 3'])
+    console.log('ธุรการ ครั้งที่ 4:', person['ธุรการ ครั้งที่ 4'])
+    console.log('ธุรการ ครั้งที่ 5:', person['ธุรการ ครั้งที่ 5'])
+    console.log('enter433 array:', person.enter433)
+    console.log('reportHistory array:', person.reportHistory)
+    console.log('enterChp array:', person.enterChp)
+    console.log('===============================')
+  }, [person])
 
   // Calculate 433 count from the processed enter433 array
   const calculate433Count = () => {
@@ -441,143 +452,203 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
 
           {/* Profile Details */}
           <div className="divide-y divide-slate-500/40 bg-transparent rounded-md overflow-hidden">
-            {/* Basic Information */}
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            {/* Basic Information - 4 column layout */}
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <Award className="h-4 w-4 mr-2" />
                 ลำดับ
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person.ลำดับ || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <Calendar className="h-4 w-4 mr-2" />
                 ชั้นปีที่
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person.ชั้นปีที่ || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <MapPin className="h-4 w-4 mr-2" />
                 ตอน
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person.ตอน || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <MapPin className="h-4 w-4 mr-2" />
                 สังกัด
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person.สังกัด || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <Phone className="h-4 w-4 mr-2" />
                 เบอร์โทรศัพท์
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person.เบอร์โทรศัพท์ || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <Star className="h-4 w-4 mr-2" />
                 คัดเกรด
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person.คัดเกรด || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <Award className="h-4 w-4 mr-2" />
                 ธุรการ ฝอ.
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person['ธุรการ ฝอ.'] || person.ธุรการ || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <User className="h-4 w-4 mr-2" />
                 ตัวชน
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person.ตัวชน || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <User className="h-4 w-4 mr-2" />
                 ส่วนสูง
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person.ส่วนสูง || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <Star className="h-4 w-4 mr-2" />
                 นักกีฬา
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person.นักกีฬา || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <Calendar className="h-4 w-4 mr-2" />
                 ภารกิจอื่น ๆ
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person['ภารกิจอื่น ๆ'] || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <MapPin className="h-4 w-4 mr-2" />
                 ดูงานต่างประเทศ
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person['ดูงานต่างประเทศ'] || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <User className="h-4 w-4 mr-2" />
                 เจ็บ (ใบรับรองแพทย์)
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person['เจ็บ (ใบรับรองแพทย์)'] || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-2 items-center px-6 py-4">
+            <div className="grid grid-cols-4 items-center px-6 py-4">
               <div className="text-sm text-slate-300 flex items-center">
                 <Calendar className="h-4 w-4 mr-2" />
                 หมายเหตุ
               </div>
+              <div></div>
+              <div></div>
               <div className="text-base font-medium text-white text-right">{person.หมายเหตุ || '-'}</div >
             </div>
 
 
-
-
             {/* Report History */}
-            {person.reportHistory && person.reportHistory.length > 0 && (
-              <div className="grid grid-cols-2 items-start px-6 py-4">
-                <div className="text-sm text-slate-300">ประวัติถวายรายงาน</div>
-                <div className="text-base font-medium text-white text-right">
-                  {person.reportHistory.map((entry: any, index: number) => (
-                    <div key={index} className="mb-1">
-                      {entry.to}
-                      {entry.partner && <span className="text-slate-400 text-xs"> (คู่ {entry.partner})</span>}
-                      {entry.date && <span className="text-slate-400 text-xs ml-2">{toThaiShortDate(entry.date)}</span>}
+            {(person.reportHistory && person.reportHistory.length > 0) || (person.reportInfo && Object.keys(person.reportInfo || {}).length > 0) ? (
+              <div>
+                {/* Prefer parsed reportHistory grouped by columnHeader */}
+                {Array.isArray(person.reportHistory) && person.reportHistory.length > 0 ? (
+                  person.reportHistory.map((entry: any, index: number) => (
+                    <div key={index} className="grid grid-cols-4 items-start px-6 py-4">
+                      {index === 0 && <div className="text-sm text-slate-300">ประวัติถวายรายงาน</div>}
+                      {index !== 0 && <div></div>}
+                      <div></div>
+                      <div className="text-sm text-slate-400 font-semibold text-right pr-4">{entry.columnHeader ? `${entry.columnHeader} :` : ''}</div>
+                      <div className="text-base font-medium text-white">
+                        <div className="flex gap-1 flex-wrap mb-1">
+                          {entry.code && entry.code !== 'คู่' && (
+                            <span className={`px-2 py-0.5 rounded text-xs ${
+                              entry.code === 'HMSV' ? 'bg-purple-300 text-black' :
+                              entry.code === '๙๐๔' ? 'bg-yellow-400 text-black' :
+                              entry.code === '๙๑๙' ? 'bg-blue-400 text-black' :
+                              'bg-blue-600 text-white'
+                            }`}>{entry.code}</span>
+                          )}
+                          {entry.position && entry.position !== 'คู่' && <span className="bg-purple-600 px-2 py-0.5 rounded text-xs">{entry.position}</span>}
+                          {(entry.code === 'คู่' || entry.position === 'คู่') && <span className="text-white">{entry.code === 'คู่' ? entry.code : entry.position}</span>}
+                        </div>
+                        {entry.fullName && <div className="text-white">{entry.fullName}</div>}
+                        {entry.date && <div className="text-slate-400 text-xs mt-1">{toThaiShortDate(entry.date)}</div>}
+                        {entry._raw && !entry.fullName && <div className="text-slate-300 italic text-xs mt-1">{entry._raw}</div>}
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  ))
+                ) : (
+                  // If no parsed entries, show raw mapping from reportInfo (skip empty values)
+                  (Object.entries(person.reportInfo || {})
+                    .filter(([_, val]: [string, any]) => val && String(val).trim())
+                    .map(([hdr, val]: [string, any], idx: number) => (
+                      <div key={idx} className="grid grid-cols-4 items-start px-6 py-4">
+                        {idx === 0 && <div className="text-sm text-slate-300">ประวัติถวายรายงาน</div>}
+                        {idx !== 0 && <div></div>}
+                        <div></div>
+                        <div className="text-sm text-slate-400 font-semibold text-right pr-4">{hdr ? `${hdr} :` : ''}</div>
+                        <div className="text-base font-medium text-white">{val || '-'}</div>
+                      </div>
+                    ))
+                  )
+                )}
               </div>
-            )}
+            ) : null}
 
             {/* 433 History */}
             {person.enter433 && person.enter433.length > 0 && (
-              <div className="grid grid-cols-2 items-start px-6 py-4">
+              <div className="grid grid-cols-4 items-start px-6 py-4">
                 <div className="text-sm text-slate-300">ประวัติเข้าเวร 433</div>
-                <div className="text-base font-medium text-white text-right">
+                <div></div>
+                <div></div>
+                <div className="text-base font-medium text-white">
                   {person.enter433.map((entry: any, index: number) => (
                     <div key={index} className="mb-1">
                       {toThaiShortDate(entry.date)}
@@ -590,8 +661,10 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
 
             {/* Admin/CHP History */}
             {person.enterChp && person.enterChp.length > 0 && (
-              <div className="grid grid-cols-2 items-start px-6 py-4">
+              <div className="grid grid-cols-4 items-start px-6 py-4">
                 <div className="text-sm text-slate-300">ประวัติเข้าเวรธุรการ</div>
+                <div></div>
+                <div></div>
                 <div className="text-base font-medium text-white text-right">
                   {person.enterChp.map((entry: any, index: number) => (
                     <div key={index} className="mb-1">
@@ -605,8 +678,10 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
 
             {/* Dynamic 433 Columns */}
             {person._433_columns && person._433_columns.length > 0 && (
-              <div className="grid grid-cols-2 items-start px-6 py-4">
+              <div className="grid grid-cols-4 items-start px-6 py-4">
                 <div className="text-sm text-slate-300">รายละเอียด 433</div>
+                <div></div>
+                <div></div>
                 <div className="text-base font-medium text-white text-right">
                   {person._433_columns.map((col: any, index: number) => (
                     <div key={index} className="mb-1">
@@ -619,8 +694,10 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
 
             {/* Dynamic Admin Columns */}
             {person._admin_columns && person._admin_columns.length > 0 && (
-              <div className="grid grid-cols-2 items-start px-6 py-4">
+              <div className="grid grid-cols-4 items-start px-6 py-4">
                 <div className="text-sm text-slate-300">รายละเอียด ธุรการ</div>
+                <div></div>
+                <div></div>
                 <div className="text-base font-medium text-white text-right">
                   {person._admin_columns.map((col: any, index: number) => (
                     <div key={index} className="mb-1">
@@ -632,8 +709,10 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
             )}
 
             {/* Statistics */}
-            <div className="grid grid-cols-2 items-center px-6 py-6">
+            <div className="grid grid-cols-4 items-center px-6 py-6">
               <div className="text-sm text-slate-300">จำนวนครั้งที่เข้า433</div>
+              <div></div>
+              <div></div>
               <div className="text-lg font-semibold text-white text-right">
                 <Badge variant="secondary" className="bg-orange-600 text-white">
                   {calculate433Count()}

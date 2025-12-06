@@ -417,19 +417,71 @@ export function Duty433({ onBack, user }: Duty433Props) {
       });
     }
     
-    // Build reportHistory from the 'ถวายรายงาน' field
-    const reportHistory: any[] = [];
-    const addReport = (to: any, date?: any) => {
-      const toStr = (to == null) ? '' : String(to);
-      if (!toStr) return;
-      reportHistory.push({ to: toStr, date: date || '', partner: row['น.กำกับยาม'] || '' });
-    };
-    const rCell = row['ถวายรายงาน'];
-    if (rCell) {
-        addReport(rCell, row['วันที่']);
+    // Use reportHistory from API if available (it includes columnHeader info)
+    // Otherwise, rebuild from 'ถวายรายงานครั้งที่ n' fields as fallback
+    let reportHistory: any[] = [];
+    if (Array.isArray(row.reportHistory) && row.reportHistory.length > 0) {
+      reportHistory = row.reportHistory;
+    } else {
+      // Fallback: build from column keys if API didn't provide reportHistory
+      const reportRegex = /^\s*ถวาย\s*รายงาน\s*ครั้งที่\s*([\d๐-๙]+)\s*$/i;
+      Object.keys(row).forEach((colName: string) => {
+        const match = colName.match(reportRegex);
+        if (!match) return;
+        
+        const cellValue = row[colName];
+        if (!cellValue) return;
+        
+        const cellStr = String(cellValue).trim();
+        if (!cellStr) return;
+        
+        const parts = cellStr.split(' เมื่อ ');
+        if (parts.length !== 2) {
+          reportHistory.push({
+            columnHeader: colName,
+            code: '',
+            position: '',
+            fullName: cellStr,
+            date: '',
+            _raw: cellStr
+          });
+          return;
+        }
+        
+        const namePart = parts[0].trim();
+        const datePart = parts[1].trim();
+        const nameTokens = namePart.split(/\s+/);
+        let code = '';
+        let position = '';
+        let fullName = '';
+        
+        if (nameTokens.length >= 3) {
+          code = nameTokens[0];
+          position = nameTokens[1];
+          fullName = nameTokens.slice(2).join(' ');
+        } else if (nameTokens.length === 2) {
+          code = nameTokens[0];
+          fullName = nameTokens[1];
+        } else if (nameTokens.length === 1) {
+          fullName = nameTokens[0];
+        }
+        
+        reportHistory.push({
+          columnHeader: colName,
+          code,
+          position,
+          fullName,
+          date: datePart,
+          _raw: cellStr
+        });
+      });
     }
 
+    // Use reportInfo from API if available, otherwise build an empty object
+    const reportInfo = (row && typeof row === 'object' && row.reportInfo && typeof row.reportInfo === 'object') ? row.reportInfo : {};
+
     normalized.reportHistory = reportHistory;
+    normalized.reportInfo = reportInfo;
     normalized.enter433 = enter433;
     normalized.enterChp = enterChp;
 
@@ -546,39 +598,51 @@ export function Duty433({ onBack, user }: Duty433Props) {
 
     const normalizeStr = (v:any) => v == null ? '' : (Array.isArray(v) ? v.join(', ') : (typeof v === 'object' ? JSON.stringify(v) : String(v))).trim()
 
-    // reportHistory: ensure { to, partner, date } where date is ISO (if parseable)
+    // reportHistory: process new format { code, position, fullName, date, _raw }
     if (Array.isArray(p.reportHistory)) {
       const out:any[] = []
       p.reportHistory.forEach((r:any) => {
-        const toRaw = normalizeStr(r.to || r)
-        // If date is embedded in 'to', try to extract it
-        let dateCandidate = normalizeStr(r.date || '')
-        if (!dateCandidate) {
-          const dtMatch = (toRaw.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})|(\d{4}-\d{2}-\d{2})/) || [])[0]
-          if (dtMatch) dateCandidate = dtMatch
-        }
-        const parsed = parseDateFromText(dateCandidate) || ''
-        // remove any trailing date tokens from toRaw for a cleaner name
-        let toClean = toRaw.replace(/\s*(\(|\-|,)?\s*(\d{1,4}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}-\d{2}-\d{2})\s*$/,'').trim()
-        // try split code-name by hyphen if present
-        let code = ''
-        let name = toClean
-        const hy = toClean.split(/\s*-\s*/)
-        if (hy.length >= 2 && /^[A-Z0-9]{1,6}$/i.test(hy[0])) {
-          code = hy[0]
-          name = hy.slice(1).join(' - ')
+        // If already in new format with code/position/fullName
+        if (r.code !== undefined || r.position !== undefined || r.fullName !== undefined) {
+          let parsedDate = ''
+          if (r.date) {
+            parsedDate = parseDateFromText(normalizeStr(r.date)) || normalizeStr(r.date)
+          }
+          const entry = {
+            code: normalizeStr(r.code || ''),
+            position: normalizeStr(r.position || ''),
+            fullName: normalizeStr(r.fullName || ''),
+            date: parsedDate,
+            _raw: r._raw || ''
+          }
+          out.push(entry)
         } else {
-          // also detect tokens like 'HMSVพ.' or 'HMSV พ.' at start
-          const tok = toClean.match(/^([A-Z]{2,6})\s*(.*)$/i)
-          if (tok && tok[1] && tok[2]) { code = tok[1]; name = tok[2].trim() }
+          // Fallback for old format { to, date, partner }
+          const toRaw = normalizeStr(r.to || r)
+          let dateCandidate = normalizeStr(r.date || '')
+          if (!dateCandidate) {
+            const dtMatch = (toRaw.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})|(\d{4}-\d{2}-\d{2})/) || [])[0]
+            if (dtMatch) dateCandidate = dtMatch
+          }
+          const parsed = parseDateFromText(dateCandidate) || ''
+          const entry = { 
+            code: '', 
+            position: '', 
+            fullName: toRaw, 
+            date: parsed || (dateCandidate || ''),
+            _raw: toRaw
+          }
+          out.push(entry)
         }
-        const partner = normalizeStr(r.partner || '')
-        const entry = { to: name || toClean, code: code || '', partner, date: parsed || (dateCandidate || '') }
-        out.push(entry)
       })
-      // dedupe by to+date
+      // dedupe by code+fullName+date
       const uniq:any[] = []
-      out.forEach(e => { const key = `${e.to}|${e.date}`; if (!uniq.find(u=>`${u.to}|${u.date}`===key)) uniq.push(e) })
+      out.forEach(e => { 
+        const key = `${e.code}|${e.fullName}|${e.date}`
+        if (!uniq.find(u => `${u.code}|${u.fullName}|${u.date}` === key)) {
+          uniq.push(e)
+        }
+      })
       p.reportHistory = uniq
     }
 
@@ -1071,14 +1135,25 @@ const findPersonByName = (name: string) => {
               <div className="mt-3 bg-slate-700/60 border border-slate-500 rounded-lg p-3 shadow-lg transform -translate-y-2">
                 <div className="text-sm font-semibold text-center mb-2">{selectedOverviewItem}</div>
                 <div className="text-xs text-slate-300 text-center">
-                  {/* compute count and percentage from people */}
+                  {/* compute count and percentage from people 
+                      ratio shows percentage of people with activity in selected category:
+                      - ถวายรายงาน: reportHistory.length > 0 (multi-column "ถวายรายงานครั้งที่ n") or reportInfo (backward compat)
+                      - เข้าเวร433: enter433.length > 0
+                      - ธุรการ: has "ธุรการ ฝอ." or "ธุรการ" field
+                      - ยังไม่เคย: has none of the above
+                  */}
                   {
                     (() => {
                       const total = people.length || 0
                       let count = 0
+                      // Helper: checks if person has report entries from new multi-column structure or legacy field
+                      const hasReport = (p:any) => {
+                        return (p && p.reportInfo && Object.keys(p.reportInfo || {}).length > 0) || (Array.isArray(p.reportHistory) && p.reportHistory.length > 0) || Boolean(p.ถวายรายงาน)
+                      }
+
                       switch (selectedOverviewItem) {
                         case 'ถวายรายงาน':
-                          count = people.filter(p => (p as any).ถวายรายงาน || (Array.isArray((p as any).reportHistory) && (p as any).reportHistory.length > 0)).length
+                          count = people.filter(p => hasReport(p)).length
                           break
                         case 'เข้าเวร433':
                           count = people.filter(p => Array.isArray(p.enter433) && p.enter433.length > 0).length
@@ -1089,9 +1164,9 @@ const findPersonByName = (name: string) => {
                         case 'ยังไม่เคย':
                           count = people.filter(p => {
                             const has433 = Array.isArray(p.enter433) && p.enter433.length > 0
-                            const hasReport = (p as any).ถวายรายงาน || (Array.isArray((p as any).reportHistory) && (p as any).reportHistory.length > 0)
+                            const hReport = hasReport(p)
                             const hasAdmin = Array.isArray(p.enterChp) && p.enterChp.length > 0
-                            return !has433 && !hasReport && !hasAdmin
+                            return !has433 && !hReport && !hasAdmin
                           }).length
                           break
                       }
@@ -1131,12 +1206,16 @@ const findPersonByName = (name: string) => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(() => {
-                // สร้างอันดับจาก people โดยตรง เพื่อให้ได้สูงสุด 6 การ์ดเสมอถ้ามีข้อมูลพอ
+                // Display top 6 ranked by selected metric.
+                // For report metric: uses reportHistory.length (new multi-column structure)
+                // for 433/admin: uses enter433.length / enterChp.length respectively
+                // Empty entries (count = 0) are filtered out automatically
                 const rankedByMetric = (() => {
                   const list = (Array.isArray(people) ? people : []) as any[]
                   const rows = list.map(pp => {
                     let count = 0
                     if (topCardMetric === 'report') {
+                      // Count from reportHistory which is built from multi-column "ถวายรายงานครั้งที่ n" headers
                       if (Array.isArray(pp.reportHistory)) {
                         count = pp.reportHistory.length
                       }

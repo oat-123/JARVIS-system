@@ -48,11 +48,7 @@ export async function POST(request: Request) {
           'เจ็บ (ใบรับรองแพทย์)': person['เจ็บ (ใบรับรองแพทย์)'],
           หมายเหตุ: person.หมายเหตุ,
         },
-        reportInfo: {
-          ถวายรายงาน: person.ถวายรายงาน,
-          'น.กำกับยาม': person['น.กำกับยาม'],
-          วันที่: person.วันที่,
-        },
+        reportInfo: person.reportInfo || { ถวายรายงาน: person.ถวายรายงาน, 'น.กำกับยาม': person['น.กำกับยาม'], วันที่: person.วันที่, reportHistory: person.reportHistory || [] },
         dynamicColumns: {
           '433_columns_count': person._433_columns?.length || 0,
           'admin_columns_count': person._admin_columns?.length || 0,

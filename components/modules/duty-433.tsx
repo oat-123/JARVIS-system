@@ -84,8 +84,11 @@ export function Duty433({ onBack, user }: Duty433Props) {
   const { toast } = useToast()
   const [people, setPeople] = useState<PersonData[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [filterDuties, setFilterDuties] = useState<string[]>([])
+  const [filterGrades, setFilterGrades] = useState<string[]>([])
   const [filterDuty, setFilterDuty] = useState<string | "">("")
   const [filterGrade, setFilterGrade] = useState<string | "">("") // เพิ่ม state สำหรับ filter คัดเกรด
+  const [filterAffiliations, setFilterAffiliations] = useState<string[]>([]) // เพิ่ม state สำหรับกรองสังกัดหลายค่า
   const [minCount, setMinCount] = useState<number>(0)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [debouncedQuery, setDebouncedQuery] = useState<string>("")
@@ -107,6 +110,9 @@ export function Duty433({ onBack, user }: Duty433Props) {
   const [listSheet, setListSheet] = useState<string | null>(null)
   const [selectedPerson, setSelectedPerson] = useState<PersonData | null>(null)
   const [prevView, setPrevView] = useState<"dashboard" | "list" | null>(null)
+  const [showAffPanel, setShowAffPanel] = useState<boolean>(false)
+  const [showDutyPanel, setShowDutyPanel] = useState<boolean>(false)
+  const [showGradePanel, setShowGradePanel] = useState<boolean>(false)
 
   // Enforce visibility: only allow admin/oat roles to use this module
   if (user?.role?.toLowerCase() !== 'admin' && user?.role?.toLowerCase() !== 'oat') {
@@ -390,12 +396,32 @@ export function Duty433({ onBack, user }: Duty433Props) {
     normalized.ตำแหน่ง = pick(['ตำแหน่ง ทกท.', 'ตำแหน่ง', 'position', 'pos']) || row.ตำแหน่ง || '';
     normalized.สังกัด = pick(['สังกัด', 'affiliation']) || row.สังกัด || '';
     normalized.หน้าที่ = pick(['หน้าที่', 'role']) || row.หน้าที่ || '';
-    normalized.นักกีฬา = pick(['นักกีฬา', 'sport']) || row.นักกีฬา || '';
+    normalized.นักกีฬา = pick(['นักกีฬา','กีฬา','เป็นนักกีฬา','sport','sports','เล่นกีฬา','athlete','athletics']) || row.นักกีฬา || row.กีฬา || '';
     normalized.คัดเกรด = pick(['คัดเกรด', 'grade', 'grading']) || row.คัดเกรด || row['คัดเกรด'] || '';
     normalized.ตัวชน = pick(['ตัวชน', 'ตัว ชน']) || row.ตัวชน || '';
-    normalized.ส่วนสูง = pick(['ส่วนสูง', 'height']) || row.ส่วนสูง || '';
+    normalized.ส่วนสูง = pick(['ส่วนสูง','สูง','ส่วนสูง(ซม.)','สูง(ซม.)','ส่วนสูง ซม.','height','สูง cm','ส่วนสูง cm','ส่วนสูง (ซม.)','สูง cm.']) || row.ส่วนสูง || row['ส่วนสูง(ซม.)'] || row['สูง(ซม.)'] || '';
     normalized.เบอร์โทรศัพท์ = pick(['เบอร์โทรศัพท์', 'phone', 'โทร']) || row.เบอร์โทรศัพท์ || '';
     normalized['ธุรการ ฝอ.'] = pick(['ธุรการ ฝอ.', 'ธุรการ', 'admin']) || row['ธุรการ ฝอ.'] || row['ธุรการ'] || '';
+
+    // Count dynamic 433 columns: flexible header detection (e.g., "เข้า 433 ครั้งที่ 1", "433ครั้งที่1")
+    const keys = Object.keys(row || {})
+    let count433 = 0
+    for (const k of keys) {
+      if (is433Header(k)) {
+        const val = row[k]
+        if (isPresent433Value(val)) count433++
+      }
+    }
+    // fallback: if API provided _433_dates, count non-empty entries as well
+    if (count433 === 0 && Array.isArray(row._433_dates)) {
+      count433 = row._433_dates.filter((v:any) => isPresent433Value(v)).length
+    }
+    // extra fallback: use enter433/_433_dates if header-based count is zero
+    if (count433 === 0) {
+      if (Array.isArray(row.enter433)) count433 = row.enter433.length
+      else if (Array.isArray(row._433_dates)) count433 = row._433_dates.filter((v:any) => isPresent433Value(v)).length
+    }
+    normalized._enter433Count = count433
 
     // The backend now provides clean _433_dates and _admin_dates arrays.
     // We will use these as the single source of truth.
@@ -403,7 +429,8 @@ export function Duty433({ onBack, user }: Duty433Props) {
     if (Array.isArray(row._433_dates)) {
       row._433_dates.forEach((d: any, idx: number) => {
         if (d == null) return;
-        const ds = (typeof d === 'string' ? d.trim() : String(d));
+        const ds0 = (typeof d === 'string' ? d.trim() : String(d));
+        const ds = cleanParenTimestamp(ds0);
         if (ds) enter433.push({ idx: idx + 1, date: ds, note: '' });
       });
     }
@@ -412,7 +439,8 @@ export function Duty433({ onBack, user }: Duty433Props) {
     if (Array.isArray(row._admin_dates)) {
       row._admin_dates.forEach((d: any, idx: number) => {
         if (d == null) return;
-        const ds = (typeof d === 'string' ? d.trim() : String(d));
+        const ds0 = (typeof d === 'string' ? d.trim() : String(d));
+        const ds = cleanParenTimestamp(ds0);
         if (ds) enterChp.push({ idx: idx + 1, date: ds, note: '' });
       });
     }
@@ -449,7 +477,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
         }
         
         const namePart = parts[0].trim();
-        const datePart = parts[1].trim();
+        const datePart = cleanParenTimestamp(parts[1].trim());
         const nameTokens = namePart.split(/\s+/);
         let code = '';
         let position = '';
@@ -502,6 +530,41 @@ export function Duty433({ onBack, user }: Duty433Props) {
   const formatDisplayName = (rank?: string, first?: string, last?: string) => {
     const raw = `${rank || ''} ${first || ''} ${last || ''}`
     return stripDuplicateNnr(normalizeSpaces(raw))
+  }
+
+  // Strip only parenthesized ISO-like timestamp suffix e.g. "(T17:00:00.000Z)" => removed
+  const cleanParenTimestamp = (s: any) => {
+    if (typeof s !== 'string') return s
+    return s.replace(/\s*\(T[0-9:.+\-]*Z\)\s*$/i, '').trim()
+  }
+
+  // Header normalization for flexible 433 detection
+  const normHeader = (s: string) => {
+    const toArabic = (txt: string) => txt.replace(/[๐-๙]/g, ch => '0123456789'["๐๑๒๓๔๕๖๗๘๙".indexOf(ch)])
+    return toArabic(String(s || ''))
+      .toLowerCase()
+      .replace(/[()\[\]_,.:;\-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+  const is433Header = (name: string) => {
+    const h = normHeader(name)
+    if (!/\b433\b/.test(h)) return false
+    // Flexible acceptance:
+    // 1) with ครั้ง/ครั้งที่ + number
+    // 2) or any trailing/separated number token after 433 (e.g., "433 1", "433 ครั้ง 1", "433#1")
+    if (/ครั้��\s*ที่\s*\d+/.test(h) || /ครั้ง\s*\d+/.test(h)) return true
+    // accept patterns like "433 1", "433-1", "433 ครั้ง1", etc.
+    return /433\s*[#\-\._ ]?\s*\d+/.test(h)
+  }
+  const isPresent433Value = (val: any) => {
+    const s = String(val ?? '').trim()
+    if (!s) return false
+    const lowered = s.toLowerCase()
+    // treat common placeholders as empty
+    if (lowered === '-' || lowered === '—' || lowered === '–' || lowered === '0' || lowered === 'na' || lowered === 'n/a' || lowered === 'ไม่มี') return false
+    if (/^[-—–]+$/.test(s)) return false
+    return true
   }
 
   // helper: format Thai short date using Thai numerals and short month names (e.g., ๒๓ ส.ค. ๖๘)
@@ -688,7 +751,6 @@ export function Duty433({ onBack, user }: Duty433Props) {
   const duties = useMemo(() => {
     const s = new Set<string>()
     people.forEach(p => { 
-      // เพิ่มการกรองคอลัมภ์ ธุรการ ฝอ. ตามที่ต้องการ
       if (p.หน้าที่) s.add(p.หน้าที่)
       if (p['ธุรการ ฝอ.']) s.add(p['ธุรการ ฝอ.'])
       if (p.ธุรการ) s.add(p.ธุรการ)
@@ -700,6 +762,14 @@ export function Duty433({ onBack, user }: Duty433Props) {
     const s = new Set<string>()
     people.forEach(p => {
       if (p.คัดเกรด) s.add(p.คัดเกรด)
+    })
+    return Array.from(s).filter(Boolean)
+  }, [people])
+
+  const affiliations = useMemo(() => {
+    const s = new Set<string>()
+    people.forEach(p => {
+      if (p.สังกัด) s.add(p.สังกัด)
     })
     return Array.from(s).filter(Boolean)
   }, [people])
@@ -737,24 +807,27 @@ export function Duty433({ onBack, user }: Duty433Props) {
 
   const filtered = useMemo(() => {
     const q = (debouncedSearch || '').toString().trim().toLowerCase()
-    // ใช้ลำดับเดิมจาก people และคำนวณจำนวนครั้ง 433 แบบไดนามิก
+    // ใช้ลำดับเดิมจาก people และคำนวณจำนวนครั้ง 433 แบบได���ามิก
     const get433Count = (pp: any) => {
-      if (Array.isArray(pp.enter433)) {
-        return pp.enter433.length
-      }
+      if (typeof pp._enter433Count === 'number') return pp._enter433Count
+      if (Array.isArray(pp.enter433)) return pp.enter433.length
+      if (Array.isArray(pp._433_dates)) return pp._433_dates.filter((v:any)=>isPresent433Value(v)).length
       return 0
     }
     return people.filter(p => {
-      // กรองตามหน้าที่ - ตรวจสอบทั้ง หน้าที่, ธุรการ ฝอ., และ ธุรการ
-      if (filterDuty && filterDuty !== '') {
-        const hasDuty = p.หน้าที่ === filterDuty || 
-                        p['ธุรการ ฝอ.'] === filterDuty || 
-                        p.ธุรการ === filterDuty
-        if (!hasDuty) return false
+      // กรองตามหน้าที่ (หลายค่า)
+      if (Array.isArray(filterDuties) && filterDuties.length > 0) {
+        const dutyVals = [p.หน้าที่, p['ธุรการ ฝอ.'], p.ธุรการ].map(v => (v||'').toString())
+        if (!dutyVals.some(v => filterDuties.includes(v))) return false
       }
-      // กรองตามคัดเกรด
-      if (filterGrade && filterGrade !== '') {
-        if (p.คัดเกรด !== filterGrade) return false
+      // กรองตามคัดเกรด (หลายค่า)
+      if (Array.isArray(filterGrades) && filterGrades.length > 0) {
+        if (!filterGrades.includes((p.คัดเกรด||'').toString())) return false
+      }
+      // กรองตามสังกัด (หลายค่า)
+      if (Array.isArray(filterAffiliations) && filterAffiliations.length > 0) {
+        const aff = (p.สังกัด || '').toString()
+        if (!filterAffiliations.includes(aff)) return false
       }
       const stat = get433Count(p)
       if (stat < minCount) return false
@@ -765,17 +838,20 @@ export function Duty433({ onBack, user }: Duty433Props) {
       }
       return true
     })
-  }, [people, filterDuty, filterGrade, minCount, debouncedSearch])
+  }, [people, filterDuty, filterGrade, filterDuties, filterGrades, filterAffiliations, minCount, debouncedSearch])
 
   // List view - fetch specific sheet tabs and display names
-  const openSheetList = async (sheetTabName: string) => {
+  const openSheetList = async (_sheetTabName: string) => {
+    // Force to use the provided spreadsheet (gid=0)
+    const spreadsheetId = '1E0cu1J33gpRA-OHyNYL7tND30OoHBX4YpeoQ7JFUOaQ'
+    const gid = '0'
     setIsLoading(true)
-    setListSheet(sheetTabName)
+    setListSheet('fixed:g0')
     try {
-      const res = await fetch(`/api/sheets?sheetName=${encodeURIComponent(sheetTabName)}`)
+      const res = await fetch(`/api/sheets?spreadsheetId=${encodeURIComponent(spreadsheetId)}&gid=${gid}`)
       const json = await res.json()
       if (json.success && Array.isArray(json.data)) {
-        // normalize rows from specific sheet tab
+        // normalize rows from the fixed spreadsheet tab
         setPeople(normalizePeopleArray(json.data as PersonData[]))
         setView("list")
       } else {
@@ -824,33 +900,153 @@ export function Duty433({ onBack, user }: Duty433Props) {
           {/* Pie detail modal (mobile-friendly drawer) */}
 
           <div className="overflow-x-auto w-full max-w-full rounded-lg bg-slate-800/60 border border-slate-700 p-4">
-            {/* Filters moved to list view */}
-            <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-3">
-              <div className="flex items-center gap-3">
-                <label className="text-sm text-slate-300">หน้าที่</label>
-                <select value={filterDuty} onChange={e => setFilterDuty(e.target.value)} className="bg-slate-700 text-white px-2 py-1 rounded">
-                  <option value="">ทั้งหมด</option>
-                  {duties.map((d, i) => <option key={i} value={d}>{d}</option>)}
-                </select>
-                {/* เพิ่ม filter คัดเกรด */}
-                <label className="text-sm text-slate-300">คัดเกรด</label>
-                <select value={filterGrade} onChange={e => setFilterGrade(e.target.value)} className="bg-slate-700 text-white px-2 py-1 rounded">
-                  <option value="">ทั้งหมด</option>
-                  {grades.map((g, i) => <option key={i} value={g}>{g}</option>)}
-                </select>
-                <label className="text-sm text-slate-300">ขั้นต่ำ (สถิติ)</label>
-                <input type="number" min={0} value={minCount} onChange={e => setMinCount(parseInt(e.target.value || '0', 10))} className="w-20 bg-slate-700 text-white px-2 py-1 rounded" />
+            {/* Minimal filter bar */}
+            <div className="flex flex-col gap-2 mb-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDutyPanel((v: boolean) => !v)}
+                  className="text-xs px-2 py-1 rounded border border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700"
+                >หน้าที่ {filterDuties.length>0?`(${filterDuties.length})`:''}</button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowGradePanel((v: boolean) => !v)}
+                  className="text-xs px-2 py-1 rounded border border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700"
+                >คัดเกรด {filterGrades.length>0?`(${filterGrades.length})`:''}</button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAffPanel(v => !v)}
+                  className="text-xs px-2 py-1 rounded border border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700"
+                >
+                  สังกัด {filterAffiliations.length > 0 ? `(${filterAffiliations.length})` : ''}
+                </button>
+
+                <input
+                  type="number"
+                  min={0}
+                  value={minCount}
+                  onChange={e => setMinCount(parseInt(e.target.value || '0', 10))}
+                  className="w-24 bg-slate-800 border border-slate-600 text-slate-100 px-2 py-1 rounded text-xs placeholder:text-slate-400"
+                  aria-label="ขั้นต่ำ (สถิติ)"
+                  placeholder={minCount === 0 ? 'สถิติเ��้า 433' : 'สถิติ'}
+                  title="กรองจำนวนสถิติ 433 ขั้นต่ำ"
+                />
+
+                <div className="relative w-full sm:w-64">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none"
+                    aria-hidden="true"
+                  >
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.3-4.3"></path>
+                  </svg>
+                  <input
+                    aria-label="ค้นหา"
+                    placeholder="ค้นหา"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="bg-slate-800 border border-slate-600 text-slate-100 pl-7 pr-2 py-1 rounded text-xs w-full"
+                  />
+                </div>
+
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="text-[10px] text-sky-300 underline"
+                    title="อัปเดตข้อมูล"
+                    onClick={() => {
+                      // refresh only the fixed list sheet, do not switch to dashboard to avoid aggregated data
+                      openSheetList('นนร.')
+                    }}
+                  >รีเฟรช</button>
+                  {(filterDuties.length>0 || filterGrades.length>0 || filterAffiliations.length > 0 || minCount > 0 || searchQuery) && (
+                    <button
+                      type="button"
+                      className="text-[10px] text-emerald-300 underline"
+                      onClick={() => { setFilterDuties([]); setFilterGrades([]); setFilterAffiliations([]); setMinCount(0); setSearchQuery('') }}
+                    >ล้างทั้งหมด</button>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <input
-                  aria-label="ค้นหา"
-                  placeholder="ค้นหา"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="bg-slate-700 text-white px-3 py-1 rounded w-full sm:w-64"
-                />
-              </div>
+              {showDutyPanel && (
+                <div className="bg-slate-900/50 border border-slate-700 rounded p-2 flex items-center gap-2 flex-wrap">
+                  {duties.map((d, i) => (
+                    <label key={i} className="inline-flex items-center gap-1 text-xs bg-slate-800/80 border border-slate-600 rounded px-2 py-1">
+                      <input
+                        type="checkbox"
+                        className="accent-emerald-500 h-3 w-3"
+                        checked={filterDuties.includes(d)}
+                        onChange={(e) => {
+                          setFilterDuties(prev => e.target.checked ? Array.from(new Set([...prev, d])) : prev.filter(x => x!==d))
+                        }}
+                      />
+                      <span className="truncate max-w-[160px]">{d}</span>
+                    </label>
+                  ))}
+                  {duties.length>0 && (
+                    <button type="button" className="text-[10px] text-emerald-300 underline ml-1" onClick={()=>setFilterDuties([])}>ล้าง</button>
+                  )}
+                </div>
+              )}
+
+              {showGradePanel && (
+                <div className="bg-slate-900/50 border border-slate-700 rounded p-2 flex items-center gap-2 flex-wrap">
+                  {grades.map((g, i) => (
+                    <label key={i} className="inline-flex items-center gap-1 text-xs bg-slate-800/80 border border-slate-600 rounded px-2 py-1">
+                      <input
+                        type="checkbox"
+                        className="accent-emerald-500 h-3 w-3"
+                        checked={filterGrades.includes(g)}
+                        onChange={(e) => {
+                          setFilterGrades(prev => e.target.checked ? Array.from(new Set([...prev, g])) : prev.filter(x => x!==g))
+                        }}
+                      />
+                      <span className="truncate max-w-[160px]">{g}</span>
+                    </label>
+                  ))}
+                  {grades.length>0 && (
+                    <button type="button" className="text-[10px] text-emerald-300 underline ml-1" onClick={()=>setFilterGrades([])}>ล้าง</button>
+                  )}
+                </div>
+              )}
+
+              {showAffPanel && (
+                <div className="bg-slate-900/50 border border-slate-700 rounded p-2 flex items-center gap-2 flex-wrap">
+                  {affiliations.map((af, i) => (
+                    <label key={i} className="inline-flex items-center gap-1 text-xs bg-slate-800/80 border border-slate-600 rounded px-2 py-1">
+                      <input
+                        type="checkbox"
+                        className="accent-emerald-500 h-3 w-3"
+                        checked={filterAffiliations.includes(af)}
+                        onChange={(e) => {
+                          setFilterAffiliations(prev => {
+                            if (e.target.checked) return Array.from(new Set([...prev, af]))
+                            return prev.filter(x => x !== af)
+                          })
+                        }}
+                      />
+                      <span className="truncate max-w-[160px]">{af}</span>
+                    </label>
+                  ))}
+                  {affiliations.length > 0 && (
+                    <button
+                      type="button"
+                      className="text-[10px] text-emerald-300 underline ml-1"
+                      onClick={() => setFilterAffiliations([])}
+                    >ล้าง</button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="overflow-x-auto w-full max-w-full mb-4">
@@ -889,7 +1085,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
                         <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ธุรการ ฝอ.'] || p.ธุรการ || '-'}</td>
                         <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ส่วนสูง || '-'}</td>
                         <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.นักกีฬา || '-'}</td>
-                        <td className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap">{Array.isArray(p.enter433) ? p.enter433.length : 0}</td>
+                        <td className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap">{p._enter433Count ?? (Array.isArray(p.enter433) ? p.enter433.length : 0)}</td>
 
                                               </tr>
                   ))}
@@ -1025,41 +1221,67 @@ const findPersonByName = (name: string) => {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Top: header icons, site name left, date center, placeholder right */}
-        <header className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">J.A.R.V.I.S</div>
-            <Badge className="bg-green-600 text-white">ระบบเวร 433</Badge>
+      <div className="max-w-6xl mx-auto relative">
+        {/* Top left corner: logo and badge */}
+        <div className="absolute top-0 left-0 flex flex-col items-start gap-1">
+          <div className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">J.A.R.V.I.S</div>
+          <Badge className="bg-green-600 text-white text-xs">ระบบเวร 433</Badge>
+        </div>
+
+        {/* Top right corner: date/time and icon buttons */}
+        <div className="absolute top-0 right-0 flex flex-col items-end gap-1">
+          <div className="text-xs text-slate-400">{new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</div>
+          
+          {/* Minimal refresh/cache buttons */}
+          <div className="flex items-center gap-1 bg-slate-800/40 border border-slate-700 rounded-lg px-2 py-1.5">
+            <button
+              onClick={() => {
+                try { window.localStorage.removeItem('duty433_cache_v1') } catch (e) {}
+                setView('dashboard')
+                setIsLoading(true)
+                setTimeout(() => { setIsLoading(false); }, 300)
+              }}
+              className="p-1.5 rounded hover:bg-slate-700/50 transition-colors" 
+              title="รีเฟรช"
+            >
+              <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            
+            <div className="w-px h-4 bg-slate-700"></div>
+            
+            <button
+              onClick={() => {
+                try { 
+                  window.localStorage.removeItem('duty433_cache_v1')
+                  toast({
+                    title: "ล้าง Cache สำเร็จ",
+                    description: "ระบบจะดึงข้อมูลใหม่จาก Google Sheets",
+                  })
+                } catch (e) {}
+                setView('dashboard')
+                setIsLoading(true)
+                setTimeout(() => { setIsLoading(false); }, 300)
+              }}
+              className="p-1.5 rounded hover:bg-slate-700/50 transition-colors"
+              title="ล้าง Cache"
+            >
+              <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-sm text-slate-300">{new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</div>
-            <Button className="text-sm px-2 py-1" onClick={() => {
-              try { window.localStorage.removeItem('duty433_cache_v1') } catch (e) {}
-              // force refetch by toggling view state
-              setView('dashboard')
-              setIsLoading(true)
-              // small delay to allow effect to run
-              setTimeout(() => { setIsLoading(false); }, 300)
-            }}>รีเฟรช</Button>
-            <Button className="text-sm px-2 py-1 bg-red-600 hover:bg-red-700" onClick={() => {
-              try { 
-                window.localStorage.removeItem('duty433_cache_v1')
-                toast({
-                  title: "ล้าง Cache สำเร็จ",
-                  description: "ระบบจะดึงข้อมูลใหม่จาก Google Sheets",
-                })
-              } catch (e) {}
-              // force refetch by toggling view state
-              setView('dashboard')
-              setIsLoading(true)
-              // small delay to allow effect to run
-              setTimeout(() => { setIsLoading(false); }, 300)
-            }}>ล้าง Cache</Button>
+
+          {/* Next weekend info below buttons */}
+          <div className="text-xs text-slate-300 text-right mt-1">
+            <div>เข้าเวรครั้งถัดไป</div>
+            <div>{nextWeekendText}</div>
           </div>
-          <div className="hidden md:block text-right">
-            <div className="text-sm text-slate-200">เข้าเวรครั้งถัดไป {nextWeekendText}</div>
-          </div>
+        </div>
+
+        {/* Top: next weekend info (centered, desktop only) - now moved to right side */}
+        <header className="mb-12 pt-16">
         </header>
 
         {/* Middle: left pie chart, right top list */}
@@ -1315,8 +1537,8 @@ const findPersonByName = (name: string) => {
           {/* Enhanced Calendar Grid */}
           <div className="grid grid-cols-7 gap-2 mb-4">
             {/* Day headers */}
-            {['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'].map((day) => (
-              <div key={day} className="text-center font-semibold text-slate-400 p-2 text-sm">
+              {['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'].map((day) => (
+              <div key={day} className="text-center font-semibold text-slate-400 p-1 text-[9px] sm:text-sm">
                 {day}
               </div>
             ))}
@@ -1366,7 +1588,7 @@ const findPersonByName = (name: string) => {
                   <div
                     key={i}
                     className={`
-                      min-h-[72px] sm:min-h-[88px] p-2 border border-slate-700 rounded-lg cursor-pointer
+                      min-h-[48px] sm:min-h-[88px] p-0.5 sm:p-2 border border-slate-700 rounded-lg cursor-pointer
                       transition-all duration-200 hover:bg-slate-700/50 relative
                       ${isCurrentMonth ? 'bg-slate-800/40' : 'bg-slate-950/70 opacity-60'}
                       ${isToday ? 'ring-2 ring-blue-400' : ''}
@@ -1389,25 +1611,25 @@ const findPersonByName = (name: string) => {
                       setView("calendar-popup")
                     }}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`text-sm font-medium ${isToday ? 'text-blue-400' : (isCurrentMonth ? 'text-slate-200' : 'text-slate-500')}`}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className={`text-[9px] sm:text-sm font-medium ${isToday ? 'text-blue-400' : (isCurrentMonth ? 'text-slate-200' : 'text-slate-500')}`}>
                         {date.getDate()}
                       </span>
                       {(hasDutyExternal || hasDutyFromData) && (
-                        <div className="flex gap-1 items-center">
+                        <div className="flex gap-0.5 items-center">
                           {hasDutyExternal && (
-                            <div className="w-2 h-2 bg-cyan-400 rounded-full" title="Weekly Sheet"></div>
+                            <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full" title="Weekly Sheet"></div>
                           )}
                           {hasDutyFromData && (
-                            <div className="w-2 h-2 bg-green-500 rounded-full" title="ฐานข้อมูลรวม"></div>
+                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full" title="ฐานข้อมูลรวม"></div>
                           )}
                         </div>
                       )}
                     </div>
                     {displayNames.length > 0 && (
-                      <div className="mt-1 space-y-0.5 text-right">
+                      <div className="mt-0.5 space-y-0 text-right">
                         {displayNames.map((nm, idx) => (
-                          <div key={idx} className="text-[10px] leading-tight text-slate-300 truncate">{nm}</div>
+                          <div key={idx} className="text-[5.5px] sm:text-[9px] leading-tight text-slate-300 truncate">{nm}</div>
                         ))}
                       </div>
                     )}
@@ -1420,42 +1642,42 @@ const findPersonByName = (name: string) => {
           </div>
 
           {/* Legend */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 p-3 bg-slate-900/50 rounded-lg">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3 p-2 bg-slate-900/50 rounded-lg">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-cyan-400 rounded-full"></div>
-              <span className="text-sm">นนร.ปฏิบัติหน้าที่</span>
+              <span className="text-[10px]">นนร.ปฏิบัติหน้าที่</span>
             </div>
             <div className="flex items-center gap-2">
             </div>
             {isMonthMapLoading && (
-              <div className="text-xs text-slate-400">กำลังโหลดข้อมูล...</div>
+              <div className="text-[9px] text-slate-400">กำลังโหลดข้อมูล...</div>
             )}
           </div>
         </div>
 
         {/* Calendar Popup Modal */}
         {view === "calendar-popup" && selectedCalendarData && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
             <div className="bg-slate-800 border border-slate-700 rounded-lg w-full max-w-[92vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
               {/* Popup Header */}
-              <div className="flex items-center justify-between p-4 border-b border-slate-700">
-                <h3 className="text-xl font-bold">
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b border-slate-700">
+                <h3 className="text-lg sm:text-xl font-bold">
                   วันที่ {selectedCalendarData.date.getDate()} {['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'][selectedCalendarData.date.getMonth()]} {selectedCalendarData.date.getFullYear() + 543}
                 </h3>
                 <Button
                   onClick={() => setView("dashboard")}
-                  className="bg-transparent hover:bg-slate-700 p-2"
+                  className="bg-transparent hover:bg-slate-700 p-1 sm:p-2"
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
 
               {/* Popup Content */}
-              <div className="p-4 space-y-6">
+              <div className="p-3 sm:p-4 space-y-6">
                 {/* Weekly External Section */}
                 <div>
-                  <h4 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-cyan-400" />
+                  <h4 className="text-sm sm:text-lg font-semibold mb-3 flex items-center gap-2">
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-400" />
                     ผู้ปฏิบัติหน้าที่
                   </h4>
                   {selectedCalendarData.weeklyExternal && selectedCalendarData.weeklyExternal.length > 0 ? (
@@ -1463,14 +1685,14 @@ const findPersonByName = (name: string) => {
                       {selectedCalendarData.weeklyExternal.map((person: any, index: number) => (
                         <button
                           key={index}
-                          className="w-full flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-3 py-2 hover:bg-slate-800/70 transition-colors"
+                          className="w-full flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-2 py-1 sm:px-3 sm:py-2 hover:bg-slate-800/70 transition-colors"
                           onClick={() => openPersonByName(`${person.ชื่อ || ''} ${person.สกุล || ''}`.trim())}
                         >
                           <div className="min-w-0 text-left">
-                            <div className="font-medium truncate">{`${person.ชื่อ || ''} ${person.สกุล || ''}`.trim()}</div>
-                            <div className="text-xs text-slate-400 truncate">{buildInfo(enrichPerson(person))}</div>
+                            <div className="font-medium truncate text-[11px] sm:text-base">{`${person.ชื่อ || ''} ${person.สกุล || ''}`.trim()}</div>
+                            <div className="text-[9px] sm:text-xs text-slate-400 truncate">{buildInfo(enrichPerson(person))}</div>
                           </div>
-                          <span className="ml-2 shrink-0 bg-cyan-600 text-white px-2 py-0.5 rounded text-xs">Check Profile </span>
+                          <span className="ml-2 shrink-0 bg-cyan-600 text-white px-2 py-0.5 rounded text-[9px] sm:text-xs">Check Profile </span>
                         </button>
                       ))}
                     </div>
@@ -1490,22 +1712,22 @@ const findPersonByName = (name: string) => {
                 {/* Weekly Internal Section */}
                 {selectedCalendarData.weeklyInternal && selectedCalendarData.weeklyInternal.length > 0 && (
                   <div>
-                    <h4 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                      <Users className="h-5 w-5 text-green-400" />
+                    <h4 className="text-sm sm:text-lg font-semibold mb-3 flex items-center gap-2">
+                      <Users className="h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
                       ผู้ปฏิบัติหน้าที่จากฐานข้อมูลรวม
                     </h4>
                     <div className="space-y-2">
                       {selectedCalendarData.weeklyInternal.map((person: any, index: number) => (
                         <button
                           key={index}
-                          className="w-full flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-3 py-2 hover:bg-slate-800/70 transition-colors"
+                          className="w-full flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-2 py-1 sm:px-3 sm:py-2 hover:bg-slate-800/70 transition-colors"
                           onClick={() => openPersonByName(`${person.ชื่อ || ''} ${person.สกุล || ''}`.trim())}
                         >
                           <div className="min-w-0 text-left">
-                            <div className="font-medium truncate">{formatDisplayName(person.ยศ, person.ชื่อ, person.สกุล)}</div>
-                            <div className="text-xs text-slate-400 truncate">{buildInfo(person)}</div>
+                            <div className="font-medium truncate text-[11px] sm:text-base">{formatDisplayName(person.ยศ, person.ชื่อ, person.สกุล)}</div>
+                            <div className="text-[9px] sm:text-xs text-slate-400 truncate">{buildInfo(person)}</div>
                           </div>
-                          <span className="ml-2 shrink-0 bg-green-600 text-white px-2 py-0.5 rounded text-xs">Internal</span>
+                          <span className="ml-2 shrink-0 bg-green-600 text-white px-2 py-0.5 rounded text-[9px] sm:text-xs">Internal</span>
                         </button>
                       ))}
                     </div>
@@ -1514,8 +1736,8 @@ const findPersonByName = (name: string) => {
               </div>
 
               {/* Popup Footer */}
-              <div className="flex justify-end gap-3 p-4 border-t border-slate-700">
-                <Button onClick={() => setView("dashboard")} className="bg-slate-600 hover:bg-slate-500">
+              <div className="flex justify-end gap-3 p-3 sm:p-4 border-t border-slate-700">
+                <Button onClick={() => setView("dashboard")} className="bg-slate-600 hover:bg-slate-500 px-2 py-1 sm:px-3 sm:py-2 text-[11px] sm:text-base">
                   ปิด
                 </Button>
               </div>
@@ -1526,7 +1748,7 @@ const findPersonByName = (name: string) => {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 mt-3">
               <div className="flex items-center gap-3">
               <Button onClick={onBack} className="bg-yellow-400 text-black px-4 py-2 rounded-md shadow-sm w-full sm:w-auto mb-2 sm:mb-0"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>กลับไป Dashboard</Button>
-              <Button onClick={() => setView("list")} className="bg-indigo-600 w-full sm:w-auto mb-2 sm:mb-0"><List className="mr-2"/>ไปหน้ารายชื่อทั้งหมด</Button>
+              <Button onClick={() => openSheetList('นนร.')} className="bg-indigo-600 w-full sm:w-auto mb-2 sm:mb-0"><List className="mr-2"/>ไปหน้ารายชื่อทั้งหมด</Button>
                             <Button onClick={() => router.push('/create-files')} className="bg-emerald-600 w-full sm:w-auto mb-2 sm:mb-0"><FileText className="mr-2"/>สร้างไฟล์จาก Drive (for PC)</Button>
           </div>
         </div>

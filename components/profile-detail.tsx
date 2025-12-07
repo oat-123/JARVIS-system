@@ -28,7 +28,9 @@ interface ProfileDetailProps {
 const toThaiShortDate = (input: string) => {
   if (!input) return ''
   try {
-    const d = new Date(input)
+    // Clean input: remove timestamp part (everything after T)
+    const cleanInput = String(input).split('T')[0]
+    const d = new Date(cleanInput)
     if (isNaN(d.getTime())) return input
     const day = d.getDate()
     const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
@@ -384,26 +386,26 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-1 sm:p-6 text-[10px] sm:text-base">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
-        <div className="flex justify-start items-center mb-4 gap-2">
-          <Button 
+        <div className="flex justify-start items-center mb-3 gap-2">
+            <Button 
             onClick={onBack} 
-            className="bg-yellow-400 text-black px-3 py-2 rounded-md shadow hover:bg-yellow-500"
+            className="bg-yellow-400 text-black px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-md shadow hover:bg-yellow-500 text-[11px] sm:text-base"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             ย้อนกลับ
           </Button>
           <Button 
             onClick={handleRefresh} 
-            className="bg-green-500 text-white p-2 rounded-full shadow hover:bg-green-600"
+            className="bg-green-500 text-white p-1 sm:p-2 rounded-full shadow hover:bg-green-600"
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
 
-        <h2 className="text-3xl font-extrabold text-center tracking-tight mb-6">รายละเอียด</h2>
+        <h2 className="text-lg sm:text-3xl font-extrabold text-center tracking-tight mb-5">รายละเอียด</h2>
 
         {/* Profile Card */}
         <div className="rounded-lg p-6 shadow-md border border-slate-700/20 bg-gradient-to-tr from-blue-800/20 via-slate-800/10 to-transparent">
@@ -412,10 +414,10 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
           <div className="flex flex-col items-center mb-6">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <div className="w-48 h-48 rounded-full bg-gradient-to-br from-slate-700/60 to-slate-700/40 flex items-center justify-center overflow-hidden ring-4 ring-white/6 shadow-2xl cursor-pointer">
+                <div className="w-28 h-28 sm:w-48 sm:h-48 rounded-full bg-gradient-to-br from-slate-700/60 to-slate-700/40 flex items-center justify-center overflow-hidden ring-4 ring-white/6 shadow-2xl cursor-pointer">
               {isLoadingImage ? (
                 <div className="text-slate-200 text-center">
-                  <span className="text-sm">กำลังโหลด...</span>
+                  <span className="text-xs sm:text-sm">กำลังโหลด...</span>
                 </div>
               ) : avatarUrl ? (
                 <img
@@ -425,8 +427,8 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 />
               ) : (
                 <div className="text-slate-200 text-center">
-                  <User className="h-16 w-16 mx-auto mb-2 opacity-50" />
-                  <span className="text-sm">รูปภาพ</span>
+                  <User className="h-10 w-10 sm:h-16 sm:w-16 mx-auto mb-2 opacity-50" />
+                  <span className="text-xs sm:text-sm">รูปภาพ</span>
                 </div>
               )}
             </div>
@@ -444,153 +446,153 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            <div className="text-center mt-4">
-              <div className="text-2xl font-semibold text-white">{displayName}</div>
-              <div className="text-sm text-slate-300 mt-1">{position}</div>
+            <div className="text-center mt-3">
+              <div className="text-base sm:text-2xl font-semibold text-white">{displayName}</div>
+              <div className="text-[9px] sm:text-sm text-slate-300 mt-1">{position}</div>
             </div>
           </div>
 
           {/* Profile Details */}
           <div className="divide-y divide-slate-500/40 bg-transparent rounded-md overflow-hidden">
             {/* Basic Information - 4 column layout */}
-            <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
-                <Award className="h-4 w-4 mr-2" />
+            <div className="grid grid-cols-4 items-center px-3 sm:px-6 py-2 sm:py-4">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
+                <Award className="h-3 w-3 mr-2 sm:h-4 sm:w-4" />
                 ลำดับ
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person.ลำดับ || '-'}</div >
+              <div className="text-[10px] sm:text-base font-medium text-white text-right">{person.ลำดับ || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
-                <Calendar className="h-4 w-4 mr-2" />
+            <div className="grid grid-cols-4 items-center px-3 sm:px-6 py-2 sm:py-4">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
+                <Calendar className="h-3 w-3 mr-2 sm:h-4 sm:w-4" />
                 ชั้นปีที่
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person.ชั้นปีที่ || '-'}</div >
+              <div className="text-[10px] sm:text-base font-medium text-white text-right">{person.ชั้นปีที่ || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
-                <MapPin className="h-4 w-4 mr-2" />
+            <div className="grid grid-cols-4 items-center px-3 sm:px-6 py-2 sm:py-4">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
+                <MapPin className="h-3 w-3 mr-2 sm:h-4 sm:w-4" />
                 ตอน
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person.ตอน || '-'}</div >
+              <div className="text-[10px] sm:text-base font-medium text-white text-right">{person.ตอน || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
-                <MapPin className="h-4 w-4 mr-2" />
+            <div className="grid grid-cols-4 items-center px-3 sm:px-6 py-2 sm:py-4">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
+                <MapPin className="h-3 w-3 mr-2 sm:h-4 sm:w-4" />
                 สังกัด
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person.สังกัด || '-'}</div >
+              <div className="text-[10px] sm:text-base font-medium text-white text-right">{person.สังกัด || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
-                <Phone className="h-4 w-4 mr-2" />
+            <div className="grid grid-cols-4 items-center px-3 sm:px-6 py-2 sm:py-4">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
+                <Phone className="h-3 w-3 mr-2 sm:h-4 sm:w-4" />
                 เบอร์โทรศัพท์
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person.เบอร์โทรศัพท์ || '-'}</div >
+              <div className="text-[10px] sm:text-base font-medium text-white text-right">{person.เบอร์โทรศัพท์ || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
-                <Star className="h-4 w-4 mr-2" />
+            <div className="grid grid-cols-4 items-center px-3 sm:px-6 py-2 sm:py-4">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
+                <Star className="h-3 w-3 mr-2 sm:h-4 sm:w-4" />
                 คัดเกรด
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person.คัดเกรด || '-'}</div >
+              <div className="text-[10px] sm:text-base font-medium text-white text-right">{person.คัดเกรด || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
-                <Award className="h-4 w-4 mr-2" />
+            <div className="grid grid-cols-4 items-center px-3 sm:px-6 py-2 sm:py-4">
+              <div className="text-[9px] sm:text-sm text-slate-300 flex items-center">
+                <Award className="h-3 w-3 mr-2 sm:h-4 sm:w-4" />
                 ธุรการ ฝอ.
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person['ธุรการ ฝอ.'] || person.ธุรการ || '-'}</div >
+              <div className="text-[10px] sm:text-base font-medium text-white text-right">{person['ธุรการ ฝอ.'] || person.ธุรการ || '-'}</div >
             </div>
 
-            <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
-                <User className="h-4 w-4 mr-2" />
+            <div className="grid grid-cols-4 items-center px-3 sm:px-6 py-2 sm:py-4">
+              <div className="text-[9px] sm:text-sm text-slate-300 flex items-center">
+                <User className="h-3 w-3 mr-2 sm:h-4 sm:w-4" />
                 ตัวชน
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person.ตัวชน || '-'}</div >
+              <div className="text-[10px] sm:text-base font-medium text-white text-right">{person.ตัวชน || '-'}</div >
             </div>
 
             <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
                 <User className="h-4 w-4 mr-2" />
                 ส่วนสูง
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person.ส่วนสูง || '-'}</div >
+              <div className="text-sm sm:text-base font-medium text-white text-right">{person.ส่วนสูง || '-'}</div >
             </div>
 
             <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
                 <Star className="h-4 w-4 mr-2" />
                 นักกีฬา
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person.นักกีฬา || '-'}</div >
+              <div className="text-sm sm:text-base font-medium text-white text-right">{person.นักกีฬา || '-'}</div >
             </div>
 
             <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
                 <Calendar className="h-4 w-4 mr-2" />
                 ภารกิจอื่น ๆ
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person['ภารกิจอื่น ๆ'] || '-'}</div >
+              <div className="text-sm sm:text-base font-medium text-white text-right">{person['ภารกิจอื่น ๆ'] || '-'}</div >
             </div>
 
             <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
                 <MapPin className="h-4 w-4 mr-2" />
                 ดูงานต่างประเทศ
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person['ดูงานต่างประเทศ'] || '-'}</div >
+              <div className="text-sm sm:text-base font-medium text-white text-right">{person['ดูงานต่างประเทศ'] || '-'}</div >
             </div>
 
             <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
                 <User className="h-4 w-4 mr-2" />
                 เจ็บ (ใบรับรองแพทย์)
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person['เจ็บ (ใบรับรองแพทย์)'] || '-'}</div >
+              <div className="text-sm sm:text-base font-medium text-white text-right">{person['เจ็บ (ใบรับรองแพทย์)'] || '-'}</div >
             </div>
 
             <div className="grid grid-cols-4 items-center px-6 py-4">
-              <div className="text-sm text-slate-300 flex items-center">
+              <div className="text-[10px] sm:text-sm text-slate-300 flex items-center">
                 <Calendar className="h-4 w-4 mr-2" />
                 หมายเหตุ
               </div>
               <div></div>
               <div></div>
-              <div className="text-base font-medium text-white text-right">{person.หมายเหตุ || '-'}</div >
+              <div className="text-sm sm:text-base font-medium text-white text-right">{person.หมายเหตุ || '-'}</div >
             </div>
 
 
@@ -600,27 +602,27 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 {/* Prefer parsed reportHistory grouped by columnHeader */}
                 {Array.isArray(person.reportHistory) && person.reportHistory.length > 0 ? (
                   person.reportHistory.map((entry: any, index: number) => (
-                    <div key={index} className="grid grid-cols-4 items-start px-6 py-4">
-                      {index === 0 && <div className="text-sm text-slate-300">ประวัติถวายรายงาน</div>}
+                    <div key={index} className="grid grid-cols-4 items-start px-3 sm:px-6 py-2 sm:py-4">
+                      {index === 0 && <div className="text-[9px] sm:text-sm text-slate-300">ประวัติถวายรายงาน</div>}
                       {index !== 0 && <div></div>}
                       <div></div>
-                      <div className="text-sm text-slate-400 font-semibold text-right pr-4">{entry.columnHeader ? `${entry.columnHeader} :` : ''}</div>
-                      <div className="text-base font-medium text-white">
+                      <div className="text-[9px] sm:text-sm text-slate-400 font-semibold text-right pr-3">{entry.columnHeader ? `${entry.columnHeader} :` : ''}</div>
+                      <div className="text-[10px] sm:text-base font-medium text-white">
                         <div className="flex gap-1 flex-wrap mb-1">
                           {entry.code && entry.code !== 'คู่' && (
-                            <span className={`px-2 py-0.5 rounded text-xs ${
+                            <span className={`px-2 py-0.5 rounded text-[8px] sm:text-xs ${
                               entry.code === 'HMSV' ? 'bg-purple-300 text-black' :
                               entry.code === '๙๐๔' ? 'bg-yellow-400 text-black' :
                               entry.code === '๙๑๙' ? 'bg-blue-400 text-black' :
                               'bg-blue-600 text-white'
                             }`}>{entry.code}</span>
                           )}
-                          {entry.position && entry.position !== 'คู่' && <span className="bg-purple-600 px-2 py-0.5 rounded text-xs">{entry.position}</span>}
+                          {entry.position && entry.position !== 'คู่' && <span className="bg-purple-600 px-2 py-0.5 rounded text-[8px] sm:text-xs">{entry.position}</span>}
                           {(entry.code === 'คู่' || entry.position === 'คู่') && <span className="text-white">{entry.code === 'คู่' ? entry.code : entry.position}</span>}
                         </div>
-                        {entry.fullName && <div className="text-white">{entry.fullName}</div>}
-                        {entry.date && <div className="text-slate-400 text-xs mt-1">{toThaiShortDate(entry.date)}</div>}
-                        {entry._raw && !entry.fullName && <div className="text-slate-300 italic text-xs mt-1">{entry._raw}</div>}
+                        {entry.fullName && <div className="text-[10px] sm:text-base text-white">{entry.fullName}</div>}
+                        {entry.date && <div className="text-slate-400 text-[8px] sm:text-xs mt-1">{toThaiShortDate(entry.date)}</div>}
+                        {entry._raw && !entry.fullName && <div className="text-slate-300 italic text-[8px] sm:text-xs mt-1">{entry._raw}</div>}
                       </div>
                     </div>
                   ))
@@ -629,13 +631,13 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                   (Object.entries(person.reportInfo || {})
                     .filter(([_, val]: [string, any]) => val && String(val).trim())
                     .map(([hdr, val]: [string, any], idx: number) => (
-                      <div key={idx} className="grid grid-cols-4 items-start px-6 py-4">
-                        {idx === 0 && <div className="text-sm text-slate-300">ประวัติถวายรายงาน</div>}
-                        {idx !== 0 && <div></div>}
-                        <div></div>
-                        <div className="text-sm text-slate-400 font-semibold text-right pr-4">{hdr ? `${hdr} :` : ''}</div>
-                        <div className="text-base font-medium text-white">{val || '-'}</div>
-                      </div>
+                          <div key={idx} className="grid grid-cols-4 items-start px-3 sm:px-6 py-2 sm:py-4">
+                            {idx === 0 && <div className="text-[9px] sm:text-sm text-slate-300">ประวัติถวายรายงาน</div>}
+                            {idx !== 0 && <div></div>}
+                            <div></div>
+                              <div className="text-[9px] sm:text-sm text-slate-400 font-semibold text-right pr-3">{hdr ? `${hdr} :` : ''}</div>
+                              <div className="text-[10px] sm:text-base font-medium text-white">{val || '-'}</div>
+                          </div>
                     ))
                   )
                 )}
@@ -644,48 +646,48 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
 
             {/* 433 History */}
             {person.enter433 && person.enter433.length > 0 && (
-              <div className="grid grid-cols-4 items-start px-6 py-4">
-                <div className="text-sm text-slate-300">ประวัติเข้าเวร 433</div>
+              <div className="grid grid-cols-4 items-start px-3 sm:px-6 py-2 sm:py-4">
+                <div className="text-[9px] sm:text-sm text-slate-300">ประวัติเข้าเวร 433</div>
                 <div></div>
                 <div></div>
-                <div className="text-base font-medium text-white">
-                  {person.enter433.map((entry: any, index: number) => (
-                    <div key={index} className="mb-1">
-                      {toThaiShortDate(entry.date)}
-                      {entry.note && <span className="text-slate-400 text-xs ml-2">({entry.note})</span>}
-                    </div>
-                  ))}
-                </div>
+                  <div className="text-[10px] sm:text-base font-medium text-white">
+                    {person.enter433.map((entry: any, index: number) => (
+                      <div key={index} className="mb-1">
+                        {toThaiShortDate(entry.date)}
+                        {entry.note && <span className="text-slate-400 text-[8px] sm:text-xs ml-2">({entry.note})</span>}
+                      </div>
+                    ))}
+                  </div>
               </div>
             )}
 
             {/* Admin/CHP History */}
             {person.enterChp && person.enterChp.length > 0 && (
-              <div className="grid grid-cols-4 items-start px-6 py-4">
-                <div className="text-sm text-slate-300">ประวัติเข้าเวรธุรการ</div>
+              <div className="grid grid-cols-4 items-start px-3 sm:px-6 py-2 sm:py-4">
+                <div className="text-[9px] sm:text-sm text-slate-300">ประวัติเข้าเวรธุรการ</div>
                 <div></div>
                 <div></div>
-                <div className="text-base font-medium text-white text-right">
-                  {person.enterChp.map((entry: any, index: number) => (
-                    <div key={index} className="mb-1">
-                      {toThaiShortDate(entry.date)}
-                      {entry.note && <span className="text-slate-400 text-xs ml-2">({entry.note})</span>}
-                    </div>
-                  ))}
-                </div>
+                  <div className="text-[10px] sm:text-base font-medium text-white">
+                    {person.enterChp.map((entry: any, index: number) => (
+                      <div key={index} className="mb-1">
+                        {toThaiShortDate(entry.date)}
+                        {entry.note && <span className="text-slate-400 text-[8px] sm:text-xs ml-2">({entry.note})</span>}
+                      </div>
+                    ))}
+                  </div>
               </div>
             )}
 
             {/* Dynamic 433 Columns */}
             {person._433_columns && person._433_columns.length > 0 && (
-              <div className="grid grid-cols-4 items-start px-6 py-4">
-                <div className="text-sm text-slate-300">รายละเอียด 433</div>
+              <div className="grid grid-cols-4 items-start px-3 sm:px-6 py-2 sm:py-4">
+                <div className="text-[9px] sm:text-sm text-slate-300">รายละเอียด 433</div>
                 <div></div>
                 <div></div>
-                <div className="text-base font-medium text-white text-right">
+                <div className="text-[10px] sm:text-base font-medium text-white text-right">
                   {person._433_columns.map((col: any, index: number) => (
                     <div key={index} className="mb-1">
-                      <span className="text-slate-400 text-xs">{col.column}:</span> {col.value || '-'}
+                      <span className="text-slate-400 text-[8px] sm:text-xs">{col.column}:</span> {col.value || '-'}
                     </div>
                   ))}
                 </div>
@@ -694,14 +696,14 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
 
             {/* Dynamic Admin Columns */}
             {person._admin_columns && person._admin_columns.length > 0 && (
-              <div className="grid grid-cols-4 items-start px-6 py-4">
-                <div className="text-sm text-slate-300">รายละเอียด ธุรการ</div>
+              <div className="grid grid-cols-4 items-start px-3 sm:px-6 py-2 sm:py-4">
+                <div className="text-[9px] sm:text-sm text-slate-300">รายละเอียด ธุรการ</div>
                 <div></div>
                 <div></div>
-                <div className="text-base font-medium text-white text-right">
+                <div className="text-[10px] sm:text-base font-medium text-white text-right">
                   {person._admin_columns.map((col: any, index: number) => (
                     <div key={index} className="mb-1">
-                      <span className="text-slate-400 text-xs">{col.column}:</span> {col.value || '-'}
+                      <span className="text-slate-400 text-[8px] sm:text-xs">{col.column}:</span> {col.value || '-'}
                     </div>
                   ))}
                 </div>
@@ -709,11 +711,11 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
             )}
 
             {/* Statistics */}
-            <div className="grid grid-cols-4 items-center px-6 py-6">
-              <div className="text-sm text-slate-300">จำนวนครั้งที่เข้า433</div>
+            <div className="grid grid-cols-4 items-center px-3 sm:px-6 py-3 sm:py-6">
+              <div className="text-[9px] sm:text-sm text-slate-300">จำนวนครั้งที่เข้า433</div>
               <div></div>
               <div></div>
-              <div className="text-lg font-semibold text-white text-right">
+              <div className="text-[10px] sm:text-lg font-semibold text-white text-right">
                 <Badge variant="secondary" className="bg-orange-600 text-white">
                   {calculate433Count()}
                 </Badge>
@@ -721,11 +723,11 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
             </div>
 
             {/* Download Buttons */}
-            <div className="px-6 py-6 flex flex-row gap-4 justify-center">
+            <div className="px-3 py-4 sm:px-6 sm:py-6 flex flex-row gap-3 sm:gap-4 justify-center">
               <Button 
                 onClick={handleWordDownload}
                 disabled={isDownloadingWord}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 disabled:bg-slate-500 w-full sm:w-1/2"
+                className="bg-blue-600 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-md shadow hover:bg-blue-700 disabled:bg-slate-500 w-full sm:w-1/2 text-[11px] sm:text-base"
               >
                 <Download className="h-4 w-4 mr-2" />
                 {isDownloadingWord ? 'กำลังค้นหา...' : 'ดาวน์โหลดไฟล์ Word'}
@@ -733,7 +735,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
               <Button 
                 onClick={handlePdfDownload}
                 disabled={isDownloadingPdf}
-                className="bg-red-600 text-white px-4 py-2 rounded-md shadow hover:bg-red-700 disabled:bg-slate-500 w-full sm:w-1/2"
+                className="bg-red-600 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-md shadow hover:bg-red-700 disabled:bg-slate-500 w-full sm:w-1/2 text-[11px] sm:text-base"
               >
                 <Download className="h-4 w-4 mr-2" />
                 {isDownloadingPdf ? 'กำลังค้นหา...' : 'ดาวน์โหลดไฟล์ PDF'}

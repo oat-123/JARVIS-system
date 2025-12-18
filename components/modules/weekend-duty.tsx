@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ExternalLink } from "lucide-react"
@@ -10,6 +11,23 @@ interface WeekendDutyProps {
 }
 
 export function WeekendDuty({ onBack }: WeekendDutyProps) {
+  const [spreadsheetId, setSpreadsheetId] = useState("1ufm0LPa4c903jhlANKn_YqNyMtG9id0iN-tMHrhNRA8")
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch("/api/config")
+        const data = await res.json()
+        if (data.success && data.configs.WEEKEND_DUTY_SPREADSHEET_ID) {
+          setSpreadsheetId(data.configs.WEEKEND_DUTY_SPREADSHEET_ID)
+        }
+      } catch (error) {
+        console.error("Error fetching config:", error)
+      }
+    }
+    fetchConfig()
+  }, [])
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-8">
       <div className="max-w-4xl mx-auto">
@@ -36,7 +54,7 @@ export function WeekendDuty({ onBack }: WeekendDutyProps) {
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             >
               <a
-                href="https://docs.google.com/spreadsheets/d/1ufm0LPa4c903jhlANKn_YqNyMtG9id0iN-tMHrhNRA8/edit?gid=1888956716"
+                href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`}
                 target="_blank"
                 rel="noopener noreferrer"
               >

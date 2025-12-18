@@ -24,6 +24,7 @@ import {
   Calendar,
   Award,
   FileText,
+  FileSpreadsheet,
   BarChart3,
   Globe,
   ChevronDown,
@@ -35,6 +36,8 @@ import { WeekendDuty } from "./modules/weekend-duty"
 import { ReleaseReport } from "./modules/release-report"
 import { Statistics } from "./modules/statistics"
 import { Duty433 } from "./modules/duty-433"
+import { ExcelManager } from "./modules/excel-manager"
+import { SystemSettings } from "./modules/system-settings"
 
 
 interface DashboardProps {
@@ -51,16 +54,17 @@ interface DashboardProps {
 export function Dashboard({ user, username, onLogout }: DashboardProps) {
   // State สำหรับ modal แสดงประวัติยอด
   const [showHistoryPage, setShowHistoryPage] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'report' | 'excel'>('all');
   const [dutyHistory, setDutyHistory] = useState<any[]>([]);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const [excelPreview, setExcelPreview] = useState<{ sheets: string[], data: any[][], sheetName: string } | null>(null);
-  
+
   // State สำหรับแสดงไฟล์จาก Google Sheets
   const [googleSheetsFiles, setGoogleSheetsFiles] = useState<any[]>([]);
-  
+
   // Session info state
   const [sessionInfo, setSessionInfo] = useState<{ expiryTime: number, isRemembered: boolean } | null>(null);
-  
+
   const previewExcelFile = async (base64String: any, idx: number) => {
     try {
       const stringValue = String(base64String || ''); // Ensure it's a string, even if base64String is null/undefined
@@ -123,18 +127,18 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
       // loadGoogleSheetsFiles().then(setGoogleSheetsFiles);
     }
   }, [showHistoryPage]);
-  
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SESSION_KEY = 'jarvis-session';
       let sessionStr = localStorage.getItem(SESSION_KEY);
       let isRemembered = true;
-      
+
       if (!sessionStr) {
         sessionStr = sessionStorage.getItem(SESSION_KEY);
         isRemembered = false;
       }
-      
+
       if (sessionStr) {
         try {
           const sessionData = JSON.parse(sessionStr);
@@ -164,16 +168,16 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
       }
     }
   }, []);
-  
+
   const [activeModule, setActiveModule] = useState<string | null>(null)
   const [showProfilePopup, setShowProfilePopup] = useState(false)
-  
+
   const normalizeName = (firstName: string | undefined, lastName: string | undefined): string => {
     const first = (firstName || '').toString().trim()
     const last = (lastName || '').toString().trim()
     return `${first} ${last}`.trim()
   }
-  
+
   // ฟังก์ชันบันทึก page state
   const savePageState = (newActiveModule: string | null, newShowHistoryPage: boolean = false) => {
     if (typeof window !== 'undefined') {
@@ -193,8 +197,9 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
   };
 
   // แก้ไข setShowHistoryPage ให้บันทึก state  
-  const setShowHistoryPageWithSave = (show: boolean) => {
+  const setShowHistoryPageWithSave = (show: boolean, filter: 'all' | 'report' | 'excel' = 'all') => {
     setShowHistoryPage(show);
+    setHistoryFilter(filter);
     if (show) {
       setActiveModule(null); // ปิด module เมื่อเข้า history page
     }
@@ -203,6 +208,14 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
 
   const toggleProfilePopup = () => {
     setShowProfilePopup(!showProfilePopup)
+  }
+
+  if (activeModule === "excel-manager") {
+    return <ExcelManager onBack={() => setActiveModuleWithSave(null)} />
+  }
+
+  if (activeModule === "system-settings") {
+    return <SystemSettings onBack={() => setActiveModuleWithSave(null)} />
   }
 
   if (activeModule === "ceremony-duty") {
@@ -228,119 +241,144 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <Button onClick={() => setShowHistoryPageWithSave(false)} variant="outline" className="text-white border-white/30 hover:bg-white/10 bg-transparent backdrop-blur-sm">
-              <ChevronDown className="h-4 w-4 mr-2 rotate-90" /> กลับหน้าหลัก
-            </Button>
-            <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent flex items-center gap-2">
-              <Award className="h-6 w-6 text-yellow-400" /> ยอดที่จัดไว้ในระบบ (20 รายการล่าสุด)
-            </h2>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <Button onClick={() => setShowHistoryPageWithSave(false)} variant="outline" className="text-white border-white/30 hover:bg-white/10 bg-transparent backdrop-blur-sm">
+                <ChevronDown className="h-4 w-4 mr-2 rotate-90" /> กลับหน้าหลัก
+              </Button>
+              <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent flex items-center gap-2">
+                <Award className="h-6 w-6 text-yellow-400" />
+                {historyFilter === 'report' ? 'ประวัติรายงานที่สร้าง' : historyFilter === 'excel' ? 'ประวัติยอดที่จัดแล้ว' : 'ประวัติทั้งหมด'} (20 รายการล่าสุด)
+              </h2>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={historyFilter === 'all' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setHistoryFilter('all')}
+                className="text-xs"
+              >ทั้งหมด</Button>
+              <Button
+                variant={historyFilter === 'report' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setHistoryFilter('report')}
+                className="text-xs"
+              >รายงาน</Button>
+              <Button
+                variant={historyFilter === 'excel' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setHistoryFilter('excel')}
+                className="text-xs"
+              >Excel</Button>
+            </div>
           </div>
           {dutyHistory.length === 0 ? (
             <div className="text-slate-400 text-center py-12">ยังไม่มีประวัติยอดที่บันทึกไว้</div>
           ) : (
-            <div className="overflow-x-auto w-full max-w-full">
-              {dutyHistory.map((item, idx) => (
-                <div key={idx} className="bg-slate-800/70 border border-slate-700 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-white flex items-center gap-2">
-                      <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-200 mr-2">{item.type === 'excel' ? 'Excel' : 'Report'}</span>
-                      <span className="truncate max-w-[180px] sm:max-w-[260px]">{item.fileName}</span>
+            <div className="overflow-x-auto w-full max-w-full space-y-3">
+              {dutyHistory
+                .filter(item => historyFilter === 'all' || item.type === historyFilter)
+                .map((item, idx) => (
+                  <div key={idx} className="bg-slate-800/70 border border-slate-700 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-white flex items-center gap-2">
+                        <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-200 mr-2">{item.type === 'excel' ? 'Excel' : 'Report'}</span>
+                        <span className="truncate max-w-[180px] sm:max-w-[260px]">{item.fileName}</span>
+                      </div>
+                      <div className="text-xs text-slate-400 mt-1">ยอด: <span className="text-blue-300">{normalizeName(item.dutyName, item.sheetName)}</span> | ฐาน: {item.sheetName} | คน: {item.count} | วันที่: {new Date(item.date).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</div>
                     </div>
-                    <div className="text-xs text-slate-400 mt-1">ยอด: <span className="text-blue-300">{normalizeName(item.dutyName, item.sheetName)}</span> | ฐาน: {item.sheetName} | คน: {item.count} | วันที่: {new Date(item.date).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Button size="icon" variant="ghost" className="text-red-400 hover:bg-red-500/10" title="ลบประวัตินี้"
-                      onClick={() => {
-                        if (window.confirm('คุณต้องการลบประวัตินี้ใช่หรือไม่?')) {
-                          const next = dutyHistory.filter((_, i) => i !== idx);
-                          setDutyHistory(next);
-                          localStorage.setItem('jarvis-duty-history', JSON.stringify(next));
-                          if (previewIdx === idx) { setPreviewIdx(null); setExcelPreview(null); }
-                        }
-                      }}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                    {item.type === 'report' && (
-                      <Button size="sm" variant="outline" className="text-blue-400 border-blue-400 hover:bg-blue-400/10" onClick={() => setPreviewIdx(previewIdx === idx ? null : idx)}>
-                        {previewIdx === idx ? 'ซ่อนพรีวิว' : 'ดูพรีวิว'}
-                      </Button>
-                    )}
-                    {item.type === 'excel' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-green-400 border-green-400 hover:bg-green-400/10"
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button size="icon" variant="ghost" className="text-red-400 hover:bg-red-500/10" title="ลบประวัตินี้"
                         onClick={() => {
-                          if (previewIdx === idx) {
-                            setPreviewIdx(null);
-                            setExcelPreview(null);
-                            return;
+                          if (window.confirm('คุณต้องการลบประวัตินี้ใช่หรือไม่?')) {
+                            const next = dutyHistory.filter((_, i) => i !== idx);
+                            setDutyHistory(next);
+                            localStorage.setItem('jarvis-duty-history', JSON.stringify(next));
+                            if (previewIdx === idx) { setPreviewIdx(null); setExcelPreview(null); }
                           }
-                          previewExcelFile(item.content, idx);
-                        }}
-                      >
-                        {previewIdx === idx ? 'ซ่อนพรีวิว' : 'ดูพรีวิว'}
+                        }}>
+                        <X className="h-4 w-4" />
                       </Button>
+                      {item.type === 'report' && (
+                        <Button size="sm" variant="outline" className="text-blue-400 border-blue-400 hover:bg-blue-400/10" onClick={() => setPreviewIdx(previewIdx === idx ? null : idx)}>
+                          {previewIdx === idx ? 'ซ่อนพรีวิว' : 'ดูพรีวิว'}
+                        </Button>
+                      )}
+                      {item.type === 'excel' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-green-400 border-green-400 hover:bg-green-400/10"
+                          onClick={() => {
+                            if (previewIdx === idx) {
+                              setPreviewIdx(null);
+                              setExcelPreview(null);
+                              return;
+                            }
+                            previewExcelFile(item.content, idx);
+                          }}
+                        >
+                          {previewIdx === idx ? 'ซ่อนพรีวิว' : 'ดูพรีวิว'}
+                        </Button>
 
+                      )}
+                      <Button size="sm" className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-3 py-1 rounded shadow hover:from-yellow-600 hover:to-yellow-700"
+                        onClick={() => {
+                          if (item.type === 'report') {
+                            const BOM = "\uFEFF";
+                            const blob = new Blob([BOM + (item.content || '')], { type: "text/plain;charset=utf-8;" });
+                            const link = document.createElement("a");
+                            link.href = URL.createObjectURL(blob);
+                            link.download = item.fileName;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } else if (item.type === 'excel' && item.content) {
+                            // ดาวน์โหลด Excel base64
+                            const link = document.createElement("a");
+                            link.href = item.content;
+                            link.download = item.fileName;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } else {
+                            alert('การดาวน์โหลด Excel ย้อนหลังยังไม่รองรับ กรุณาสร้างใหม่');
+                          }
+                        }}>
+                        ดาวน์โหลด
+                      </Button>
+                    </div>
+                    {item.type === 'report' && previewIdx === idx && (
+                      <div className="mt-2 bg-slate-900/80 border border-slate-700 rounded p-3 text-xs text-slate-200 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                        {item.content ? item.content : 'ไม่พบข้อมูลรายชื่อในประวัติ (content)'}
+                      </div>
                     )}
-                    <Button size="sm" className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-3 py-1 rounded shadow hover:from-yellow-600 hover:to-yellow-700"
-                      onClick={() => {
-                        if (item.type === 'report') {
-                          const BOM = "\uFEFF";
-                          const blob = new Blob([BOM + (item.content || '')], { type: "text/plain;charset=utf-8;" });
-                          const link = document.createElement("a");
-                          link.href = URL.createObjectURL(blob);
-                          link.download = item.fileName;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                        } else if (item.type === 'excel' && item.content) {
-                          // ดาวน์โหลด Excel base64
-                          const link = document.createElement("a");
-                          link.href = item.content;
-                          link.download = item.fileName;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                        } else {
-                          alert('การดาวน์โหลด Excel ย้อนหลังยังไม่รองรับ กรุณาสร้างใหม่');
-                        }
-                      }}>
-                      ดาวน์โหลด
-                    </Button>
-                  </div>
-                  {item.type === 'report' && previewIdx === idx && (
-                    <div className="mt-2 bg-slate-900/80 border border-slate-700 rounded p-3 text-xs text-slate-200 whitespace-pre-wrap max-h-60 overflow-y-auto">
-                      {item.content ? item.content : 'ไม่พบข้อมูลรายชื่อในประวัติ (content)'}
-                    </div>
-                  )}
-                  {item.type === 'excel' && previewIdx === idx && excelPreview && (
-                    <div className="mt-2 bg-slate-900/80 border border-slate-700 rounded p-3 text-xs text-slate-200 max-h-60 overflow-x-auto overflow-y-auto">
-                      <div className="mb-2">Sheet: <span className="text-green-300">{excelPreview.sheetName}</span> ({excelPreview.sheets.length} ชีท)</div>
-                      <table className="min-w-full w-full max-w-full break-words border border-slate-700 text-xs">
-                        <thead>
-                          <tr>
-                            <th className="border border-slate-700 px-2 py-1">ยศ</th>
-                            <th className="border border-slate-700 px-2 py-1">ชื่อ</th>
-                            <th className="border border-slate-700 px-2 py-1">สกุล</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {excelPreview.data.slice(1, 21).map((row, rIdx) => (
-                            <tr key={rIdx}>
-                              <td className="border border-slate-700 px-2 py-1">{row[1] || ''}</td>
-                              <td className="border border-slate-700 px-2 py-1">{row[2] || ''}</td>
-                              <td className="border border-slate-700 px-2 py-1">{row[3] || ''}</td>
+                    {item.type === 'excel' && previewIdx === idx && excelPreview && (
+                      <div className="mt-2 bg-slate-900/80 border border-slate-700 rounded p-3 text-xs text-slate-200 max-h-60 overflow-x-auto overflow-y-auto">
+                        <div className="mb-2">Sheet: <span className="text-green-300">{excelPreview.sheetName}</span> ({excelPreview.sheets.length} ชีท)</div>
+                        <table className="min-w-full w-full max-w-full break-words border border-slate-700 text-xs">
+                          <thead>
+                            <tr>
+                              <th className="border border-slate-700 px-2 py-1">ยศ</th>
+                              <th className="border border-slate-700 px-2 py-1">ชื่อ</th>
+                              <th className="border border-slate-700 px-2 py-1">สกุล</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {excelPreview.data.length > 21 && <div className="text-slate-400 mt-1">...แสดงสูงสุด 20 แถว</div>}
-                    </div>
-                  )}
-                </div>
-              ))}
+                          </thead>
+                          <tbody>
+                            {excelPreview.data.slice(1, 21).map((row, rIdx) => (
+                              <tr key={rIdx}>
+                                <td className="border border-slate-700 px-2 py-1">{row[1] || ''}</td>
+                                <td className="border border-slate-700 px-2 py-1">{row[2] || ''}</td>
+                                <td className="border border-slate-700 px-2 py-1">{row[3] || ''}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {excelPreview.data.length > 21 && <div className="text-slate-400 mt-1">...แสดงสูงสุด 20 แถว</div>}
+                      </div>
+                    )}
+                  </div>
+                ))}
             </div>
           )}
         </div>
@@ -355,7 +393,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
         <div className="max-w-7xl mx-auto flex items-center justify-between flex-col sm:flex-row gap-3 sm:gap-0">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              
+
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                 J.A.R.V.I.S
               </h1>
@@ -458,7 +496,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-2 sm:px-6 py-6">
-        
+
         {/* Welcome Section */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
@@ -474,7 +512,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6 mb-8">
-          <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 backdrop-blur-sm">
+          <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 backdrop-blur-sm cursor-pointer group" onClick={() => setActiveModuleWithSave("statistics")}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -486,25 +524,27 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 backdrop-blur-sm">
+          <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 backdrop-blur-sm cursor-pointer group" onClick={() => setActiveModuleWithSave("excel-manager")}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-slate-400 text-sm">รายงานที่สร้าง</p>
-                  <p className="text-2xl font-bold text-white">8</p>
+                  <p className="text-slate-400 text-sm">จัดการไฟล์ Excel</p>
+                  <p className="text-2xl font-bold text-white">Tool</p>
                 </div>
-                <FileText className="h-8 w-8 text-green-400" />
+                <FileSpreadsheet className="h-8 w-8 text-cyan-400 group-hover:scale-110 transition-transform" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 backdrop-blur-sm cursor-pointer group" onClick={() => setShowHistoryPageWithSave(true)}>
+          <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 backdrop-blur-sm cursor-pointer group" onClick={() => setShowHistoryPageWithSave(true, 'excel')}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-slate-400 text-sm">ยอดที่จัดแล้ว</p>
                   <div className="flex items-center gap-2">
-                    <p className="text-2xl font-bold text-white">{getDutyHistory().length}</p>
+                    <p className="text-2xl font-bold text-white">
+                      {getDutyHistory().filter((item: any) => item.type === 'excel').length}
+                    </p>
                   </div>
                 </div>
                 <Award className="h-8 w-8 text-yellow-400" />
@@ -595,23 +635,41 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
             </CardContent>
           </Card>
 
-          {/* Duty 433 Card - Visible only to admin/oat roles */}
-          {(user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'oat') && (
-            <Card
-              className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
-              onClick={() => setActiveModuleWithSave("duty-433")}
-            >
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center space-x-2 text-white group-hover:text-amber-400 transition-colors">
-                  <Award className="h-6 w-6" />
-                  <span>หน้าที่ 433</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-slate-400 text-sm mb-4">แดชบอร์ดสรุป433 — สำหรับผู้ดูแลระบบ</p>
-                <Badge className="bg-amber-600 text-white">ตรวจสอบ - จัดการ</Badge>
-              </CardContent>
-            </Card>
+          {/* Admin Section - System Settings and Duty 433 */}
+          {(user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'oat' || user?.role === 'ผู้ดูแลระบบ') && (
+            <>
+              <Card
+                className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
+                onClick={() => setActiveModuleWithSave("duty-433")}
+              >
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center space-x-2 text-white group-hover:text-amber-400 transition-colors">
+                    <Award className="h-6 w-6" />
+                    <span>หน้าที่ 433</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-400 text-sm mb-4">แดชบอร์ดสรุป433 — สำหรับผู้ดูแลระบบ</p>
+                  <Badge className="bg-amber-600 text-white">ตรวจสอบ - จัดการ</Badge>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
+                onClick={() => setActiveModuleWithSave("system-settings")}
+              >
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center space-x-2 text-white group-hover:text-teal-400 transition-colors">
+                    <Settings className="h-6 w-6" />
+                    <span>ตั้งค่าระบบ</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-400 text-sm mb-4">จัดการฐานข้อมูลและโครงสร้างระบบ</p>
+                  <Badge className="bg-teal-600 text-white">จัดการ</Badge>
+                </CardContent>
+              </Card>
+            </>
           )}
         </div>
       </main>

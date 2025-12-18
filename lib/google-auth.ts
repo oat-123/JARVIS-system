@@ -1,16 +1,19 @@
 import { GoogleAuth } from "google-auth-library";
 import { google } from "googleapis";
 
+const ADMIN_SPREADSHEET_ID = "1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw";
+const CONFIG_SHEET_NAME = "config";
+
 // Initialize Google Auth with proper private key handling
 export async function getGoogleAuth() {
   try {
     let privateKey = process.env.GOOGLE_PRIVATE_KEY || ''
-    
+
     // Handle different private key formats
     if (privateKey.includes('\n')) {
       privateKey = privateKey.replace(/\\n/g, '\n')
     }
-    
+
     // Ensure the private key has proper formatting
     if (!privateKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
       privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----`
@@ -77,7 +80,7 @@ export const validateGoogleAuthConfig = () => {
   ]
 
   const missingVars = requiredEnvVars.filter(varName => !process.env[varName])
-  
+
   if (missingVars.length > 0) {
     const errorMessage = `Missing required environment variables: ${missingVars.join(', ')}. Please configure these variables in your production environment.`
     console.error('Environment Variables Error:', errorMessage)
@@ -90,7 +93,7 @@ export const validateGoogleAuthConfig = () => {
     if (!privateKey || privateKey === 'your-private-key-here') {
       throw new Error('GOOGLE_PRIVATE_KEY is not properly configured for production')
     }
-    
+
     const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID
     if (!spreadsheetId || spreadsheetId === 'your-google-spreadsheet-id') {
       throw new Error('GOOGLE_SPREADSHEET_ID is not properly configured for production')
@@ -144,7 +147,7 @@ export const SCOPES: string[] = [
 export const getDriveService = async () => {
   try {
     const auth = await getGoogleAuth()
-    const drive = google.drive({version: 'v3', auth})
+    const drive = google.drive({ version: 'v3', auth })
     return drive
   } catch (error) {
     console.error('Error getting Google Drive service:', error)
@@ -243,7 +246,7 @@ export const findFileByName = async (parentId: string, targetName: string, mimeT
       if (matchedTokens === targetTokens.length) {
         currentScore += 15;
       }
-      
+
       // Adjust score based on token count difference
       const tokenDiff = Math.abs(targetTokens.length - fileTokens.length);
       currentScore -= tokenDiff * 5;
@@ -254,7 +257,7 @@ export const findFileByName = async (parentId: string, targetName: string, mimeT
       bestFile = file;
     }
   }
-  
+
   // Clamp score to be between 0 and 100
   bestScore = Math.max(0, Math.min(bestScore, 100));
 
@@ -269,7 +272,7 @@ export const getDownloadLink = (file: any) => {
   if (file.webViewLink) return file.webViewLink
   // ถ้าไม่มีเลย คืน null
   return null
-} 
+}
 
 // ค้นหาไฟล์รูปภาพในโฟลเดอร์ (ชื่อใกล้เคียง targetName)
 export const findImageFileByName = async (parentId: string, targetName: string) => {
@@ -296,7 +299,7 @@ export const findImageFileByName = async (parentId: string, targetName: string) 
 
   const targetTokens = normalizeAndTokenize(targetName);
   if (targetTokens.length === 0) {
-      return { best: null, files };
+    return { best: null, files };
   }
 
   let bestFile: any | null = null;
@@ -332,16 +335,16 @@ export const findImageFileByName = async (parentId: string, targetName: string) 
 
       // Strong match for last name
       if (targetTokens.length > 1 && fileTokens.length > 1) {
-          if (targetLast === fileLast) {
-              currentScore += 50;
-          } else if (fileLast.startsWith(targetLast)) {
-              currentScore += 20;
-          }
+        if (targetLast === fileLast) {
+          currentScore += 50;
+        } else if (fileLast.startsWith(targetLast)) {
+          currentScore += 20;
+        }
       }
-      
+
       // Penalize for different lengths
       if (targetTokens.length !== fileTokens.length) {
-          currentScore -= 10;
+        currentScore -= 10;
       }
     }
 
@@ -350,17 +353,17 @@ export const findImageFileByName = async (parentId: string, targetName: string) 
       bestFile = file;
     }
   }
-  
+
   // Only return a match if the score is reasonably high
   if (bestScore < 50) {
-      return { best: null, files };
+    return { best: null, files };
   }
 
   return { best: bestFile, files };
 };
 
 // New function for user authentication from Google Sheet
-export async function authenticateUserFromSheet(username: string, password_provided: string): Promise<{username: string, role: string, db: string} | null> {
+export async function authenticateUserFromSheet(username: string, password_provided: string): Promise<{ username: string, role: string, db: string } | null> {
   const USER_SPREADSHEET_ID = "1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw";
   const USER_SHEET_NAME = "user";
 
@@ -423,4 +426,74 @@ export async function getCombinedSheetData(spreadsheetId: string): Promise<any[]
     }
   }
   return combinedData;
+}
+
+// System configuration functions
+export async function getSystemConfigs(): Promise<Record<string, string>> {
+  try {
+    const sheets = await getSheetsService();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: ADMIN_SPREADSHEET_ID,
+      range: `${CONFIG_SHEET_NAME}!A:B`,
+    });
+
+    const rows = response.data.values;
+    const configs: Record<string, string> = {};
+    if (rows) {
+      for (let i = 1; i < rows.length; i++) {
+        const [key, value] = rows[i];
+        if (key) configs[key] = value || "";
+      }
+    }
+    return configs;
+  } catch (error) {
+    console.error("[config] Error fetching configs:", error);
+    return {};
+  }
+}
+
+export async function getSystemConfig(key: string, defaultValue: string = ""): Promise<string> {
+  const configs = await getSystemConfigs();
+  return configs[key] || defaultValue;
+}
+
+export async function updateSystemConfig(key: string, value: string): Promise<boolean> {
+  try {
+    const sheets = await getSheetsService();
+    const currentConfigs = await sheets.spreadsheets.values.get({
+      spreadsheetId: ADMIN_SPREADSHEET_ID,
+      range: `${CONFIG_SHEET_NAME}!A:A`,
+    });
+
+    const rows = currentConfigs.data.values || [];
+    let rowIndex = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][0] === key) {
+        rowIndex = i;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      // Append new config
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: ADMIN_SPREADSHEET_ID,
+        range: `${CONFIG_SHEET_NAME}!A:B`,
+        valueInputOption: "RAW",
+        requestBody: { values: [[key, value]] },
+      });
+    } else {
+      // Update existing config
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: ADMIN_SPREADSHEET_ID,
+        range: `${CONFIG_SHEET_NAME}!B${rowIndex + 1}`,
+        valueInputOption: "RAW",
+        requestBody: { values: [[value]] },
+      });
+    }
+    return true;
+  } catch (error) {
+    console.error("[config] Error updating config:", error);
+    return false;
+  }
 }

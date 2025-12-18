@@ -17,10 +17,27 @@ interface ReleaseReportProps {
 export function ReleaseReport({ onBack }: ReleaseReportProps) {
   const MODULE_NAME = 'release-report'
   const [isStateLoaded, setIsStateLoaded] = useState(false)
-  
+
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0])
   const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0])
   const [report, setReport] = useState("")
+
+  const [spreadsheetId, setSpreadsheetId] = useState("1_kKUegxtwwd3ce3EduPqRoPpgAF1_IcecA1ri9Pfxz0")
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch("/api/config")
+        const data = await res.json()
+        if (data.success && data.configs.RELEASE_REPORT_SPREADSHEET_ID) {
+          setSpreadsheetId(data.configs.RELEASE_REPORT_SPREADSHEET_ID)
+        }
+      } catch (error) {
+        console.error("Error fetching config:", error)
+      }
+    }
+    fetchConfig()
+  }, [])
 
   const defaults = { 5: 67, 4: 101, 3: 94, 2: 85 }
   const categories = ["เวรเตรียมพร้อม", "กักบริเวณ", "อยู่โรงเรียน", "ราชการ", "โรงพยาบาล", "ลา", "อื่นๆ"]
@@ -227,7 +244,7 @@ export function ReleaseReport({ onBack }: ReleaseReportProps) {
                 className="border-green-600 text-green-400 hover:bg-green-600 hover:text-white bg-transparent"
               >
                 <a
-                  href="https://docs.google.com/spreadsheets/d/1_kKUegxtwwd3ce3EduPqRoPpgAF1_IcecA1ri9Pfxz0/edit?gid=351113778#gid=351113778"
+                  href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

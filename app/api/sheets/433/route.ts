@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { sessionOptions } from "@/lib/session";
-import { getSheetsService, getCombinedSheetData } from "@/lib/google-auth";
+import { getSheetsService, getCombinedSheetData, getSystemConfig } from "@/lib/google-auth";
 
-const SPREADSHEET_ID_433 = "1E0cu1J33gpRA-OHyNYL7tND30OoHBX4YpeoQ7JFUOaQ";
+const DEFAULT_433_ID = "1E0cu1J33gpRA-OHyNYL7tND30OoHBX4YpeoQ7JFUOaQ";
 
 function safeParseDateCell(cell: string | undefined): string | null {
     if (!cell) return null;
@@ -76,17 +76,18 @@ export async function GET(request: NextRequest) {
 
     try {
         console.log(`[API/433] Starting execution for user: ${user}, role: ${role}`);
+        const spreadsheetIdInput = await getSystemConfig("DUTY_433_SPREADSHEET_ID", DEFAULT_433_ID);
         const sheets = await getSheetsService();
         let values: any[] = [];
 
-        if (typeof role === "string" && (role.toLowerCase() === "admin" || role.toLowerCase() === "oat")) {
-            console.log(`[API/433] Admin user '${user}' fetching combined data.`);
-            values = await getCombinedSheetData(SPREADSHEET_ID_433);
+        if (typeof role === "string" && (role.toLowerCase() === "admin" || role.toLowerCase() === "oat" || role === "ผู้ดูแลระบบ")) {
+            console.log(`[API/433] Admin user '${user}' fetching combined data from ${spreadsheetIdInput}`);
+            values = await getCombinedSheetData(spreadsheetIdInput);
         } else {
             const sheetName = typeof role === "string" ? role : "รวม";
             const validSheetName = sheetName.toLowerCase() === "admin" || sheetName.toLowerCase() === "oat" ? "รวม" : sheetName;
             console.log(`[API/433] User '${user}' fetching data from sheet: ${validSheetName}`);
-            const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID_433, range: `${validSheetName}!A:AB` });
+            const response = await sheets.spreadsheets.values.get({ spreadsheetId: spreadsheetIdInput, range: `${validSheetName}!A:AB` });
             values = response.data.values || [];
         }
 
@@ -154,15 +155,22 @@ export async function GET(request: NextRequest) {
 
         for (let i = 1; i < values.length; i++) {
             const row = values[i];
-            if (!row || row.length === 0 || !row[idxFirstName]) continue;
+            if (!row || row.length === 0 || (!row[idxFirstName] && !row[idxLastName])) continue;
             const get = (j: number) => (j >= 0 && j < row.length ? row[j] : "");
+
+            // Build dynamic person object from all headers
+            const person: any = {};
+            headers.forEach((header: string, index: number) => {
+                if (header) {
+                    person[header] = get(index);
+                }
+            });
 
             const _433_dates = idx433Cols.map((c) => safeParseDateCell(get(c))).filter(Boolean);
             const _admin_dates = idxAdminCols.map((c) => safeParseDateCell(get(c))).filter(Boolean);
 
             // Build reportHistory from "ถวายรายงานครั้งที่ n" columns
             const reportHistory: any[] = [];
-            // Also collect a reportInfo map of header -> raw cell (only non-empty)
             const reportInfo: Record<string, string> = {};
             idxReportCols.forEach((colIndex) => {
                 const headerLabel = headers[colIndex] || `ถวายรายงาน ครั้งที่ ${colIndex}`;
@@ -202,7 +210,6 @@ export async function GET(request: NextRequest) {
             if (Object.keys(reportInfo).length === 0 && idxReport >= 0) {
                 const rawCell = String(get(idxReport) || "").trim();
                 if (rawCell) {
-                    // store the fallback raw cell under the original header name
                     const fallbackHeader = headers[idxReport] || 'ถวายรายงาน';
                     reportInfo[fallbackHeader] = rawCell;
 
@@ -235,41 +242,25 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            const person: any = {
-                ลำดับ: get(idxOrder),
-                ยศ: get(idxRank),
-                ชื่อ: get(idxFirstName),
-                สกุล: get(idxLastName),
-                "ชั้นปีที่": get(idxYear),
-                ตอน: get(idxClass),
-                ตำแหน่ง: get(idxPosition),
-                สังกัด: get(idxUnit),
-                เบอร์โทรศัพท์: get(idxPhone),
-                "คัดเกรด": get(idxGrade),
-                "ธุรการ ฝอ.": get(idxAdminField),
-                ตัวชน: get(idxTua),
-                ส่วนสูง: get(idxHeight),
-                นักกีฬา: get(idxSport),
-                "ภารกิจอื่น ๆ": get(idxOtherMission),
-                "ดูงานต่างประเทศ": get(idxOverseasWork),
-                "เจ็บ (ใบรับรองแพทย์)": get(idxMedicalCert),
-                หมายเหตุ: get(idxNote),
-                // original single-column raw value (kept for backward compatibility)
-                ถวายรายงาน: get(idxReport),
-                "น.กำกับยาม": get(idxDutyOfficer),
-                วันที่: get(idxDate),
-                // New: mapping of detected report columns to their raw cell values
-                reportInfo,
-                reportHistory,
-                _433_dates,
-                _admin_dates,
-                enter433: [],
-                enterChp: [],
-                partner: "",
-                stat: 0,
-                หน้าที่: "",
-            };
+            // Add calculated and compatibility fields
+            person.reportInfo = reportInfo;
+            person.reportHistory = reportHistory;
+            person._433_dates = _433_dates;
+            person._admin_dates = _admin_dates;
+
+            // Standardize names for matching logic
+            person._std_first_name = String(get(idxFirstName) || "").trim().replace(/\s+/g, '');
+            person._std_last_name = String(get(idxLastName) || "").trim().replace(/\s+/g, '');
+
             person.name = `${person.ยศ || ""} ${person.ชื่อ || ""} ${person.สกุล || ""}`.trim();
+
+            // Required placeholders for UI compatibility
+            person.enter433 = [];
+            person.enterChp = [];
+            person.partner = "";
+            person.stat = 0;
+            person.หน้าที่ = "";
+
             people.push(person);
         }
 

@@ -1,30 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 
-// ตั้งค่า Google Sheets API
-const SHEET_ID = "1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw"
-const SHEET_NAME = "Sheet1" // หรือชื่อชีทจริงที่ต้องการบันทึก
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY // ต้องตั้งค่าใน .env.local
-const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL
-const GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n")
+import { getSheetsService, getSystemConfig } from "@/lib/google-auth"
 
-import { google } from "googleapis"
+// ตั้งค่า Google Sheets API
+const DEFAULT_LOG_ID = "1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw"
+const SHEET_NAME = "Sheet1"
 
 async function appendToSheet({ username, password, timestamp }: { username: string; password: string; timestamp: string }) {
-  if (!GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY) {
-    throw new Error("Google Service Account credentials not set")
-  }
   // แปลง timestamp เป็นเวลาประเทศไทยและรูปแบบอ่านง่าย
   const date = new Date(timestamp)
   const thTime = date.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })
-  const jwt = new google.auth.JWT(
-    GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    undefined,
-    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
-    ["https://www.googleapis.com/auth/spreadsheets"]
-  )
-  const sheets = google.sheets({ version: "v4", auth: jwt })
+
+  const spreadsheetId = await getSystemConfig("LOG_LOGIN_SPREADSHEET_ID", DEFAULT_LOG_ID);
+  const sheets = await getSheetsService()
+
   await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID,
+    spreadsheetId,
     range: `${SHEET_NAME}!A:C`,
     valueInputOption: "USER_ENTERED",
     requestBody: {

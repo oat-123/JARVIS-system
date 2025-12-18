@@ -83,7 +83,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
     return [start, end] as const
   }
   const formatThaiRange = (start: Date, end: Date) => {
-    const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+    const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
     const thaiNum = (val: number | string) => String(val).split('').map(ch => {
       const d = parseInt(ch as string, 10)
       return Number.isNaN(d) ? ch : '๐๑๒๓๔๕๖๗๘๙'[d]
@@ -104,7 +104,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
 
   const importNames = async () => {
     if (!date) { setMessage('กรุณาเลือกวันที่'); return }
-    try { cancelAllLinks() } catch {}
+    try { cancelAllLinks() } catch { }
     setLoading(true)
     setMessage(null)
     try {
@@ -125,7 +125,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       setStagedTimerMap({})
       setProcessingAll(false)
       setCancelAll(false)
-    } catch (e:any) {
+    } catch (e: any) {
       console.error(e)
       setMessage('เกิดข้อผิดพลาดในการดึงชื่อ')
     }
@@ -140,7 +140,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       const day1 = d.getDate()
       const day2 = d2.getDate()
       const month = d.getMonth()
-      const thaiMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+      const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
       const year = d.getFullYear() + 543
       const shortYear = String(year).slice(-2)
       const label = `${day1}-${day2} ${thaiMonths[month]}`
@@ -203,10 +203,9 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           first: (person.first || '').toString().replace(/^นนร\.?\s*/i, '').trim(),
-          last: (person.last || '').toString().trim(),
-          folderId: IMAGE_DRIVE_FOLDER_ID
+          last: (person.last || '').toString().trim()
         })
       }).then(r => r.json())
 
@@ -214,9 +213,9 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       clearInterval(timer)
       setTimerMap(t => { const { [idx]: _, ...rest } = t; return rest })
       const stagedTimers = stagedTimerMap[idx] || []
-      stagedTimers.forEach(id => { try { clearTimeout(id) } catch {} })
+      stagedTimers.forEach(id => { try { clearTimeout(id) } catch { } })
       setStagedTimerMap(m => { const { [idx]: _, ...rest } = m; return rest })
-      
+
       let nextState: LinkState = { ...(linkStates[idx] || {}), status: 'idle', imageStatus: 'idle' };
 
       if (docRes.status === 'fulfilled' && docRes.value) {
@@ -238,21 +237,21 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         if (val.success && val.link) {
           nextState = { ...nextState, imageStatus: 'ok', imageUrl: val.link, imageFilename: val.fileName, imageFolderId: undefined };
         } else {
-          nextState = { ...nextState, imageStatus: 'error', imageFolderId: val.folderId || IMAGE_DRIVE_FOLDER_ID };
+          nextState = { ...nextState, imageStatus: 'error', imageFolderId: val.folderId };
           if (val.alternativeFiles && val.alternativeFiles.length > 0) {
             setAlternativeFilesInfo({ type: 'image', files: val.alternativeFiles, originalIndex: idx });
           }
         }
       } else {
-        nextState = { ...nextState, imageStatus: 'error', imageFolderId: IMAGE_DRIVE_FOLDER_ID };
+        nextState = { ...nextState, imageStatus: 'error', imageFolderId: undefined };
       }
 
       setLinkStates(s => ({ ...s, [idx]: nextState }))
-    } catch (e:any) {
+    } catch (e: any) {
       clearInterval(timer)
       setTimerMap(t => { const { [idx]: _, ...rest } = t; return rest })
       const stagedTimers = stagedTimerMap[idx] || []
-      stagedTimers.forEach(id => { try { clearTimeout(id) } catch {} })
+      stagedTimers.forEach(id => { try { clearTimeout(id) } catch { } })
       setStagedTimerMap(m => { const { [idx]: _, ...rest } = m; return rest })
       const isAbort = e && (e.name === 'AbortError' || e.message === 'AbortError')
       setLinkStates(s => ({ ...s, [idx]: { ...(s[idx] || {}), status: 'error', imageStatus: 'error', percent: 100, message: isAbort ? 'ยกเลิกแล้ว' : 'เกิดข้อผิดพลาด' } }))
@@ -301,19 +300,19 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
 
   const cancelLinkForIndex = (idx: number) => {
     const c = abortMap[idx]
-    if (c) try { c.abort() } catch {}
+    if (c) try { c.abort() } catch { }
     const tm = timerMap[idx]
-    if (tm) try { clearInterval(tm) } catch {}
+    if (tm) try { clearInterval(tm) } catch { }
     const stagedTimers = stagedTimerMap[idx] || []
-    stagedTimers.forEach(id => { try { clearTimeout(id) } catch {} })
+    stagedTimers.forEach(id => { try { clearTimeout(id) } catch { } })
     setStagedTimerMap(m => { const { [idx]: _, ...rest } = m; return rest })
   }
 
   const cancelAllLinks = () => {
     setCancelAll(true)
-    Object.values(abortMap).forEach(c => { try { c.abort() } catch {} })
-    Object.values(timerMap).forEach(tm => { try { clearInterval(tm) } catch {} })
-    Object.values(stagedTimerMap).forEach(list => list.forEach(id => { try { clearTimeout(id) } catch {} }))
+    Object.values(abortMap).forEach(c => { try { c.abort() } catch { } })
+    Object.values(timerMap).forEach(tm => { try { clearInterval(tm) } catch { } })
+    Object.values(stagedTimerMap).forEach(list => list.forEach(id => { try { clearTimeout(id) } catch { } }))
     setAbortMap({})
     setTimerMap({})
     setStagedTimerMap({})
@@ -339,7 +338,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       const chosen = matches[selectedIndex]
       const folderName = buildFolderName(chosen?.first, chosen?.last)
       const personName = folderName
-      
+
       const res = await fetch('/api/drive-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -355,7 +354,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         setTimeout(() => setShowProgress(false), 1200)
       } else {
         if (json.alternativeFiles && json.alternativeFiles.length > 0) {
-            setAlternativeFilesInfo({ type: 'word', files: json.alternativeFiles, originalIndex: selectedIndex });
+          setAlternativeFilesInfo({ type: 'word', files: json.alternativeFiles, originalIndex: selectedIndex });
         }
         const msg = typeof json.error === 'string' && json.error.trim().length > 0 ? json.error : 'ไม่พบไฟล์'
         setMessage(msg)
@@ -363,7 +362,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         setProgressText('ไม่พบไฟล์ที่ต้องการ')
         setTimeout(() => setShowProgress(false), 1200)
       }
-    } catch (e:any) {
+    } catch (e: any) {
       console.error(e)
       if (timer) clearInterval(timer)
       const isAbort = e && (e.name === 'AbortError' || e.message === 'AbortError')
@@ -428,7 +427,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
             <div>
               <Label>เลือกวันที่</Label>
-              <input type="date" value={date} onChange={e=>{ setDate(e.target.value); const disp = formatDateLabel(e.target.value); setMessage(`วันที่เลือก: ${disp}`) }} className="w-full bg-slate-700 text-white px-3 py-2 rounded" />
+              <input type="date" value={date} onChange={e => { setDate(e.target.value); const disp = formatDateLabel(e.target.value); setMessage(`วันที่เลือก: ${disp}`) }} className="w-full bg-slate-700 text-white px-3 py-2 rounded" />
             </div>
             <div className="col-span-1 sm:col-span-2 flex items-end gap-3">
               <Button onClick={importNames} disabled={loading} className="bg-blue-600 text-white">Import จาก Google Sheet</Button>
@@ -461,7 +460,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {matches.map((m,i)=> {
+                    {matches.map((m, i) => {
                       const st = linkStates[i] || { status: 'idle', percent: 0 }
                       const displayFirst = (() => {
                         const first = (m.first || '').toString().trim()
@@ -475,7 +474,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
                         return first
                       })()
                       return (
-                        <tr key={i} className={`cursor-pointer ${selectedIndex===i ? 'bg-blue-600 text-white' : 'hover:bg-slate-800/60'}`} onClick={()=>setSelectedIndex(i)}>
+                        <tr key={i} className={`cursor-pointer ${selectedIndex === i ? 'bg-blue-600 text-white' : 'hover:bg-slate-800/60'}`} onClick={() => setSelectedIndex(i)}>
                           <td className="p-3">{displayFirst}</td>
                           <td className="p-3">{m.last || ''}</td>
                           <td className="p-3">{m.position || '-'}</td>
@@ -485,29 +484,29 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
                           {additionalHeaders.map(header => (
                             <td key={header} className="p-3">{m.additionalData?.[header] || '-'}</td>
                           ))}
-                          <td className="p-3" onClick={e=>e.stopPropagation()}>
+                          <td className="p-3" onClick={e => e.stopPropagation()}>
                             {st.status === 'ok' && st.url ? (
                               <a href={st.url} target="_blank" download={st.filename || undefined} className="text-emerald-400 underline">ไฟล์ ฉก.</a>
                             ) : st.status === 'error' && st.folderId ? (
                               <a href={`https://drive.google.com/drive/folders/${st.folderId}`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 underline">ตรวจสอบ Drive</a>
                             ) : (
                               <div className="inline-flex flex-nowrap gap-2 items-center min-h-0 h-8">
-                                <Button size="sm" onClick={() => createLinkForIndex(i)} disabled={st.status==='loading'} className="bg-emerald-600 whitespace-nowrap">{st.status==='loading' ? 'กำลังสร้าง...' : 'สร้างลิงก์'}</Button>
+                                <Button size="sm" onClick={() => createLinkForIndex(i)} disabled={st.status === 'loading'} className="bg-emerald-600 whitespace-nowrap">{st.status === 'loading' ? 'กำลังสร้าง...' : 'สร้างลิงก์'}</Button>
                                 {st.status === 'loading' && (
                                   <Button size="sm" variant="ghost" onClick={() => cancelLinkForIndex(i)} className="text-red-400">ยกเลิก</Button>
                                 )}
                                 {(st.status === 'loading' || st.status === 'error') && !st.folderId && (
                                   <div className="inline-flex flex-col items-center justify-center min-w-[60px] max-w-[120px] h-8">
                                     <div className="h-1 w-full bg-slate-700 rounded overflow-hidden">
-                                      <div className={`h-1 ${st.status==='error' ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${st.percent || 0}%` }} />
+                                      <div className={`h-1 ${st.status === 'error' ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${st.percent || 0}%` }} />
                                     </div>
-                                    <div className="text-[10px] text-slate-300 leading-none mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-full" style={{maxWidth:'112px'}}>{st.message || (st.status==='loading' ? 'ค้นหา...' : '')}</div>
+                                    <div className="text-[10px] text-slate-300 leading-none mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-full" style={{ maxWidth: '112px' }}>{st.message || (st.status === 'loading' ? 'ค้นหา...' : '')}</div>
                                   </div>
                                 )}
                               </div>
                             )}
                           </td>
-                          <td className="p-3" onClick={e=>e.stopPropagation()}>
+                          <td className="p-3" onClick={e => e.stopPropagation()}>
                             {st.imageStatus === 'ok' && st.imageUrl ? (
                               <a href={st.imageUrl} target="_blank" download={st.imageFilename || undefined} className="text-emerald-400 underline">รูปภาพ</a>
                             ) : st.imageStatus === 'error' ? (
@@ -526,8 +525,8 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button onClick={downloadDocx} disabled={loading || selectedIndex===null} className="bg-green-600 text-white">ดาวน์โหลด (เฉพาะแถวที่เลือก)</Button>
-            <Button onClick={createLinksForAll} disabled={loading || matches.length===0 || processingAll} className="bg-indigo-600 text-white">{processingAll ? 'กำลังสร้างลิงก์ทั้งหมด...' : 'สร้างลิงก์ทั้งหมด'}</Button>
+            <Button onClick={downloadDocx} disabled={loading || selectedIndex === null} className="bg-green-600 text-white">ดาวน์โหลด (เฉพาะแถวที่เลือก)</Button>
+            <Button onClick={createLinksForAll} disabled={loading || matches.length === 0 || processingAll} className="bg-indigo-600 text-white">{processingAll ? 'กำลังสร้างลิงก์ทั้งหมด...' : 'สร้างลิงก์ทั้งหมด'}</Button>
             {processingAll && (
               <Button onClick={cancelAllLinks} variant="ghost" className="text-red-400">ยกเลิกทั้งหมด</Button>
             )}
@@ -541,7 +540,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
               <div className="flex items-center justify-between mt-1">
                 <div className="text-xs text-slate-300">{progressText} {progress}%</div>
                 <div>
-                  <Button size="sm" variant="ghost" onClick={() => { if (singleAbort) { try { singleAbort.abort() } catch {} } setShowProgress(false) }} className="text-red-400">ยกเลิก</Button>
+                  <Button size="sm" variant="ghost" onClick={() => { if (singleAbort) { try { singleAbort.abort() } catch { } } setShowProgress(false) }} className="text-red-400">ยกเลิก</Button>
                 </div>
               </div>
             </div>
@@ -550,32 +549,32 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
           {message && <div className="text-sm text-slate-300">{message}</div>}
         </div>
 
-      {folderLabel && (
-        <div className="fixed bottom-4 right-4 bg-slate-800/80 border border-slate-700 rounded px-3 py-2 shadow-lg text-xs text-slate-300">
-          <div className="mb-1">โฟลเดอร์ปลายทางแนะนำ:</div>
-          <div className="flex flex-col items-end gap-1">
-            <a
-              href={'file:///' + encodeURI(`D:/Desktop/ฝ1/433 ชั้น 4/${folderLabel}/ประวัติ 2 แผ่น/ผู้ปฏิบัติหน้าที่`)}
-              target="_blank"
-              className="text-emerald-300 underline"
-              title="คลิกเพื่อเปิดโฟลเดอร์ (อาจถูกบล็อคโดยเบราว์เซอร์)"
-            >
-              D:\\Desktop\\ฝ1\\433 ชั้น 4\\{folderLabel}\\ประวัติ 2 แผ่น\\ผู้ปฏิบัติหน้าที่
-            </a>
-            <button
-              className="text-[11px] text-slate-400 hover:text-white"
-              onClick={async () => {
-                const path = `D:\\Desktop\\ฝ1\\433 ชั้น 4\\${folderLabel}\\ประวัติ 2 แผ่น\\ผู้ปฏิบัติหน้าที่`
-                try { await navigator.clipboard.writeText(path); setCopiedPath(true); setTimeout(()=>setCopiedPath(false), 1500) } catch {}
-              }}
-              title="คลิกเพื่อคัดลอกเส้นทาง"
-            >
-              คัดลอกพาธ
-            </button>
-            {copiedPath && <div className="text-[10px] text-emerald-400">คัดลอกแล้ว</div>}
+        {folderLabel && (
+          <div className="fixed bottom-4 right-4 bg-slate-800/80 border border-slate-700 rounded px-3 py-2 shadow-lg text-xs text-slate-300">
+            <div className="mb-1">โฟลเดอร์ปลายทางแนะนำ:</div>
+            <div className="flex flex-col items-end gap-1">
+              <a
+                href={'file:///' + encodeURI(`D:/Desktop/ฝ1/433 ชั้น 4/${folderLabel}/ประวัติ 2 แผ่น/ผู้ปฏิบัติหน้าที่`)}
+                target="_blank"
+                className="text-emerald-300 underline"
+                title="คลิกเพื่อเปิดโฟลเดอร์ (อาจถูกบล็อคโดยเบราว์เซอร์)"
+              >
+                D:\\Desktop\\ฝ1\\433 ชั้น 4\\{folderLabel}\\ประวัติ 2 แผ่น\\ผู้ปฏิบัติหน้าที่
+              </a>
+              <button
+                className="text-[11px] text-slate-400 hover:text-white"
+                onClick={async () => {
+                  const path = `D:\\Desktop\\ฝ1\\433 ชั้น 4\\${folderLabel}\\ประวัติ 2 แผ่น\\ผู้ปฏิบัติหน้าที่`
+                  try { await navigator.clipboard.writeText(path); setCopiedPath(true); setTimeout(() => setCopiedPath(false), 1500) } catch { }
+                }}
+                title="คลิกเพื่อคัดลอกเส้นทาง"
+              >
+                คัดลอกพาธ
+              </button>
+              {copiedPath && <div className="text-[10px] text-emerald-400">คัดลอกแล้ว</div>}
+            </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </div>
   )

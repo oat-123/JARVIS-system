@@ -1,13 +1,13 @@
 
 import { NextResponse } from 'next/server';
-import { getSheetsService } from '@/lib/google-auth';
+import { getSheetsService, getSystemConfig } from '@/lib/google-auth';
 import { rateLimitedSheetsOperation } from '@/lib/rate-limiter';
 
 export const runtime = 'nodejs';
 // This endpoint is designed to fetch data from a specific public Google Sheet.
 // It's configured for the "Ceremony Duty Grade" feature.
 
-const SPREADSHEET_ID = '1E0cu1J33gpRA-OHyNYL7tND30OoHBX4YpeoQ7JFUOaQ';
+const DEFAULT_GRADE_ID = '1E0cu1J33gpRA-OHyNYL7tND30OoHBX4YpeoQ7JFUOaQ';
 const GID = '0';
 
 // Helper function to convert an array of arrays to an array of objects
@@ -17,7 +17,7 @@ const arrayToObject = (data: any[][]): Record<string, any>[] => {
   }
   const headers = data[0];
   const rows = data.slice(1);
-  
+
   return rows.map(row => {
     const obj: Record<string, any> = {};
     headers.forEach((header, index) => {
@@ -29,12 +29,13 @@ const arrayToObject = (data: any[][]): Record<string, any>[] => {
 
 export async function GET() {
   try {
+    const spreadsheetIdInput = await getSystemConfig("DUTY_433_SPREADSHEET_ID", DEFAULT_GRADE_ID);
     const sheets = await getSheetsService();
 
     // First, get spreadsheet metadata to find the sheet name for GID 0
     const spreadsheetMeta = await rateLimitedSheetsOperation(() =>
       sheets.spreadsheets.get({
-        spreadsheetId: SPREADSHEET_ID,
+        spreadsheetId: spreadsheetIdInput,
       })
     );
 
@@ -51,7 +52,7 @@ export async function GET() {
     // Now, fetch the actual data from that sheet with rate limiting
     const response = await rateLimitedSheetsOperation(() =>
       sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
+        spreadsheetId: spreadsheetIdInput,
         range: sheetName, // Use the dynamically found sheet name
       })
     );

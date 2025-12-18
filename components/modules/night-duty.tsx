@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -14,16 +14,37 @@ interface NightDutyProps {
 export function NightDuty({ onBack, sheetName }: NightDutyProps) {
   const [selectedSheet, setSelectedSheet] = useState<"tag" | "summary">("tag")
   const [isLoading, setIsLoading] = useState(false)
+  const [spreadsheetId, setSpreadsheetId] = useState("1PjT38W2Zx7KV764yv9Vjwo9i0TJPacRI0iUGzP0ItAU")
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch("/api/config")
+        const data = await res.json()
+        if (data.success && data.configs.NIGHT_DUTY_SPREADSHEET_ID) {
+          setSpreadsheetId(data.configs.NIGHT_DUTY_SPREADSHEET_ID)
+        }
+      } catch (error) {
+        console.error("Error fetching config:", error)
+      }
+    }
+    fetchConfig()
+  }, [])
 
   const handleRefresh = () => {
     setIsLoading(true)
-    // Simulate refresh
     setTimeout(() => {
       setIsLoading(false)
     }, 1000)
   }
 
   const getIframeLink = () => {
+    if (spreadsheetId.startsWith("1")) {
+      const gid = selectedSheet === "tag" ? "0" : "2030248910"
+      return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/htmlembed?gid=${gid}&widget=false&chrome=false`
+    }
+
+    // Fallback for publish links
     if (selectedSheet === "tag") {
       return "https://docs.google.com/spreadsheets/d/e/2PACX-1vR8pO9068jsukCJL0guT_dF7I5cjYMMIhsu7ah-1DkPxSMxnYFsSkuRgffvSUJKVZzQccQyJEOPxvvg/pubhtml?gid=0&single=true&range=A1:I100"
     } else {
@@ -32,17 +53,16 @@ export function NightDuty({ onBack, sheetName }: NightDutyProps) {
   }
 
   const getEditLink = () => {
-    if (selectedSheet === "tag") {
-      return "https://docs.google.com/spreadsheets/d/1PjT38W2Zx7KV764yv9Vjwo9i0TJPacRI0iUGzP0ItAU/edit#gid=0"
-    } else {
-      return "https://docs.google.com/spreadsheets/d/1PjT38W2Zx7KV764yv9Vjwo9i0TJPacRI0iUGzP0ItAU/edit#gid=1"
+    const gid = selectedSheet === "tag" ? "0" : "1"
+    if (spreadsheetId.startsWith("1")) {
+      return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${gid}`
     }
+    return `https://docs.google.com/spreadsheets/d/1PjT38W2Zx7KV764yv9Vjwo9i0TJPacRI0iUGzP0ItAU/edit#gid=${gid}`
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Button
             onClick={onBack}
@@ -72,20 +92,21 @@ export function NightDuty({ onBack, sheetName }: NightDutyProps) {
           </Button>
         </div>
 
-        {/* Status Bar */}
         <Card className="bg-slate-800/50 border-slate-700 mb-6 backdrop-blur-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Badge className="bg-green-600 text-white">เชื่อมต่อแล้ว</Badge>
-                <span className="text-slate-300 text-sm">ฐานข้อมูล: {sheetName}</span>
+                <div className="flex flex-col">
+                  <span className="text-slate-300 text-[10px] uppercase font-bold tracking-tighter">Database ID:</span>
+                  <span className="text-slate-400 text-xs font-mono">{spreadsheetId}</span>
+                </div>
               </div>
               <div className="text-slate-400 text-sm">Google Sheets Integration</div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Sheet Selection */}
         <Card className="bg-slate-800/50 border-slate-700 mb-6 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-white">เลือกดูชีท</CardTitle>
@@ -120,16 +141,18 @@ export function NightDuty({ onBack, sheetName }: NightDutyProps) {
           </CardContent>
         </Card>
 
-        {/* Google Sheets Iframe */}
         <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
           <CardContent className="p-0">
             <div className="border-2 border-green-500/50 rounded-lg overflow-hidden">
-              <iframe
-                src={getIframeLink()}
-                className="w-full h-[600px] border-none"
-                style={{ zoom: 0.75 }}
-                title="Google Sheets"
-              />
+              {!isLoading && (
+                <iframe
+                  key={spreadsheetId + selectedSheet}
+                  src={getIframeLink()}
+                  className="w-full h-[600px] border-none"
+                  style={{ zoom: 0.75 }}
+                  title="Google Sheets"
+                />
+              )}
             </div>
             <div className="p-4 bg-green-600/20 border-t border-green-500/50">
               <Button

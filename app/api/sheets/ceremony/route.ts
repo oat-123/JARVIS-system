@@ -2,16 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { sessionOptions, SessionData } from "@/lib/session";
-import { getSheetsService, getCombinedSheetData } from "@/lib/google-auth";
+import { getSheetsService, getCombinedSheetData, getSystemConfig } from "@/lib/google-auth";
 
-const CEREMONY_SPREADSHEET_ID = "1fItcYVGL1a5WcvVsdleZhe5WT8VoJ6YGgPTJFMNozrw";
+const DEFAULT_CEREMONY_ID = "1fItcYVGL1a5WcvVsdleZhe5WT8VoJ6YGgPTJFMNozrw";
 
 // The data processing logic can be kept as is
 const processSheetData = (values: any[][]) => {
     if (!values || values.length < 2) return [];
 
     // Always map by index for maximum compatibility
-    // 0: ลำดับ, 1: ยศ, 2: ชื่อ, 3: สกุล, 4: ชั้นปีที่, 5: ตอน, 6: ตำแหน่ง, 7: สังกัด, 8: เบอร์โทรศัพท์, 9: ห้องนอน, 10: กรุ๊ปเลือด, 11: ชมรม(หลัก), 12: เกรดเฉลี่ย(GPAX), 13: สถิติโดนยอด/ครั้งที่ ๑
     const data = [];
     for (let i = 1; i < values.length; i++) {
         const row = values[i];
@@ -49,20 +48,19 @@ export async function GET(request: NextRequest) {
     }
 
     try {
+        const ceremonyId = await getSystemConfig("CEREMONY_SPREADSHEET_ID", DEFAULT_CEREMONY_ID);
         const sheets = await getSheetsService();
         let values: any[][] = [];
-        let sheetNameForLog: string;
+        let sheetNameForLog: string = "";
 
-        if (role === 'admin' || role === 'oat') {
-            console.log(`[api/ceremony] User '${user}' with role '${role}' is fetching combined data.`);
+        if (role === 'admin' || role === 'oat' || role === 'ผู้ดูแลระบบ') {
             sheetNameForLog = "all_sheets";
-            values = await getCombinedSheetData(CEREMONY_SPREADSHEET_ID);
+            values = await getCombinedSheetData(ceremonyId);
         } else {
-            const sheetName = db; // Use the DB column as the sheet name
+            const sheetName = db;
             sheetNameForLog = sheetName;
-            console.log(`[api/ceremony] User '${user}' is fetching data from sheet: ${sheetName}`);
             const response = await sheets.spreadsheets.values.get({
-                spreadsheetId: CEREMONY_SPREADSHEET_ID,
+                spreadsheetId: ceremonyId,
                 range: `${sheetName}!A:N`,
             });
             values = response.data.values || [];
@@ -92,11 +90,7 @@ export async function GET(request: NextRequest) {
 
     } catch (error) {
         console.error('Error fetching ceremony data from Google Sheets:', error);
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        return NextResponse.json(
-            { success: false, error: "Failed to fetch data", details: errorMessage },
-            { status: 500 }
-        );
+        return NextResponse.json({ success: false, error: "Failed to fetch data" }, { status: 500 });
     }
 }
 
@@ -110,16 +104,17 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+        const ceremonyId = await getSystemConfig("CEREMONY_SPREADSHEET_ID", DEFAULT_CEREMONY_ID);
         const body = await request.json();
         const { selectedPersons, dutyName, sheetName } = body;
         const sheets = await getSheetsService();
 
         if (!sheetName || sheetName === 'all_sheets') {
-            return NextResponse.json({ success: false, error: "A specific sheetName is required for updates" }, { status: 400 });
+            return NextResponse.json({ success: false, error: "A specific sheetName is required" }, { status: 400 });
         }
 
         const currentDataResponse = await sheets.spreadsheets.values.get({
-            spreadsheetId: CEREMONY_SPREADSHEET_ID,
+            spreadsheetId: ceremonyId,
             range: `${sheetName}!A:N`,
         });
 
@@ -142,7 +137,7 @@ export async function POST(request: NextRequest) {
 
         if (updates.length > 0) {
             await sheets.spreadsheets.values.batchUpdate({
-                spreadsheetId: CEREMONY_SPREADSHEET_ID,
+                spreadsheetId: ceremonyId,
                 requestBody: {
                     valueInputOption: 'RAW',
                     data: updates,
@@ -150,18 +145,9 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        return NextResponse.json({
-            success: true,
-            message: `Updated ceremony stats for ${selectedPersons.length} people in ${sheetName}`,
-            updatedCount: updates.length,
-        });
-
+        return NextResponse.json({ success: true, updatedCount: updates.length });
     } catch (error) {
         console.error('Error updating Google Sheets:', error);
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        return NextResponse.json(
-            { success: false, error: "Failed to update Google Sheets", details: errorMessage },
-            { status: 500 }
-        );
+        return NextResponse.json({ success: false, error: "Failed to update" }, { status: 500 });
     }
 }

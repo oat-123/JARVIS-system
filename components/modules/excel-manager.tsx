@@ -32,7 +32,9 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
     const [selectedColumn, setSelectedColumn] = useState<string>("C") // Default to C as it's common for names
     const [loading, setLoading] = useState(false)
     const [processing, setProcessing] = useState(false)
+    const [scanning, setScanning] = useState(false)
     const [matchedColumns, setMatchedColumns] = useState<string[]>([])
+    const [previewRows, setPreviewRows] = useState<any[]>([])
     const { toast } = useToast()
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -112,6 +114,121 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
         setSelectedSheets([])
     }
 
+    const scanMissingData = async () => {
+        if (!workbook || !file) return
+        if (selectedSheets.length === 0) {
+            toast({ title: "กรุณาเลือกชีท", variant: "destructive" })
+            return
+        }
+
+        setScanning(true)
+        setPreviewRows([])
+        try {
+            const res = await fetch("/api/sheets/433")
+            const data = await res.json()
+            if (!data.success) throw new Error("โหลดฐานข้อมูลไม่สำเร็จ")
+            const dbPeople = data.data.people as any[]
+
+            const normalize = (val: any): string => {
+                if (val === null || val === undefined) return ""
+                try {
+                    let str = ""
+                    if (typeof val === 'object') {
+                        if (val.text !== undefined && val.text !== null) str = String(val.text)
+                        else if (val.richText && Array.isArray(val.richText)) str = val.richText.map((t: any) => (t && t.text ? String(t.text) : "")).join("")
+                        else if (val.result !== undefined && val.result !== null) str = String(val.result)
+                        else str = String(val)
+                    } else {
+                        str = String(val)
+                    }
+                    if (!str || str === "null" || str === "undefined") return ""
+                    return str.normalize('NFC').replace(/[\s\u200B\uFEFF\u00A0\u180E\u2000-\u200B\u202F\u205F\u3000]/g, '').trim()
+                } catch (e) { return "" }
+            }
+
+            const results: any[] = []
+
+            for (const sheetName of selectedSheets) {
+                const ws = workbook.getWorksheet(sheetName)
+                if (!ws) continue
+
+                // Strict Header Row Selection (As requested: Row 3)
+                const bestHeaderRow = 3
+                const headers: Record<string, number | undefined> = {}
+
+                ws.getRow(bestHeaderRow).eachCell({ includeEmpty: true }, (c) => {
+                    const t = normalize(c.value)
+                    if (t) headers[t] = Number(c.col)
+                })
+
+                const idxFirst = 3
+                const idxLast = 4
+
+                ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+                    // Start from row 4 strictly
+                    if (rowNumber < 4) return
+                    if (results.length > 50) return
+
+                    const getVal = (col: number) => {
+                        if (!col) return ""
+                        const cell = row.getCell(col)
+                        const v = cell.isMerged ? cell.master.value : cell.value
+                        return normalize(v)
+                    }
+
+                    const nameVal = idxFirst ? getVal(idxFirst) : "Unknown"
+                    const lastVal = idxLast ? getVal(idxLast) : ""
+
+                    const match = dbPeople.find(p => {
+                        const dbFirst = normalize(p._std_first_name || p.ชื่อ)
+                        return dbFirst === nameVal || (dbFirst.includes(nameVal) && nameVal.length > 2)
+                    })
+
+                    const missing: string[] = []
+                    const debug: Record<string, string> = {}
+                    Object.entries(headers).forEach(([h, col]) => {
+                        if (col && !h.includes("ชื่อ") && !h.includes("สกุล") && h !== "ลำดับ") {
+                            const v = getVal(col)
+                            debug[h] = v || "(ว่าง)"
+                            if (!v) missing.push(h)
+                        }
+                    })
+
+                    if (missing.length > 0) {
+                        results.push({
+                            sheet: sheetName,
+                            row: rowNumber,
+                            name: nameVal + " " + lastVal,
+                            isMatched: !!match,
+                            missing: missing,
+                            debugData: debug,
+                            isHeader: false
+                        })
+                    }
+                })
+            }
+            setPreviewRows(results)
+            if (results.length === 0) toast({ title: "ไม่พบข้อมูลในชีทที่เลือก" })
+        } catch (e: any) {
+            toast({ title: "Scan Error", description: e.message, variant: "destructive" })
+        } finally {
+            setScanning(false)
+        }
+    }
+
+    // Helper for processAutofill to avoid repetition
+    const getRawVal = (cell: any) => {
+        if (!cell) return ""
+        const v = cell.value
+        if (v === null || v === undefined) return ""
+        if (typeof v === 'object') {
+            if ('text' in (v as any)) return String((v as any).text)
+            if ('richText' in (v as any)) return (v as any).richText.map((t: any) => t.text).join("")
+            return ""
+        }
+        return String(v)
+    }
+
     const processAutofill = async () => {
         if (!workbook || !file) return
         if (selectedSheets.length === 0) {
@@ -141,117 +258,111 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
             let totalUpdated = 0
             let totalMatchedPeople = 0
 
+            // 1. Enhanced Normalizer for Thai/Unicode
+            const normalize = (val: any): string => {
+                if (val === null || val === undefined) return ""
+                try {
+                    let str = ""
+                    if (typeof val === 'object') {
+                        if (val.text !== undefined && val.text !== null) str = String(val.text)
+                        else if (val.richText && Array.isArray(val.richText)) str = val.richText.map((t: any) => (t && t.text ? String(t.text) : "")).join("")
+                        else if (val.result !== undefined && val.result !== null) str = String(val.result)
+                        else str = String(val)
+                    } else {
+                        str = String(val)
+                    }
+
+                    if (!str || str === "null" || str === "undefined" || str === "[object Object]") return ""
+
+                    // Comprehensive whitespace removal including Thai zero-width spaces
+                    return str
+                        .normalize('NFC')
+                        .replace(/[\s\u200B\uFEFF\u00A0\u180E\u2000-\u200B\u202F\u205F\u3000]/g, '')
+                        .trim()
+                } catch (e) {
+                    return ""
+                }
+            }
+
             for (const sheetName of selectedSheets) {
                 const ws = wb.getWorksheet(sheetName)
                 if (!ws) continue
 
-                // 3. Find headers in row 3 with fuzzy matching
-                const headers: Record<string, number> = {}
-                const headerRow = ws.getRow(3)
-                headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-                    const val = cell.text.trim().replace(/\s+/g, '')
-                    if (val) headers[val] = colNumber
+                // 3. Identification (Hardcoded C=3, D=4 as per request)
+                const bestHeaderRow = 3
+                const headers: Record<string, number | undefined> = {}
+
+                ws.getRow(bestHeaderRow).eachCell({ includeEmpty: true }, (cell) => {
+                    const txt = normalize(cell.value)
+                    if (txt) headers[txt] = Number(cell.col)
                 })
 
-                // Helper to find column index by multiple possible names
-                const findCol = (variants: string[]) => {
-                    for (const v of variants) {
-                        const normV = v.replace(/\s+/g, '')
-                        // Exact match first
-                        if (headers[normV]) return headers[normV]
-                        // Partial match
-                        const key = Object.keys(headers).find(k => k.includes(normV) || normV.includes(k))
-                        if (key) return headers[key]
-                    }
-                    return undefined
-                }
+                let idxFirstName = 3
+                let idxLastName = 4
 
-                const idxFirstName = findCol(["ชื่อ", "รายชื่อ", "ชื่อตัว", "ชื่อ-สกุล"])
-                const idxLastName = findCol(["สกุล", "นามสกุล", "ชื่อสกุล"])
-
-                if (!idxFirstName) {
-                    toast({
-                        title: `ไม่พบคอลัมน์ 'ชื่อ' ในชีท ${sheetName}`,
-                        description: "กรุณาตรวจสอบว่าหัวตารางอยู่ที่แถวที่ 3",
-                        variant: "destructive",
-                    })
-                    continue
-                }
-
-                // 4. Match and Fill
+                // 4. Processing Rows (Starting from 4)
                 ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
                     if (rowNumber < 4) return
 
-                    const getVal = (colIdx: number | undefined) => {
-                        if (!colIdx) return ""
-                        const cell = row.getCell(colIdx)
+                    const getRawVal = (col: number) => {
+                        const cell = row.getCell(col)
                         const v = cell.isMerged ? cell.master.value : cell.value
                         if (v === null || v === undefined) return ""
                         if (typeof v === 'object') {
-                            if ('result' in v) return String(v.result || "").trim()
-                            if ('richText' in v) return v.richText.map(t => t.text).join("").trim()
-                            if ('text' in v) return String(v.text || "").trim()
+                            if ('result' in (v as any)) return String((v as any).result || "")
+                            if ('richText' in (v as any)) return (v as any).richText.map((t: any) => t.text).join("")
                             return ""
                         }
-                        return String(v).trim()
+                        return String(v)
                     }
 
-                    let firstNameOrig = getVal(idxFirstName)
-                    let lastNameOrig = getVal(idxLastName)
+                    const inputFirst = normalize(getRawVal(idxFirstName!))
+                    const inputLast = idxLastName ? normalize(getRawVal(idxLastName)) : ""
 
-                    // If they are in the same column (e.g. "ชื่อ-นามสกุล") and lastName is empty
-                    if (firstNameOrig.includes(" ") && !lastNameOrig) {
-                        const parts = firstNameOrig.split(/\s+/)
-                        firstNameOrig = parts[0]
-                        lastNameOrig = parts.slice(1).join(" ")
-                    }
-
-                    const firstName = firstNameOrig.replace(/\s+/g, '')
-                    const lastName = lastNameOrig.replace(/\s+/g, '')
-
-                    if (firstName) {
-                        // Find match in DB with normalized name matching
+                    if (inputFirst) {
                         const match = dbPeople.find(p => {
-                            const dbFirst = p._std_first_name || ""
-                            const dbLast = p._std_last_name || ""
+                            const dbFirst = normalize(p._std_first_name || p.ชื่อ || p["ชื่อ-สกุล"])
+                            const dbLast = normalize(p._std_last_name || p.สกุล || "")
 
-                            // Check if first name matches (allowing for titles/ranks)
-                            const firstMatch = dbFirst.includes(firstName) || firstName.includes(dbFirst)
-                            if (!firstMatch) return false
-
-                            // If we have a last name in both, it must match
-                            if (lastName && dbLast) {
-                                return dbLast.includes(lastName) || lastName.includes(dbLast)
+                            if (dbFirst === inputFirst && (inputLast === "" || dbLast === inputLast)) return true
+                            if (dbFirst.includes(inputFirst) || inputFirst.includes(dbFirst)) {
+                                if (!inputLast || !dbLast) return true
+                                return dbLast.includes(inputLast) || inputLast.includes(dbLast)
                             }
-
-                            // If one side has no last name, we trust the first name match
-                            return true
+                            return false
                         })
 
                         if (match) {
                             totalMatchedPeople++
-                            // Iterate through all columns in the header to fill missing data
-                            Object.entries(headers).forEach(([colName, colIdx]) => {
-                                const normColName = colName.replace(/\s+/g, '')
-                                if (normColName === "ชื่อ" || normColName === "สกุล" || normColName === "นามสกุล") return
+                            // Create a lookup map of normalized DB keys for THIS person
+                            const normMatch: Record<string, any> = {}
+                            Object.keys(match).forEach(k => { normMatch[normalize(k)] = match[k] })
 
-                                const cell = row.getCell(colIdx)
-                                const masterCell = cell.isMerged ? cell.master : cell
+                            Object.entries(headers).forEach(([headerName, colIdx]) => {
+                                if (colIdx === undefined) return
+                                const normHeader = normalize(headerName)
 
-                                const currentStringVal = getVal(colIdx)
-                                const isEmpty = currentStringVal === ""
+                                // Skip ID columns
+                                if (normHeader.includes("ชื่อ") || normHeader.includes("สกุล") || normHeader.includes("ยศ") || normHeader === "ลำดับ") return
 
-                                if (isEmpty) {
-                                    // Try to find the value in match object by matching normalized keys
-                                    let dbValue = match[colName]
-
-                                    if (dbValue === undefined || dbValue === null || String(dbValue).trim() === "") {
-                                        const dbKey = Object.keys(match).find(k => k.trim().replace(/\s+/g, '') === normColName || normColName.includes(k.trim().replace(/\s+/g, '')))
-                                        if (dbKey) dbValue = match[dbKey]
+                                // Check if destination is empty in row
+                                const cellValue = normalize(getRawVal(colIdx))
+                                if (cellValue === "") {
+                                    // 1. Direct match 2. Fuzzy match
+                                    let dbVal = normMatch[normHeader]
+                                    if (dbVal === undefined || dbVal === null || String(dbVal).trim() === "") {
+                                        const fuzzyKey = Object.keys(normMatch).find(k => k.includes(normHeader) || normHeader.includes(k))
+                                        if (fuzzyKey) dbVal = normMatch[fuzzyKey]
                                     }
 
-                                    if (dbValue !== undefined && dbValue !== null && String(dbValue).trim() !== "") {
-                                        masterCell.value = dbValue
+                                    if (dbVal !== undefined && dbVal !== null && String(dbVal).trim() !== "") {
+                                        const finalStr = String(dbVal).trim()
+                                        const targetCell = row.getCell(colIdx)
+                                        if (targetCell.isMerged) {
+                                            targetCell.master.value = finalStr
+                                        } else {
+                                            targetCell.value = finalStr
+                                        }
                                         totalUpdated++
                                     }
                                 }
@@ -267,7 +378,7 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
             const url = URL.createObjectURL(blob)
             const link = document.createElement("a")
             link.href = url
-            link.download = `autofilled_${file.name}`
+            link.download = `filled_${file.name}`
             document.body.appendChild(link)
             link.click()
             document.body.removeChild(link)
@@ -275,7 +386,7 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
 
             toast({
                 title: "ดำเนินการเสร็จสิ้น",
-                description: `พบข้อมูลในฐานข้อมูล ${totalMatchedPeople} คน และเติมข้อมูลที่ว่างไปทั้งหมด ${totalUpdated} ช่อง`,
+                description: `พบข้อมูล ${totalMatchedPeople} คน, เติมข้อมูลสำเร็จ ${totalUpdated} ช่อง`,
             })
         } catch (error: any) {
             console.error("Error in autofill:", error)
@@ -297,20 +408,31 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
 
         if (!workbook || !file) return
         if (selectedSheets.length === 0) {
-            toast({
-                title: "กรุณาเลือกชีท",
-                description: "เลือกอย่างน้อย 1 ชีทเพื่อตรวจสอบ",
-                variant: "destructive",
-            })
+            toast({ title: "กรุณาเลือกชีท", variant: "destructive" })
             return
         }
 
         setProcessing(true)
         try {
-            // Create a fresh copy to not mutate the state directly if we want to redo
             const wb = new ExcelJS.Workbook()
             const arrayBuffer = await file.arrayBuffer()
             await wb.xlsx.load(arrayBuffer)
+
+            const normalize = (val: any): string => {
+                if (val === null || val === undefined) return ""
+                try {
+                    let str = ""
+                    if (typeof val === 'object') {
+                        if (val.text !== undefined && val.text !== null) str = String(val.text)
+                        else if (val.richText && Array.isArray(val.richText)) str = val.richText.map((t: any) => (t && t.text ? String(t.text) : "")).join("")
+                        else if (val.result !== undefined && val.result !== null) str = String(val.result)
+                        else str = String(val)
+                    } else {
+                        str = String(val)
+                    }
+                    return str.normalize('NFC').replace(/[\s\u200B\uFEFF\u00A0\u180E\u2000-\u200B\u202F\u205F\u3000]/g, '').trim()
+                } catch (e) { return "" }
+            }
 
             let totalHighlighted = 0
 
@@ -318,56 +440,31 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
                 const ws = wb.getWorksheet(sheetName)
                 if (!ws) continue
 
-                // Map to store values and their corresponding row master cells
                 const valueMap: Record<string, ExcelJS.Cell[]> = {}
 
-                // Find duplicates from row 4 onwards
                 ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+                    // Data starts from row 4 as per request
                     if (rowNumber < 4) return
 
                     const cell = row.getCell(selectedColumn)
-                    // If the cell is part of a merge, we MUST work with the master cell
                     const masterCell = cell.isMerged ? cell.master : cell
 
-                    let val = ""
-                    if (masterCell.value !== null && masterCell.value !== undefined) {
-                        // Handle different value types safely
-                        const v = masterCell.value
-                        if (typeof v === 'object') {
-                            if ('richText' in v) {
-                                val = v.richText.map(t => t.text).join("").trim()
-                            } else if ('result' in v) {
-                                val = v.result?.toString().trim() || ""
-                            } else if ('text' in v) {
-                                val = v.text?.toString().trim() || ""
-                            } else {
-                                val = v.toString().trim()
-                            }
-                        } else {
-                            val = v.toString().trim()
-                        }
-                    }
-
+                    const val = normalize(masterCell.value)
                     if (val !== "") {
-                        if (!valueMap[val]) {
-                            valueMap[val] = []
-                        }
-                        // Add the specific cell to our map
+                        if (!valueMap[val]) valueMap[val] = []
                         valueMap[val].push(cell)
                     }
                 })
 
-                // Highlight duplicates
                 Object.entries(valueMap).forEach(([val, cells]) => {
                     if (cells.length > 1) {
                         cells.forEach(cell => {
-                            // Apply highlight to the specific cell (or master if merged)
-                            // Setting only the fill property to minimize XML changes
-                            const master = cell.isMerged ? cell.master : cell;
+                            const master = cell.isMerged ? cell.master : cell
+                            // Only apply if not already highlighted to save XML space
                             master.fill = {
                                 type: 'pattern',
                                 pattern: 'solid',
-                                fgColor: { argb: 'FFFFFFCC' } // Light Yellow
+                                fgColor: { argb: 'FFFFFFCC' }
                             }
                             totalHighlighted++
                         })
@@ -375,7 +472,6 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
                 })
             }
 
-            // Generate and download
             const outBuffer = await wb.xlsx.writeBuffer()
             const blob = new Blob([outBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
             const url = URL.createObjectURL(blob)
@@ -391,11 +487,11 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
                 title: "ดำเนินการเสร็จสิ้น",
                 description: `ไฮไลท์ค่าซ้ำทั้งหมด ${totalHighlighted} เซลล์`,
             })
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error processing file:", error)
             toast({
                 title: "เกิดข้อผิดพลาด",
-                description: "ไม่สามารถจัดการไฟล์ได้",
+                description: "ไม่สามารถจัดการไฟล์ได้: " + error.message,
                 variant: "destructive",
             })
         } finally {
@@ -652,24 +748,97 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
 
                             {/* Action Section */}
                             <div className="flex flex-col items-center gap-4">
-                                <Button
-                                    size="lg"
-                                    className="w-full sm:w-80 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-6 rounded-xl shadow-lg shadow-blue-900/40"
-                                    onClick={processFile}
-                                    disabled={processing || selectedSheets.length === 0}
-                                >
-                                    {processing ? (
-                                        <>
-                                            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                                            กำลังประมวลผล...
-                                        </>
-                                    ) : (
-                                        <>
-                                            {activeTool === "duplicates" ? <CheckCircle2 className="h-5 w-5 mr-2" /> : <TableIcon className="h-5 w-5 mr-2" />}
-                                            {activeTool === "duplicates" ? "ตรวจสอบและเริ่มไฮไลท์" : "เริ่มค้นหาและเติมข้อมูล"}
-                                        </>
+                                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                                    {activeTool === "autofill" && (
+                                        <Button
+                                            size="lg"
+                                            variant="outline"
+                                            className="flex-1 sm:w-48 border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 font-bold"
+                                            onClick={scanMissingData}
+                                            disabled={scanning || processing || selectedSheets.length === 0}
+                                        >
+                                            {scanning ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <TableIcon className="h-4 w-4 mr-2" />}
+                                            สแกนค่าว่าง
+                                        </Button>
                                     )}
-                                </Button>
+                                    <Button
+                                        size="lg"
+                                        className={`flex-1 sm:w-60 font-bold py-6 rounded-xl shadow-lg ${activeTool === "duplicates" ? "bg-blue-600 hover:bg-blue-700" : "bg-cyan-600 hover:bg-cyan-700"}`}
+                                        onClick={processFile}
+                                        disabled={processing || scanning || selectedSheets.length === 0}
+                                    >
+                                        {processing ? (
+                                            <>
+                                                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                                                กำลังประมวลผล...
+                                            </>
+                                        ) : (
+                                            <>
+                                                {activeTool === "duplicates" ? <CheckCircle2 className="h-5 w-5 mr-2" /> : <Download className="h-5 w-5 mr-2" />}
+                                                {activeTool === "duplicates" ? "ตรวจสอบและเริ่มไฮไลท์" : "ค้นหาและเติมข้อมูลทั้งหมด"}
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+
+                                {previewRows.length > 0 && (
+                                    <Card className="w-full bg-slate-900/80 border-slate-700 overflow-hidden mt-4">
+                                        <CardHeader className="bg-slate-800/50 p-3">
+                                            <CardTitle className="text-sm font-bold flex items-center justify-between">
+                                                <span>ผลการสแกนช่องว่างที่พบ (แสดง {previewRows.length} รายการแรก)</span>
+                                                <Badge variant="outline" className="text-cyan-400 border-cyan-400/30">
+                                                    Matched {previewRows.filter(r => r.isMatched).length} / {previewRows.length}
+                                                </Badge>
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-0 overflow-x-auto">
+                                            <table className="w-full text-xs text-left">
+                                                <thead className="bg-slate-800/30 text-slate-400 border-b border-slate-700">
+                                                    <tr>
+                                                        <th className="p-2 w-16">แถว</th>
+                                                        <th className="p-2">ชื่อ-นามสกุล (Excel)</th>
+                                                        <th className="p-2">คอลัมน์ที่ว่าง</th>
+                                                        <th className="p-2">ข้อมูลที่อ่านได้ (Debug)</th>
+                                                        <th className="p-2">สถานะ DB</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-800">
+                                                    {previewRows.map((row, i) => (
+                                                        <tr key={i} className="hover:bg-white/5 transition-colors">
+                                                            <td className="p-2 text-slate-500 font-mono">{row.row}</td>
+                                                            <td className="p-2 font-medium">{row.name}</td>
+                                                            <td className="p-2">
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {row.missing.length > 0 ? (
+                                                                        row.missing.map((m: string) => (
+                                                                            <span key={m} className="text-cyan-400/70 border border-cyan-400/20 px-1 rounded">{m}</span>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="text-slate-500 italic">ไม่พบช่องว่าง</span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-2">
+                                                                <div className="text-[10px] text-slate-400 space-y-1">
+                                                                    {Object.entries(row.debugData || {}).slice(0, 3).map(([k, v]) => (
+                                                                        <div key={k}>{k}: {String(v)}</div>
+                                                                    ))}
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-2">
+                                                                {row.isMatched ? (
+                                                                    <Badge className="bg-green-500/20 text-green-400 border-none text-[10px]">พบในฐานข้อมูล</Badge>
+                                                                ) : (
+                                                                    <Badge className="bg-red-500/20 text-red-400 border-none text-[10px]">ไม่พบข้อมูล</Badge>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </CardContent>
+                                    </Card>
+                                )}
 
                                 <div className="flex items-center gap-2 text-slate-400 text-xs bg-slate-800/40 px-4 py-2 rounded-full border border-slate-700">
                                     <AlertCircle className="h-3 w-3" />

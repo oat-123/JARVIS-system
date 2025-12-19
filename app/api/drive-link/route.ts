@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findFolderByName, findFileByName, getDownloadLink, getDriveService } from '@/lib/google-auth';
+import { findFolderByName, findFileByName, getDownloadLink, getDriveService, getSystemConfig } from '@/lib/google-auth';
 
 export const runtime = 'nodejs';
-
-// โฟลเดอร์ root ของ Drive (ค่าเริ่มต้น)
-const DRIVE_ROOT_ID = '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_';
-const PRIORITY_FOLDER_ID = '1AvPt_VAEt1FNbDLgUwykfhMljBXoTdcY';
-const WORD_MIME_TYPES = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
 
 export async function POST(req: NextRequest) {
   try {
     const { personName, folderName, rootFolderId } = await req.json();
+
+    // Fetch dynamic IDs from registry
+    const DRIVE_ROOT_ID = await getSystemConfig("GOOGLE_DRIVE_ROOT_ID", '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_');
+    const PRIORITY_FOLDER_ID = await getSystemConfig("GOOGLE_DRIVE_PRIORITY_ID", '1AvPt_VAEt1FNbDLgUwykfhMljBXoTdcY');
+    const WORD_MIME_TYPES = ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+
     console.log('--- [API/drive-link] เริ่มค้นหา ---');
     console.log('รับข้อมูล:', { personName, folderName, rootFolderId });
 
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
     console.log('✅ เจอโฟลเดอร์ย่อย "ฉก.":', subFolder);
 
     // 4. Find Word file
-    const { best: wordFile, bestScore, files } = await findFileByName(subFolder.id, personName, WORD_MIME_TYPES);
+    const { best: wordFile, bestScore, files } = await findFileByName(subFolder.id as string, personName, WORD_MIME_TYPES);
 
     if (!wordFile || bestScore < 60) {
       return NextResponse.json({

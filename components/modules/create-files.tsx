@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -49,8 +49,24 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
   const [cancelAll, setCancelAll] = useState<boolean>(false)
   const [singleAbort, setSingleAbort] = useState<AbortController | null>(null)
   const [copiedPath, setCopiedPath] = useState<boolean>(false)
-  const ROOT_DRIVE_FOLDER_ID = '1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_'
-  const IMAGE_DRIVE_FOLDER_ID = '17h7HzW7YQqXeVH7-A-EhkJKQOmGNUC5s'
+  const [rootDriveFolderId, setRootDriveFolderId] = useState('1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_')
+  const [imageDriveFolderId, setImageDriveFolderId] = useState('17h7HzW7YQqXeVH7-A-EhkJKQOmGNUC5s')
+
+  useEffect(() => {
+    const fetchDriveConfigs = async () => {
+      try {
+        const res = await fetch('/api/admin/config')
+        const data = await res.json()
+        if (data.success && data.configs) {
+          if (data.configs.GOOGLE_DRIVE_ROOT_ID) setRootDriveFolderId(data.configs.GOOGLE_DRIVE_ROOT_ID)
+          if (data.configs.GOOGLE_DRIVE_IMAGE_ID) setImageDriveFolderId(data.configs.GOOGLE_DRIVE_IMAGE_ID)
+        }
+      } catch (error) {
+        console.error('Error fetching drive configs:', error)
+      }
+    }
+    fetchDriveConfigs()
+  }, [])
 
   const [alternativeFilesInfo, setAlternativeFilesInfo] = useState<{ type: 'word' | 'image', files: any[], originalIndex: number } | null>(null);
 
@@ -196,7 +212,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({ personName, folderName: personFolderName, rootFolderId: ROOT_DRIVE_FOLDER_ID })
+        body: JSON.stringify({ personName, folderName: personFolderName, rootFolderId: rootDriveFolderId })
       }).then(r => r.json())
 
       const imgPromise = fetch('/api/image-link', {
@@ -205,7 +221,8 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         signal: controller.signal,
         body: JSON.stringify({
           first: (person.first || '').toString().replace(/^นนร\.?\s*/i, '').trim(),
-          last: (person.last || '').toString().trim()
+          last: (person.last || '').toString().trim(),
+          imageFolderId: imageDriveFolderId
         })
       }).then(r => r.json())
 
@@ -343,7 +360,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({ personName, folderName, rootFolderId: ROOT_DRIVE_FOLDER_ID })
+        body: JSON.stringify({ personName, folderName, rootFolderId: rootDriveFolderId })
       })
       const json = await res.json()
       if (json.success && json.link) {

@@ -25,7 +25,10 @@ import {
     ChevronRight,
     Search,
     Download,
-    Lock
+    Lock,
+    Folder,
+    Image as ImageIcon,
+    FolderOpen
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
@@ -90,6 +93,38 @@ const DB_MAP = [
         description: "ใช้สำหรับ บันทึกประวัติการ Login และความปลอดภัย",
         default: "1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw",
         icon: <ShieldCheck className="h-5 w-5 text-slate-400" />
+    },
+    {
+        key: "GOOGLE_DRIVE_ROOT_ID",
+        label: "คลังไฟล์หลัก (Drive Root)",
+        description: "โฟลเดอร์หลักที่เก็บไฟล์ ฉก. และประวัติของ นนร. ทั้งหมด",
+        default: "1yNdCSMtz0vE4b4Kugap5JPHH86r7zyp_",
+        icon: <Folder className="h-5 w-5 text-blue-400" />,
+        isFolder: true
+    },
+    {
+        key: "GOOGLE_DRIVE_PRIORITY_ID",
+        label: "โฟลเดอร์ไฟล์เร่งด่วน (Priority)",
+        description: "ใช้สำหรับค้นหาไฟล์นำร่องก่อนค้นหาในคลังหลัก",
+        default: "1AvPt_VAEt1FNbDLgUwykfhMljBXoTdcY",
+        icon: <FolderOpen className="h-5 w-5 text-amber-500" />,
+        isFolder: true
+    },
+    {
+        key: "GOOGLE_DRIVE_IMAGE_ID",
+        label: "คลังรูปภาพ นนร. (Images)",
+        description: "โฟลเดอร์หลักที่เก็บรูปภาพ นนร. ทั้งหมดในระบบ",
+        default: "17h7HzW7YQqXeVH7-A-EhkJKQOmGNUC5s",
+        icon: <ImageIcon className="h-5 w-5 text-purple-400" />,
+        isFolder: true
+    },
+    {
+        key: "GOOGLE_DRIVE_ADDITIONAL_ID",
+        label: "คลังไฟล์เพิ่มเติม (Additional Files)",
+        description: "ใช้สำหรับเก็บไฟล์ชั่วคราวหรือไฟล์ที่ดึงผ่าน fetch-file-link",
+        default: "1DsLfQC3x4G2swC8L92IuipH1XqCsKwtb",
+        icon: <Folder className="h-5 w-5 text-emerald-400" />,
+        isFolder: true
     }
 ]
 
@@ -279,9 +314,12 @@ export function SystemSettings({ onBack }: SystemSettingsProps) {
         setIsEditing(true)
     }
 
-    const openSheet = (id: string) => {
+    const openSheet = (id: string, isFolder: boolean = false) => {
         if (!id) return
-        window.open(`https://docs.google.com/spreadsheets/d/${id}/edit`, "_blank")
+        const url = isFolder
+            ? `https://drive.google.com/drive/folders/${id}`
+            : `https://docs.google.com/spreadsheets/d/${id}/edit`
+        window.open(url, "_blank")
     }
 
     return (
@@ -372,17 +410,28 @@ export function SystemSettings({ onBack }: SystemSettingsProps) {
                                                             <Button
                                                                 variant="outline"
                                                                 className="flex-1 bg-slate-900/60 border-slate-700 hover:bg-slate-800 text-xs gap-2"
-                                                                onClick={() => fetchSheets(currentId, db.label)}
+                                                                onClick={() => {
+                                                                    if ((db as any).isFolder) {
+                                                                        openSheet(currentId, true)
+                                                                    } else {
+                                                                        fetchSheets(currentId, db.label)
+                                                                    }
+                                                                }}
                                                             >
-                                                                <Table className="h-3 w-3 text-teal-400" /> ดูโครงสร้าง
+                                                                {(db as any).isFolder ? (
+                                                                    <FolderOpen className="h-3 w-3 text-blue-400" />
+                                                                ) : (
+                                                                    <Table className="h-3 w-3 text-teal-400" />
+                                                                )}
+                                                                {(db as any).isFolder ? "เปิดคลังไฟล์" : "ดูโครงสร้าง"}
                                                             </Button>
                                                             <div className="flex gap-2">
                                                                 <Button
                                                                     variant="ghost"
                                                                     className="flex-1 bg-slate-900/40 border-slate-800 hover:bg-slate-800 text-[10px] h-8"
-                                                                    onClick={() => openSheet(currentId)}
+                                                                    onClick={() => openSheet(currentId, (db as any).isFolder)}
                                                                 >
-                                                                    <ExternalLink className="h-3 w-3 mr-1" /> ไฟล์จริง
+                                                                    <ExternalLink className="h-3 w-3 mr-1" /> {(db as any).isFolder ? "เปิดใน Drive" : "ไฟล์จริง"}
                                                                 </Button>
                                                                 <Button
                                                                     className="flex-1 bg-teal-600 hover:bg-teal-500 text-white font-bold h-8 text-[10px] gap-1 shadow-lg shadow-teal-900/20"

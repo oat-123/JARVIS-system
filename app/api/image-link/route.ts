@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findImageFileByName, getDownloadLink } from '@/lib/google-auth';
+import { findImageFileByName, getDownloadLink, getSystemConfig } from '@/lib/google-auth';
 
 export const runtime = 'nodejs';
 
-const IMAGE_FOLDER_ID = '17h7HzW7YQqXeVH7-A-EhkJKQOmGNUC5s';
-
 export async function POST(req: NextRequest) {
   try {
-    const { first, last } = await req.json();
+    const { first, last, imageFolderId } = await req.json();
+
+    // Fetch dynamic ID from registry if not provided in body
+    const IMAGE_FOLDER_ID = imageFolderId || await getSystemConfig("GOOGLE_DRIVE_IMAGE_ID", '17h7HzW7YQqXeVH7-A-EhkJKQOmGNUC5s');
 
     if (!first && !last) {
       return NextResponse.json({ success: false, error: 'Missing first and last name' }, { status: 400 });

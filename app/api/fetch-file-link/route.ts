@@ -1,14 +1,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { findFileByName, getDownloadLink } from '@/lib/google-auth';
+import { findFileByName, getDownloadLink, getSystemConfig } from '@/lib/google-auth';
 
 export const runtime = 'nodejs';
-
-const DRIVE_FOLDER_ID = '1DsLfQC3x4G2swC8L92IuipH1XqCsKwtb';
 
 export async function POST(req: NextRequest) {
   try {
     const { personName, fileType } = await req.json();
+
+    // Fetch dynamic ID from registry
+    const DRIVE_FOLDER_ID = await getSystemConfig("GOOGLE_DRIVE_ADDITIONAL_ID", '1DsLfQC3x4G2swC8L92IuipH1XqCsKwtb');
 
     if (!personName || !fileType) {
       return NextResponse.json({ success: false, error: 'Missing personName or fileType' }, { status: 400 });

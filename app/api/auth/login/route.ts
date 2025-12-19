@@ -11,10 +11,12 @@ export async function POST(req: NextRequest) {
   // Dynamically set session options based on "Remember Me"
   const dynamicSessionOptions = {
     ...sessionOptions,
+    // Set ttl (server-side expiration) to 1 year if rememberMe is true, else 2 hours
+    ttl: rememberMe ? 60 * 60 * 24 * 365 : 60 * 60 * 2,
     cookieOptions: {
       ...sessionOptions.cookieOptions,
-      // Set maxAge if rememberMe is true, otherwise it's a session cookie
-      maxAge: rememberMe ? 60 * 60 * 2 * 1 : undefined, // 2 hours
+      // Set maxAge (client-side cookie expiration) if rememberMe is true, otherwise it's a session cookie
+      maxAge: rememberMe ? 60 * 60 * 24 * 365 : undefined, // 1 year
     },
   };
 

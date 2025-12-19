@@ -20,6 +20,8 @@ if (!sessionPassword) {
 export const sessionOptions = {
   password: sessionPassword || "complex_password_at_least_32_characters_long_for_dev",
   cookieName: "jarvis-app-session",
+  // Set default ttl to 1 year (365 days)
+  ttl: 60 * 60 * 24 * 365,
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",
   },

@@ -109,7 +109,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-white/90 font-medium drop-shadow-sm">
-                  Email / Username
+                  ชื่อผู้ใช้ / อีเมล
                 </Label>
                 <Input
                   id="email"
@@ -124,7 +124,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-white/90 font-medium drop-shadow-sm">
-                  Password
+                  รหัสผ่าน
                 </Label>
                 <Input
                   id="password"
@@ -145,12 +145,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                     onCheckedChange={(checked) => setRememberMe(checked as boolean)}
                     className="border-white/40 data-[state=checked]:bg-white/20 data-[state=checked]:border-white/60"
                   />
-                  <Label htmlFor="remember" className="text-sm text-white/80 drop-shadow-sm">
-                    Remember me
+                  <Label htmlFor="remember" className="text-sm text-white/80 drop-shadow-sm cursor-pointer">
+                    จดจำการเข้าระบบ
                   </Label>
                 </div>
                 <Link href="/register" className="text-sm text-white/80 hover:text-white transition-colors drop-shadow-sm">
-                  Forgot Password?
+                  ลืมรหัสผ่าน?
                 </Link>
               </div>
 
@@ -171,14 +171,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                     กำลังเข้าสู่ระบบ...
                   </>
                 ) : (
-                  "Login"
+                  "เข้าสู่ระบบ"
                 )}
               </Button>
 
               <div className="text-center text-sm text-white/80 drop-shadow-sm">
-                {"Don't have an account? "}
+                {"ยังไม่มีบัญชี? "}
                 <Link href="/register" className="text-white hover:text-white/80 font-medium transition-colors">
-                  Register
+                  สมัครสมาชิก
                 </Link>
               </div>
             </form>

@@ -16,13 +16,19 @@ import {
     Plus,
     Loader2,
     ExternalLink,
-    Table as TableIcon,
-    Lock,
     Globe,
     FileSpreadsheet,
-    FileText
+    FileText,
+    Table,
+    Edit3,
+    Layers,
+    ChevronRight,
+    Search,
+    Download,
+    Lock
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 
 interface SystemSettingsProps {
     onBack: () => void
@@ -181,6 +187,98 @@ export function SystemSettings({ onBack }: SystemSettingsProps) {
         }
     }
 
+    // Database Viewer State
+    const [viewingDb, setViewingDb] = useState<{ id: string, label: string } | null>(null)
+    const [dbSheets, setDbSheets] = useState<{ title: string }[]>([])
+    const [activeSheet, setActiveSheet] = useState<string>("")
+    const [sheetData, setSheetData] = useState<any[][]>([])
+    const [loadingDb, setLoadingDb] = useState(false)
+    const [loadingSheet, setLoadingSheet] = useState(false)
+    const [isEditing, setIsEditing] = useState(false)
+    const [editedData, setEditedData] = useState<any[][]>([])
+
+    const fetchSheets = async (spreadsheetId: string, label: string) => {
+        setViewingDb({ id: spreadsheetId, label })
+        setLoadingDb(true)
+        try {
+            const res = await fetch(`/api/admin/database?spreadsheetId=${spreadsheetId}`)
+            const data = await res.json()
+            if (data.success) {
+                setDbSheets(data.sheets)
+                if (data.sheets.length > 0) {
+                    fetchSheetData(spreadsheetId, data.sheets[0].title)
+                }
+            } else {
+                toast({ title: "Error", description: data.error, variant: "destructive" })
+            }
+        } catch (error) {
+            console.error(error)
+        } finally {
+            setLoadingDb(false)
+        }
+    }
+
+    const fetchSheetData = async (spreadsheetId: string, sheetName: string) => {
+        setActiveSheet(sheetName)
+        setLoadingSheet(true)
+        setIsEditing(false)
+        try {
+            const res = await fetch(`/api/admin/database?spreadsheetId=${spreadsheetId}&sheetName=${encodeURIComponent(sheetName)}`)
+            const data = await res.json()
+            if (data.success) {
+                setSheetData(data.values)
+                setEditedData(data.values)
+            } else {
+                toast({ title: "Error", description: data.error, variant: "destructive" })
+            }
+        } catch (error) {
+            console.error(error)
+        } finally {
+            setLoadingSheet(false)
+        }
+    }
+
+    const handleSaveSheet = async () => {
+        if (!viewingDb) return
+        setLoadingSheet(true)
+        try {
+            const res = await fetch("/api/admin/database", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    spreadsheetId: viewingDb.id,
+                    sheetName: activeSheet,
+                    values: editedData
+                })
+            })
+            const data = await res.json()
+            if (data.success) {
+                toast({ title: "บันทึกสำเร็จ", description: "ข้อมูลใน Google Sheets ถูกอัปเดตเรียบร้อยแล้ว" })
+                setSheetData(editedData)
+                setIsEditing(false)
+            } else {
+                toast({ title: "Error", description: data.error, variant: "destructive" })
+            }
+        } catch (error) {
+            console.error(error)
+        } finally {
+            setLoadingSheet(false)
+        }
+    }
+
+    const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
+        const newData = [...editedData]
+        if (!newData[rowIndex]) newData[rowIndex] = []
+        newData[rowIndex][colIndex] = value
+        setEditedData(newData)
+    }
+
+    const addNewRow = () => {
+        const numCols = sheetData[0]?.length || 10
+        setEditedData([...editedData, new Array(numCols).fill("")])
+        setIsEditing(true)
+    }
+
     const openSheet = (id: string) => {
         if (!id) return
         window.open(`https://docs.google.com/spreadsheets/d/${id}/edit`, "_blank")
@@ -274,21 +372,30 @@ export function SystemSettings({ onBack }: SystemSettingsProps) {
                                                             <Button
                                                                 variant="outline"
                                                                 className="flex-1 bg-slate-900/60 border-slate-700 hover:bg-slate-800 text-xs gap-2"
-                                                                onClick={() => openSheet(currentId)}
+                                                                onClick={() => fetchSheets(currentId, db.label)}
                                                             >
-                                                                <ExternalLink className="h-3 w-3" /> เปิดไฟล์จริง
+                                                                <Table className="h-3 w-3 text-teal-400" /> ดูโครงสร้าง
                                                             </Button>
-                                                            <Button
-                                                                className="flex-1 bg-teal-600 hover:bg-teal-500 text-white font-bold gap-2 shadow-lg shadow-teal-900/20"
-                                                                disabled={saving === db.key}
-                                                                onClick={() => {
-                                                                    const val = (document.getElementById(`input-${db.key}`) as HTMLInputElement).value
-                                                                    handleUpdate(db.key, val)
-                                                                }}
-                                                            >
-                                                                {saving === db.key ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                                                บันทึก
-                                                            </Button>
+                                                            <div className="flex gap-2">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    className="flex-1 bg-slate-900/40 border-slate-800 hover:bg-slate-800 text-[10px] h-8"
+                                                                    onClick={() => openSheet(currentId)}
+                                                                >
+                                                                    <ExternalLink className="h-3 w-3 mr-1" /> ไฟล์จริง
+                                                                </Button>
+                                                                <Button
+                                                                    className="flex-1 bg-teal-600 hover:bg-teal-500 text-white font-bold h-8 text-[10px] gap-1 shadow-lg shadow-teal-900/20"
+                                                                    disabled={saving === db.key}
+                                                                    onClick={() => {
+                                                                        const val = (document.getElementById(`input-${db.key}`) as HTMLInputElement).value
+                                                                        handleUpdate(db.key, val)
+                                                                    }}
+                                                                >
+                                                                    {saving === db.key ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                                                                    บันทึก
+                                                                </Button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -384,6 +491,143 @@ export function SystemSettings({ onBack }: SystemSettingsProps) {
                     </div>
                 </div>
             </div>
+
+            {/* Database Explorer Dialog */}
+            <Dialog open={!!viewingDb} onOpenChange={(open) => !open && setViewingDb(null)}>
+                <DialogContent className="max-w-[95vw] w-[1200px] h-[90vh] bg-slate-900 border-slate-700 flex flex-col p-0 overflow-hidden">
+                    <DialogHeader className="p-6 pb-2 border-b border-slate-800">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <DialogTitle className="text-xl font-bold flex items-center gap-2 text-white">
+                                    <Database className="h-5 w-5 text-teal-400" />
+                                    {viewingDb?.label}
+                                </DialogTitle>
+                                <DialogDescription className="text-slate-400 font-mono text-[10px] mt-1">
+                                    Spreadsheet ID: {viewingDb?.id}
+                                </DialogDescription>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    size="sm"
+                                    variant={isEditing ? "default" : "outline"}
+                                    className={isEditing ? "bg-amber-600 hover:bg-amber-500" : "bg-slate-800 border-slate-700"}
+                                    onClick={() => {
+                                        if (isEditing) {
+                                            setEditedData(sheetData)
+                                            setIsEditing(false)
+                                        } else {
+                                            setIsEditing(true)
+                                        }
+                                    }}
+                                >
+                                    <Edit3 className="h-4 w-4 mr-2" />
+                                    {isEditing ? "ยกเลิกการแก้ไข" : "โหมดแก้ไข"}
+                                </Button>
+                                {isEditing && (
+                                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-900/40" onClick={handleSaveSheet}>
+                                        <Save className="h-4 w-4 mr-2" />
+                                        บันทึกไปยังคลาวด์
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Sheet Tabs */}
+                        <div className="flex items-center gap-1 mt-4 overflow-x-auto no-scrollbar">
+                            {dbSheets.map(s => (
+                                <Button
+                                    key={s.title}
+                                    size="sm"
+                                    variant="ghost"
+                                    className={`rounded-t-lg rounded-b-none border-b-2 transition-all px-4 ${activeSheet === s.title
+                                        ? "bg-slate-800 border-teal-500 text-white"
+                                        : "hover:bg-slate-800 border-transparent text-slate-500"}`}
+                                    onClick={() => fetchSheetData(viewingDb?.id || "", s.title)}
+                                >
+                                    <Layers className="h-3 w-3 mr-2" />
+                                    {s.title}
+                                </Button>
+                            ))}
+                        </div>
+                    </DialogHeader>
+
+                    <div className="flex-1 overflow-auto bg-slate-950 p-0 relative">
+                        {loadingSheet ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 z-50">
+                                <Loader2 className="h-10 w-10 animate-spin text-teal-500" />
+                            </div>
+                        ) : (
+                            <div className="min-w-full inline-block align-middle">
+                                <table className="min-w-full border-collapse">
+                                    <thead className="sticky top-0 z-10 bg-slate-900 shadow-md">
+                                        <tr>
+                                            <th className="p-2 border border-slate-700 bg-slate-800 text-[10px] text-slate-500 w-10 font-mono text-center">#</th>
+                                            {sheetData[0]?.map((col, idx) => (
+                                                <th key={idx} className="p-3 border border-slate-700 text-left text-xs font-bold text-slate-300 uppercase tracking-wider min-w-[120px]">
+                                                    {isEditing ? (
+                                                        <input
+                                                            value={editedData[0]?.[idx] || ""}
+                                                            onChange={(e) => handleCellChange(0, idx, e.target.value)}
+                                                            className="bg-slate-800 border-slate-600 w-full px-1 rounded focus:ring-1 focus:ring-teal-500 outline-none"
+                                                        />
+                                                    ) : (
+                                                        col || `Column ${idx + 1}`
+                                                    )}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800">
+                                        {(isEditing ? editedData : sheetData).slice(1).map((row, rIdx) => (
+                                            <tr key={rIdx} className="hover:bg-slate-900/50 transition-colors">
+                                                <td className="p-2 border border-slate-800/50 bg-slate-900/30 text-[10px] font-mono text-slate-600 text-center">{rIdx + 1}</td>
+                                                {row.map((cell, cIdx) => (
+                                                    <td key={cIdx} className="p-2 border border-slate-800/50 text-xs text-slate-400">
+                                                        {isEditing ? (
+                                                            <input
+                                                                value={cell || ""}
+                                                                onChange={(e) => handleCellChange(rIdx + 1, cIdx, e.target.value)}
+                                                                className="bg-transparent hover:bg-slate-800/50 focus:bg-slate-800 border-none w-full px-1 py-1 rounded transition-all focus:ring-1 focus:ring-teal-500 outline-none text-teal-200"
+                                                            />
+                                                        ) : (
+                                                            cell || "-"
+                                                        )}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                        {isEditing && (
+                                            <tr>
+                                                <td colSpan={(sheetData[0]?.length || 0) + 1} className="p-4 bg-slate-900/20 text-center">
+                                                    <Button variant="ghost" size="sm" className="text-teal-400 hover:text-teal-300 hover:bg-teal-400/10 border border-dashed border-teal-500/30" onClick={addNewRow}>
+                                                        <Plus className="h-4 w-4 mr-2" /> เพิ่มแถวใหม่
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                                {sheetData.length === 0 && !loadingSheet && (
+                                    <div className="py-20 text-center text-slate-600 space-y-2">
+                                        <Search className="h-10 w-10 mx-auto opacity-20" />
+                                        <p>ไม่พบข้อมูลในชีทนี้</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter className="p-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between sm:justify-between">
+                        <div className="text-[10px] text-slate-500 flex items-center gap-4 font-mono">
+                            <span>TOTAL ROWS: {(isEditing ? editedData : sheetData).length}</span>
+                            <span>TOTAL COLS: {(isEditing ? editedData : sheetData)[0]?.length || 0}</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="ghost" className="text-slate-400 hover:text-white" onClick={() => setViewingDb(null)}>ปิดหน้าต่าง</Button>
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

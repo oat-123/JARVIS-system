@@ -15,7 +15,7 @@ function parseOneDriveLink(url: string) {
 }
 
 // Get folder contents using OneDrive embed API (no auth required for public shares)
-async function getFolder ExtContents(sharingLink: string, subPath: string = '') {
+async function getFolderContents(sharingLink: string, subPath: string = '') {
   const parsed = parseOneDriveLink(sharingLink);
   if (!parsed) {
     console.error('[OneDrive] Invalid sharing link format');

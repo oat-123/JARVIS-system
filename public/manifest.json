@@ -1,0 +1,22 @@
+{
+    "name": "J.A.R.V.I.S System",
+    "short_name": "J.A.R.V.I.S",
+    "description": "ระบบผู้ช่วยอัจฉริยะสำหรับการจัดการงานต่างๆ ของ ฝอ.1",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/jarvis-robot.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/jarvis-robot.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

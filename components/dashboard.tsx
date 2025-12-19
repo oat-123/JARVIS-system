@@ -238,7 +238,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
     return <Duty433 onBack={() => setActiveModuleWithSave(null)} onActivateModule={setActiveModuleWithSave} user={user} />
   }
   if (activeModule === "create-files") {
-    return <CreateFiles onBack={() => setActiveModuleWithSave(null)} />
+    return <CreateFiles onBack={() => setActiveModuleWithSave("duty-433")} />
   }
 
   if (showHistoryPage) {
@@ -607,21 +607,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
             </CardContent>
           </Card>
 
-          <Card
-            className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
-            onClick={() => setActiveModuleWithSave("create-files")}
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center space-x-2 text-white group-hover:text-cyan-400 transition-colors">
-                <Globe className="h-6 w-6" />
-                <span>คลังไฟล์</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-slate-400 text-sm mb-4">ค้นหาและสร้างลิงก์ดาวน์โหลดเอกสาร/รูปภาพ</p>
-              <Badge className="bg-cyan-600 text-white">ค้นหา-สร้าง</Badge>
-            </CardContent>
-          </Card>
+
 
           <Card
             className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"

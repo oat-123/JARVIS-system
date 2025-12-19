@@ -39,7 +39,7 @@ export function ReleaseReport({ onBack }: ReleaseReportProps) {
     fetchConfig()
   }, [])
 
-  const defaults = { 5: 67, 4: 101, 3: 94, 2: 85 }
+  const defaults: Record<number, number> = { 5: 67, 4: 101, 3: 94, 2: 85 }
   const categories = ["เวรเตรียมพร้อม", "กักบริเวณ", "อยู่โรงเรียน", "ราชการ", "โรงพยาบาล", "ลา", "อื่นๆ"]
 
   const [data, setData] = useState<Record<number, Record<string, number>>>({

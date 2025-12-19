@@ -14,9 +14,16 @@ async function appendToSheet({ username, password, timestamp }: { username: stri
   const spreadsheetId = await getSystemConfig("LOG_LOGIN_SPREADSHEET_ID", DEFAULT_LOG_ID);
   const sheets = await getSheetsService()
 
+  // Find the correct sheet name
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties.title",
+  });
+  const sheetName = meta.data.sheets?.[0]?.properties?.title || SHEET_NAME;
+
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${SHEET_NAME}!A:C`,
+    range: `'${sheetName}'!A:C`,
     valueInputOption: "USER_ENTERED",
     requestBody: {
       values: [[username, password, thTime]],

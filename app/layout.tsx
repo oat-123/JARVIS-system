@@ -21,6 +21,7 @@ export const metadata: Metadata = {
     shortcut: "/jarvis-favicon.png",
     apple: "/jarvis-favicon.png",
   },
+  manifest: "/manifest.json",
 }
 
 export default function RootLayout({

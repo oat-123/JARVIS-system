@@ -445,8 +445,17 @@ export async function getCombinedSheetData(spreadsheetId: string): Promise<any[]
   return combinedData;
 }
 
-// System configuration functions
+// Cache system configs for 5 minutes to avoid quota limits
+let systemConfigCache: Record<string, string> | null = null;
+let systemConfigTimestamp: number = 0;
+const CACHE_TTL = 300000; // 5 minutes
+
 export async function getSystemConfigs(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (systemConfigCache && (now - systemConfigTimestamp < CACHE_TTL)) {
+    return systemConfigCache;
+  }
+
   try {
     const sheets = await getSheetsService();
     const response = await sheets.spreadsheets.values.get({
@@ -462,10 +471,16 @@ export async function getSystemConfigs(): Promise<Record<string, string>> {
         if (key) configs[key] = value || "";
       }
     }
+
+    // Update cache
+    systemConfigCache = configs;
+    systemConfigTimestamp = now;
+
     return configs;
   } catch (error) {
     console.error("[config] Error fetching configs:", error);
-    return {};
+    // Return stale cache if available, otherwise empty
+    return systemConfigCache || {};
   }
 }
 
@@ -521,9 +536,17 @@ export async function logToSheet(action: string, username: string, details: stri
     const sheets = await getSheetsService();
     const timestamp = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
 
+    // Look up the correct sheet name (use the first sheet found)
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: LOG_SPREADSHEET_ID,
+      fields: "sheets.properties.title",
+    });
+
+    const sheetName = meta.data.sheets?.[0]?.properties?.title || 'Sheet1';
+
     await sheets.spreadsheets.values.append({
       spreadsheetId: LOG_SPREADSHEET_ID,
-      range: 'Sheet1!A:D',
+      range: `'${sheetName}'!A:D`,
       valueInputOption: "RAW",
       requestBody: {
         values: [[timestamp, username, action, details]]

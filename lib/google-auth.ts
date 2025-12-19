@@ -1,5 +1,6 @@
 import { GoogleAuth } from "google-auth-library";
 import { google } from "googleapis";
+import bcrypt from "bcryptjs";
 
 const ADMIN_SPREADSHEET_ID = "1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw";
 const CONFIG_SHEET_NAME = "config";
@@ -384,9 +385,25 @@ export async function authenticateUserFromSheet(username: string, password_provi
     for (let i = 1; i < rows.length; i++) {
       const [user, pass, db, role] = rows[i];
       if (user && user.toLowerCase() === username.toLowerCase()) {
-        if (pass === password_provided) {
+        // Try hashed password first
+        let isMatch = false;
+        try {
+          if (pass.startsWith('$2a$') || pass.startsWith('$2b$')) {
+            isMatch = await bcrypt.compare(password_provided, pass);
+          } else {
+            // Fallback for plain text (for transition)
+            isMatch = (pass === password_provided);
+            if (isMatch) {
+              console.warn(`[SECURITY] User '${username}' is using a plain text password. Please hash it for maximum security.`);
+            }
+          }
+        } catch (e) {
+          isMatch = (pass === password_provided);
+        }
+
+        if (isMatch) {
           console.log(`[auth] User '${username}' authenticated successfully with role '${role}' and db '${db}'.`);
-          return { username: user, role: role, db: db };
+          return { username: user, role: role ?? "", db: db ?? "" };
         }
       }
     }
@@ -497,3 +514,23 @@ export async function updateSystemConfig(key: string, value: string): Promise<bo
     return false;
   }
 }
+
+export async function logToSheet(action: string, username: string, details: string = "") {
+  try {
+    const LOG_SPREADSHEET_ID = await getSystemConfig("LOG_LOGIN_SPREADSHEET_ID", "1-NsKFnSosQUzSY3ReFjeoH2nZ2S-1UMDlT-SAWILMSw");
+    const sheets = await getSheetsService();
+    const timestamp = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: LOG_SPREADSHEET_ID,
+      range: 'Sheet1!A:D',
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [[timestamp, username, action, details]]
+      },
+    });
+  } catch (error) {
+    console.error("[log] Failed to log to sheet:", error);
+  }
+}
+

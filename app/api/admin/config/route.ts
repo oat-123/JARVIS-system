@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
-import { sessionOptions, SessionData } from "@/lib/session";
-import { getSystemConfigs, updateSystemConfig } from "@/lib/google-auth";
+import { getSystemConfigs, updateSystemConfig, logToSheet } from "@/lib/google-auth";
+import { getSessionAndValidate } from "@/lib/auth-utils";
 
 export async function GET() {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
-
-    const role = session.role?.toLowerCase() || "";
-    if (role !== "admin" && role !== "oat" && session.role !== "ผู้ดูแลระบบ") {
-        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    const { errorResponse } = await getSessionAndValidate(["admin", "oat", "ผู้ดูแลระบบ"]);
+    if (errorResponse) return errorResponse;
 
     try {
         const configs = await getSystemConfigs();
@@ -28,15 +21,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
-
-    const role = session.role?.toLowerCase() || "";
-    if (role !== "admin" && role !== "oat" && session.role !== "ผู้ดูแลระบบ") {
-        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    const { errorResponse } = await getSessionAndValidate(["admin", "oat", "ผู้ดูแลระบบ"]);
+    if (errorResponse) return errorResponse;
 
     try {
+        const { session } = await getSessionAndValidate();
         const { key, value } = await req.json();
         if (!key) {
             return NextResponse.json({ success: false, error: "Key is required" }, { status: 400 });
@@ -44,6 +33,7 @@ export async function POST(req: NextRequest) {
 
         const success = await updateSystemConfig(key, value);
         if (success) {
+            await logToSheet("CONFIG_UPDATE", session.username || "unknown", `Updated ${key} to ${value}`);
             return NextResponse.json({ success: true });
         } else {
             return NextResponse.json({ success: false, error: "Failed to update config" }, { status: 500 });

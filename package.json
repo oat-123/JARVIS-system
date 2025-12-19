@@ -72,6 +72,7 @@
     "@radix-ui/react-tooltip": "^1.0.7",
     "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "cmdk": "^0.2.0",
@@ -96,6 +97,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/node-fetch": "^2.6.13",
     "@types/react": "^18",

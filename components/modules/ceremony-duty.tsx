@@ -47,6 +47,8 @@ import * as XLSX from "xlsx"
 import type { BorderStyle } from "exceljs"
 import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
+import { CeremonyDutyManual } from "./ceremony-duty-manual"
+import { CeremonyDutyGrade } from "./ceremony-duty-grade"
 
 interface CeremonyDutyProps {
   onBack: () => void
@@ -95,8 +97,9 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
   const [statDomain, setStatDomain] = useState<[number, number]>([0, 10]);
   const [statMax, setStatMax] = useState(10);
   const [dutyName, setDutyName] = useState("");
-  const [requiredByYear, setRequiredByYear] = useState<{[key: string]: number}>({"1": 0, "2": 0, "3": 0, "4": 0, "5": 0});
+  const [requiredByYear, setRequiredByYear] = useState<{ [key: string]: number }>({ "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 });
   const [selectedAffiliations, setSelectedAffiliations] = useState<string[]>([]);
+  const [activeSubView, setActiveSubView] = useState<'main' | 'manual' | 'grade'>('main');
   const allAffiliations = useMemo(() => {
     if (!isAdmin) return [];
     const set = new Set<string>();
@@ -159,11 +162,11 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
     return Array.from(set).sort((a, b) => a.localeCompare(b, "th"))
   }, [allPersons])
 
-  
+
 
   const saveCurrentState = () => {
     if (!isStateLoaded) return
-    
+
     const state = {
       dutyName,
       requiredByYear,
@@ -325,7 +328,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
         const sheetsToProcess = checkAllSheets
           ? exclusionSheetNames[file.name] || []
           : selectedExclusionSheets[file.name] || []
-        
+
         console.log(`[CeremonyDuty] Processing file '${file.name}', sheets: ${sheetsToProcess.join(', ') || 'None'}`);
 
         for (const sheetName of sheetsToProcess) {
@@ -352,15 +355,15 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
 
   const handleClubChange = (club: string, checked: boolean) => {
     setExcludedClubs(prev => checked ? [...prev, club] : prev.filter(c => c !== club))
-    }
-  
+  }
+
   const handleSelectAllPositions = () => {
     setExcludedPositions(prev => prev.length === positions.length ? [] : [...positions])
   }
 
   const handleSelectAllClubs = () => {
     setExcludedClubs(prev => prev.length === clubs.length ? [] : [...clubs])
-    }
+  }
 
   const generateDutyAssignment = async () => {
     console.log("[CeremonyDuty] generateDutyAssignment started.");
@@ -372,62 +375,62 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
     setIsLoading(true);
 
     try {
-        const namesToExcludeArray = Array.from(namesToExclude);
-        const payload = {
-            allPersons,
-            requiredByYear,
-            namesToExclude: namesToExcludeArray,
-            statMax,
-            statDomain,
-            excludedPositions,
-            excludedClubs,
-        };
-        console.log("[CeremonyDuty] Calling /api/ceremony-duty/assign with payload:", payload);
+      const namesToExcludeArray = Array.from(namesToExclude);
+      const payload = {
+        allPersons,
+        requiredByYear,
+        namesToExclude: namesToExcludeArray,
+        statMax,
+        statDomain,
+        excludedPositions,
+        excludedClubs,
+      };
+      console.log("[CeremonyDuty] Calling /api/ceremony-duty/assign with payload:", payload);
 
-        const response = await fetch('/api/ceremony-duty/assign', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
+      const response = await fetch('/api/ceremony-duty/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-        const result = await response.json();
-        console.log("[CeremonyDuty] API response received:", result);
+      const result = await response.json();
+      console.log("[CeremonyDuty] API response received:", result);
 
-        if (response.ok && result.success) {
-            setSelectedPersons(result.selectedPersons);
-            console.log(`[CeremonyDuty] Successfully assigned ${result.selectedPersons.length} persons.`);
-            
-            if (result.message.includes("แต่จัดได้เพียง")) {
-                 toast({
-                    title: "ไม่สามารถหาคนได้ครบตามจำนวนที่ต้องการ",
-                    description: result.message,
-                    variant: "default",
-                });
-            } else {
-                toast({
-                    title: "จัดยอดสำเร็จ",
-                    description: `เลือกบุคลากร ${result.selectedPersons.length} คน สำหรับ ${dutyName}`,
-                });
-            }
+      if (response.ok && result.success) {
+        setSelectedPersons(result.selectedPersons);
+        console.log(`[CeremonyDuty] Successfully assigned ${result.selectedPersons.length} persons.`);
+
+        if (result.message.includes("แต่จัดได้เพียง")) {
+          toast({
+            title: "ไม่สามารถหาคนได้ครบตามจำนวนที่ต้องการ",
+            description: result.message,
+            variant: "default",
+          });
         } else {
-            console.error("[CeremonyDuty] API assignment failed:", result);
-            toast({
-                title: result.error || "เกิดข้อผิดพลาดในการจัดยอด",
-                description: result.description || "ไม่สามารถจัดยอดได้",
-                variant: "destructive",
-            });
+          toast({
+            title: "จัดยอดสำเร็จ",
+            description: `เลือกบุคลากร ${result.selectedPersons.length} คน สำหรับ ${dutyName}`,
+          });
         }
+      } else {
+        console.error("[CeremonyDuty] API assignment failed:", result);
+        toast({
+          title: result.error || "เกิดข้อผิดพลาดในการจัดยอด",
+          description: result.description || "ไม่สามารถจัดยอดได้",
+          variant: "destructive",
+        });
+      }
 
     } catch (error) {
-        console.error('[จัดยอด] Client-side ERROR:', error);
-        toast({
-            title: "เกิดข้อผิดพลาด",
-            description: "ไม่สามารถสื่อสารกับเซิร์ฟเวอร์ได้",
-            variant: "destructive",
-        });
+      console.error('[จัดยอด] Client-side ERROR:', error);
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถสื่อสารกับเซิร์ฟเวอร์ได้",
+        variant: "destructive",
+      });
     } finally {
-        setIsLoading(false);
-        console.log("[CeremonyDuty] generateDutyAssignment finished.");
+      setIsLoading(false);
+      console.log("[CeremonyDuty] generateDutyAssignment finished.");
     }
   }
 
@@ -454,7 +457,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
     console.log(`[CeremonyDuty] sendFileToGoogleSheets called for file: ${fileName}`);
     try {
       const APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
-      
+
       const payload = {
         action: 'addFile',
         fileName: fileName,
@@ -478,17 +481,17 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
 
       const result = await response.json();
       console.log("[CeremonyDuty] Google Apps Script response:", result);
-      
+
       if (result.success) {
         console.log("[CeremonyDuty] Successfully sent file to Google Sheets.");
         return { success: true, message: 'ส่งไฟล์ไปยัง Google Sheets สำเร็จ' };
       } else {
         throw new Error(result.error || 'Unknown error');
       }
-      
+
     } catch (error) {
       console.error('Failed to send file to Google Sheets:', error);
-      
+
       console.log('ข้อมูลที่จะส่ง:', {
         fileName,
         date: new Date().toLocaleDateString('th-TH'),
@@ -497,170 +500,170 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
         count: selectedPersons.length,
         fileDataLength: fileData.length
       });
-      
+
       return { success: false, message: 'ยังไม่ได้ตั้งค่า Google Apps Script - ดูข้อมูลใน Console' };
     }
   }
 
   const exportToExcelXlsx = async () => {
-  console.log("[CeremonyDuty] exportToExcelXlsx started.");
-  if (selectedPersons.length === 0) {
-    console.warn("[CeremonyDuty] No selected persons to export.");
-    toast({ title: "ไม่มีข้อมูลให้ส่งออก", variant: "destructive" });
-    return;
-  }
-  console.log(`[CeremonyDuty] Exporting ${selectedPersons.length} persons to Excel.`);
+    console.log("[CeremonyDuty] exportToExcelXlsx started.");
+    if (selectedPersons.length === 0) {
+      console.warn("[CeremonyDuty] No selected persons to export.");
+      toast({ title: "ไม่มีข้อมูลให้ส่งออก", variant: "destructive" });
+      return;
+    }
+    console.log(`[CeremonyDuty] Exporting ${selectedPersons.length} persons to Excel.`);
 
-  const workbook = new ExcelJS.Workbook();
-  const ws = workbook.addWorksheet("ยอดพิธี");
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("ยอดพิธี");
 
-  const mainFont = { name: "TH Sarabun New", size: 14 };
+    const mainFont = { name: "TH Sarabun New", size: 14 };
 
-  const thin: { style: BorderStyle } = { style: 'thin' };
+    const thin: { style: BorderStyle } = { style: 'thin' };
 
-  ws.mergeCells("A1:J1");
-  ws.getCell("A1").value = dutyName;
-  ws.getCell("A1").font = mainFont;
-  ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
-  ws.getCell("A1").border = {
-    top: thin,
-    left: thin,
-    right: thin,
-    bottom: thin,
-  };
-
-  ws.mergeCells("A2:J2");
-  ws.getCell("A2").value = "";
-  ws.getCell("A2").border = {
-    top: thin,
-    left: thin,
-    right: thin,
-    bottom: thin,
-  };
-
-  ws.mergeCells("B3:D3");
-  ws.getCell("B3").value = "ยศ ชื่อ-สกุล";
-  ws.getCell("B3").font = mainFont;
-  ws.getCell("B3").alignment = { horizontal: "center", vertical: "middle" };
-  ws.getCell("A3").value = "ลำดับ";
-  ws.getCell("A3").font = mainFont;
-  ws.getCell("A3").alignment = { horizontal: "center", vertical: "middle" };
-  ws.getCell("E3").value = "ชั้นปีที่";
-  ws.getCell("E3").font = mainFont;
-  ws.getCell("E3").alignment = { horizontal: "center", vertical: "middle" };
-  ws.getCell("F3").value = "ตอน";
-  ws.getCell("F3").font = mainFont;
-  ws.getCell("F3").alignment = { horizontal: "center", vertical: "middle" };
-  ws.getCell("G3").value = "ตำแหน่ง";
-  ws.getCell("G3").font = mainFont;
-  ws.getCell("G3").alignment = { horizontal: "center", vertical: "middle" };
-  ws.getCell("H3").value = "สังกัด";
-  ws.getCell("H3").font = mainFont;
-  ws.getCell("H3").alignment = { horizontal: "center", vertical: "middle" };
-  ws.getCell("I3").value = "เบอร์โทรศัพท์";
-  ws.getCell("I3").font = mainFont;
-  ws.getCell("I3").alignment = { horizontal: "center", vertical: "middle" };
-  ws.getCell("J3").value = "หมายเหตุ";
-  ws.getCell("J3").font = mainFont;
-  ws.getCell("J3").alignment = { horizontal: "center", vertical: "middle" };
-
-  for (let col = 1; col <= 10; col++) {
-    const cell = ws.getCell(3, col);
-    cell.border = {
+    ws.mergeCells("A1:J1");
+    ws.getCell("A1").value = dutyName;
+    ws.getCell("A1").font = mainFont;
+    ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+    ws.getCell("A1").border = {
       top: thin,
       left: thin,
       right: thin,
       bottom: thin,
     };
-  }
 
-  selectedPersons.forEach((person, idx) => {
-    const rowIdx = idx + 4;
-    ws.getCell(`A${rowIdx}`).value = toThaiNumber(idx + 1);
-    ws.getCell(`A${rowIdx}`).font = mainFont;
-    ws.getCell(`A${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell(`B${rowIdx}`).value = person.ยศ;
-    ws.getCell(`B${rowIdx}`).font = mainFont;
-    ws.getCell(`B${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell(`C${rowIdx}`).value = person.ชื่อ;
-    ws.getCell(`C${rowIdx}`).font = mainFont;
-    ws.getCell(`C${rowIdx}`).alignment = { horizontal: "left", vertical: "middle" };
-    ws.getCell(`D${rowIdx}`).value = person.สกุล;
-    ws.getCell(`D${rowIdx}`).font = mainFont;
-    ws.getCell(`D${rowIdx}`).alignment = { horizontal: "left", vertical: "middle" };
-    ws.getCell(`E${rowIdx}`).value = person.ชั้นปีที่;
-    ws.getCell(`E${rowIdx}`).font = mainFont;
-    ws.getCell(`E${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell(`F${rowIdx}`).value = person.ตอน;
-    ws.getCell(`F${rowIdx}`).font = mainFont;
-    ws.getCell(`F${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell(`G${rowIdx}`).value = person.ตำแหน่ง;
-    ws.getCell(`G${rowIdx}`).font = mainFont;
-    ws.getCell(`G${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell(`H${rowIdx}`).value = person.สังกัด;
-    ws.getCell(`H${rowIdx}`).font = mainFont;
-    ws.getCell(`H${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell(`I${rowIdx}`).value = person.เบอร์โทรศัพท์;
-    ws.getCell(`I${rowIdx}`).font = mainFont;
-    ws.getCell(`I${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    ws.getCell(`J${rowIdx}`).value = "";
-    ws.getCell(`J${rowIdx}`).font = mainFont;
-    ws.getCell(`J${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
-    
+    ws.mergeCells("A2:J2");
+    ws.getCell("A2").value = "";
+    ws.getCell("A2").border = {
+      top: thin,
+      left: thin,
+      right: thin,
+      bottom: thin,
+    };
+
+    ws.mergeCells("B3:D3");
+    ws.getCell("B3").value = "ยศ ชื่อ-สกุล";
+    ws.getCell("B3").font = mainFont;
+    ws.getCell("B3").alignment = { horizontal: "center", vertical: "middle" };
+    ws.getCell("A3").value = "ลำดับ";
+    ws.getCell("A3").font = mainFont;
+    ws.getCell("A3").alignment = { horizontal: "center", vertical: "middle" };
+    ws.getCell("E3").value = "ชั้นปีที่";
+    ws.getCell("E3").font = mainFont;
+    ws.getCell("E3").alignment = { horizontal: "center", vertical: "middle" };
+    ws.getCell("F3").value = "ตอน";
+    ws.getCell("F3").font = mainFont;
+    ws.getCell("F3").alignment = { horizontal: "center", vertical: "middle" };
+    ws.getCell("G3").value = "ตำแหน่ง";
+    ws.getCell("G3").font = mainFont;
+    ws.getCell("G3").alignment = { horizontal: "center", vertical: "middle" };
+    ws.getCell("H3").value = "สังกัด";
+    ws.getCell("H3").font = mainFont;
+    ws.getCell("H3").alignment = { horizontal: "center", vertical: "middle" };
+    ws.getCell("I3").value = "เบอร์โทรศัพท์";
+    ws.getCell("I3").font = mainFont;
+    ws.getCell("I3").alignment = { horizontal: "center", vertical: "middle" };
+    ws.getCell("J3").value = "หมายเหตุ";
+    ws.getCell("J3").font = mainFont;
+    ws.getCell("J3").alignment = { horizontal: "center", vertical: "middle" };
+
     for (let col = 1; col <= 10; col++) {
-      ws.getCell(rowIdx, col).border = {
+      const cell = ws.getCell(3, col);
+      cell.border = {
         top: thin,
         left: thin,
         right: thin,
         bottom: thin,
       };
     }
-  });
 
-  ws.getColumn(1).width = 6;
-  ws.getColumn(2).width = 5;
-  ws.getColumn(3).width = 15;
-  ws.getColumn(4).width = 15;
-  ws.getColumn(5).width = 8;
-  ws.getColumn(6).width = 8;
-  ws.getColumn(7).width = 20;
-  ws.getColumn(8).width = 15;
-  ws.getColumn(9).width = 15;
-  ws.getColumn(10).width = 15;
+    selectedPersons.forEach((person, idx) => {
+      const rowIdx = idx + 4;
+      ws.getCell(`A${rowIdx}`).value = toThaiNumber(idx + 1);
+      ws.getCell(`A${rowIdx}`).font = mainFont;
+      ws.getCell(`A${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+      ws.getCell(`B${rowIdx}`).value = person.ยศ;
+      ws.getCell(`B${rowIdx}`).font = mainFont;
+      ws.getCell(`B${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+      ws.getCell(`C${rowIdx}`).value = person.ชื่อ;
+      ws.getCell(`C${rowIdx}`).font = mainFont;
+      ws.getCell(`C${rowIdx}`).alignment = { horizontal: "left", vertical: "middle" };
+      ws.getCell(`D${rowIdx}`).value = person.สกุล;
+      ws.getCell(`D${rowIdx}`).font = mainFont;
+      ws.getCell(`D${rowIdx}`).alignment = { horizontal: "left", vertical: "middle" };
+      ws.getCell(`E${rowIdx}`).value = person.ชั้นปีที่;
+      ws.getCell(`E${rowIdx}`).font = mainFont;
+      ws.getCell(`E${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+      ws.getCell(`F${rowIdx}`).value = person.ตอน;
+      ws.getCell(`F${rowIdx}`).font = mainFont;
+      ws.getCell(`F${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+      ws.getCell(`G${rowIdx}`).value = person.ตำแหน่ง;
+      ws.getCell(`G${rowIdx}`).font = mainFont;
+      ws.getCell(`G${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+      ws.getCell(`H${rowIdx}`).value = person.สังกัด;
+      ws.getCell(`H${rowIdx}`).font = mainFont;
+      ws.getCell(`H${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+      ws.getCell(`I${rowIdx}`).value = person.เบอร์โทรศัพท์;
+      ws.getCell(`I${rowIdx}`).font = mainFont;
+      ws.getCell(`I${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
+      ws.getCell(`J${rowIdx}`).value = "";
+      ws.getCell(`J${rowIdx}`).font = mainFont;
+      ws.getCell(`J${rowIdx}`).alignment = { horizontal: "center", vertical: "middle" };
 
-  const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  
-  const uint8Array = new Uint8Array(buffer);
-  let binaryString = '';
-  for (let i = 0; i < uint8Array.length; i++) {
-    binaryString += String.fromCharCode(uint8Array[i]);
-  }
-  const base64String = btoa(binaryString);
-  const dataUrl = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`;
-  
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `${dutyName}.xlsx`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+      for (let col = 1; col <= 10; col++) {
+        ws.getCell(rowIdx, col).border = {
+          top: thin,
+          left: thin,
+          right: thin,
+          bottom: thin,
+        };
+      }
+    });
 
-  if (saveToHistory) {
-    console.log("[CeremonyDuty] Saving export to history and sending to Google Sheets.");
-    const result = await sendFileToGoogleSheets(`${dutyName}.xlsx`, dataUrl);
-    if (result.success) {
-      toast({ title: "ส่งไฟล์สำเร็จ", description: result.message });
-    } else {
-      toast({ title: "เกิดข้อผิดพลาด", description: result.message, variant: "destructive" });
+    ws.getColumn(1).width = 6;
+    ws.getColumn(2).width = 5;
+    ws.getColumn(3).width = 15;
+    ws.getColumn(4).width = 15;
+    ws.getColumn(5).width = 8;
+    ws.getColumn(6).width = 8;
+    ws.getColumn(7).width = 20;
+    ws.getColumn(8).width = 15;
+    ws.getColumn(9).width = 15;
+    ws.getColumn(10).width = 15;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+
+    const uint8Array = new Uint8Array(buffer);
+    let binaryString = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binaryString += String.fromCharCode(uint8Array[i]);
     }
-    
-    saveExportHistory('excel', `${dutyName}.xlsx`, dataUrl);
-  }
+    const base64String = btoa(binaryString);
+    const dataUrl = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`;
 
-  toast({ title: "ส่งออกไฟล์ .xlsx สำเร็จ", description: `ไฟล์ ${dutyName}.xlsx ถูกดาวน์โหลดแล้ว` });
-  console.log("[CeremonyDuty] exportToExcelXlsx finished.");
-};
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${dutyName}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    if (saveToHistory) {
+      console.log("[CeremonyDuty] Saving export to history and sending to Google Sheets.");
+      const result = await sendFileToGoogleSheets(`${dutyName}.xlsx`, dataUrl);
+      if (result.success) {
+        toast({ title: "ส่งไฟล์สำเร็จ", description: result.message });
+      } else {
+        toast({ title: "เกิดข้อผิดพลาด", description: result.message, variant: "destructive" });
+      }
+
+      saveExportHistory('excel', `${dutyName}.xlsx`, dataUrl);
+    }
+
+    toast({ title: "ส่งออกไฟล์ .xlsx สำเร็จ", description: `ไฟล์ ${dutyName}.xlsx ถูกดาวน์โหลดแล้ว` });
+    console.log("[CeremonyDuty] exportToExcelXlsx finished.");
+  };
 
   const createReport = async () => {
     console.log("[CeremonyDuty] createReport started.");
@@ -716,7 +719,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
       } else {
         toast({ title: "เกิดข้อผิดพลาด", description: result.message, variant: "destructive" });
       }
-      
+
       saveExportHistory('report', `รายงาน_${dutyName}.txt`, textContent);
     }
 
@@ -757,6 +760,14 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
     }
   }
 
+  if (activeSubView === 'manual') {
+    return <CeremonyDutyManual passedSheetName={sheetName} onBack={() => setActiveSubView('main')} />
+  }
+
+  if (activeSubView === 'grade') {
+    return <CeremonyDutyGrade onBack={() => setActiveSubView('main')} />
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
@@ -770,7 +781,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
               <X className="h-4 w-4 mr-2" />
               ล้างข้อมูล
             </Button>
-            </div>
+          </div>
           <div className="text-center order-first sm:order-none">
             <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent flex items-center justify-center gap-2">
               <Award className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400" />
@@ -782,14 +793,14 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
             <Button
               variant="outline"
               className="bg-yellow-500/90 text-white hover:bg-yellow-600"
-              onClick={() => router.push(`/ceremony-duty/manual?sheetName=${encodeURIComponent(sheetName)}`)}
+              onClick={() => setActiveSubView('manual')}
             >
               จัดยอดด้วยตัวเอง
             </Button>
             <Button
               variant="outline"
               className="bg-purple-500/90 text-white hover:bg-purple-600"
-              onClick={() => router.push(`/ceremony-duty/grade?sheetName=${encodeURIComponent(sheetName)}`)}
+              onClick={() => setActiveSubView('grade')}
             >
               จัดยอดตามเกรด
             </Button>
@@ -798,7 +809,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
               รีเฟรชข้อมูล
             </Button>
           </div>
-  </div>
+        </div>
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
@@ -807,7 +818,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
                 {connectionStatus === "connected" ? "เชื่อมต่อแล้ว" : connectionStatus === "error" ? "เชื่อมต่อล้มเหลว" : "กำลังเชื่อมต่อ"}
               </Badge>
               <span className="text-slate-300 text-xs sm:text-sm">
-          ฐานข้อมูล: {sheetName === 'Admin' ? 'รวม' : sheetName}
+                ฐานข้อมูล: {sheetName === 'Admin' ? 'รวม' : sheetName}
                 {' | '}ข้อมูลทั้งหมด: {allPersons.length} คน
               </span>
               {lastUpdated && (
@@ -851,7 +862,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
                 <CardContent className="space-y-4">
                   <div>
                     <Label htmlFor="duty-name" className="text-white font-medium text-sm sm:text-base">ชื่อยอด</Label>
-                    <Input id="duty-name" value={dutyName} onChange={(e) => setDutyName(e.target.value)} placeholder="กรอกชื่อยอด" className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 text-sm sm:text-base"/>
+                    <Input id="duty-name" value={dutyName} onChange={(e) => setDutyName(e.target.value)} placeholder="กรอกชื่อยอด" className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 text-sm sm:text-base" />
                   </div>
                 </CardContent>
               </Card>
@@ -882,42 +893,42 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
                   ))}
                 </CardContent>
               </Card>
-      {isAdmin && (
-  <Card className="mb-4 bg-slate-800/50 border-slate-700 shadow-xl">
-          <CardHeader className="pb-2 flex flex-row items-center gap-4">
-            <span className="font-medium text-white text-sm">กรองสังกัด:</span>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-blue-200 hover:text-white"
-              onClick={() => setSelectedAffiliations(allAffiliations)}
-            >เลือกทั้งหมด</Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-red-200 hover:text-white"
-              onClick={() => setSelectedAffiliations([])}
-            >ล้างทั้งหมด</Button>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {allAffiliations.map(aff => (
-              <label key={aff} className="flex items-center gap-1 cursor-pointer bg-blue-800/60 rounded px-2 py-1 text-white border border-blue-700 hover:bg-blue-700 transition">
-                <Checkbox
-                  id={`affiliation-${aff}`}
-                  checked={selectedAffiliations.includes(aff)}
-                  onCheckedChange={checked => {
-                    setSelectedAffiliations(prev =>
-                      checked ? [...prev, aff] : prev.filter(a => a !== aff)
-                    );
-                  }}
-                  className="border-slate-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                />
-                <span className="text-xs sm:text-sm truncate max-w-[80px]">{aff}</span>
-              </label>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+              {isAdmin && (
+                <Card className="mb-4 bg-slate-800/50 border-slate-700 shadow-xl">
+                  <CardHeader className="pb-2 flex flex-row items-center gap-4">
+                    <span className="font-medium text-white text-sm">กรองสังกัด:</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-blue-200 hover:text-white"
+                      onClick={() => setSelectedAffiliations(allAffiliations)}
+                    >เลือกทั้งหมด</Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-200 hover:text-white"
+                      onClick={() => setSelectedAffiliations([])}
+                    >ล้างทั้งหมด</Button>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-2">
+                    {allAffiliations.map(aff => (
+                      <label key={aff} className="flex items-center gap-1 cursor-pointer bg-blue-800/60 rounded px-2 py-1 text-white border border-blue-700 hover:bg-blue-700 transition">
+                        <Checkbox
+                          id={`affiliation-${aff}`}
+                          checked={selectedAffiliations.includes(aff)}
+                          onCheckedChange={checked => {
+                            setSelectedAffiliations(prev =>
+                              checked ? [...prev, aff] : prev.filter(a => a !== aff)
+                            );
+                          }}
+                          className="border-slate-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                        />
+                        <span className="text-xs sm:text-sm truncate max-w-[80px]">{aff}</span>
+                      </label>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
               <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                 <CardHeader>
@@ -932,7 +943,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                     {positions.map((position) => (
                       <div key={position} className="flex items-center space-x-2">
-                        <Checkbox id={`position-${position}`} checked={excludedPositions.includes(position)} onCheckedChange={(checked) => handlePositionChange(position, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"/>
+                        <Checkbox id={`position-${position}`} checked={excludedPositions.includes(position)} onCheckedChange={(checked) => handlePositionChange(position, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" />
                         <Label htmlFor={`position-${position}`} className="text-white text-xs sm:text-sm cursor-pointer">{position}</Label>
                       </div>
                     ))}
@@ -956,7 +967,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                     {clubs.map((club) => (
                       <div key={club} className="flex items-center space-x-2">
-                        <Checkbox id={`club-${club}`} checked={excludedClubs.includes(club)} onCheckedChange={(checked) => handleClubChange(club, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"/>
+                        <Checkbox id={`club-${club}`} checked={excludedClubs.includes(club)} onCheckedChange={(checked) => handleClubChange(club, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500" />
                         <Label htmlFor={`club-${club}`} className="text-white text-xs sm:text-sm cursor-pointer">{club}</Label>
                       </div>
                     ))}
@@ -995,7 +1006,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
             <div className="lg:col-span-2 space-y-4 sm:space-y-6">
               <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
                 <CardContent className="p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center">
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center">
                     <Button onClick={generateDutyAssignment} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto" disabled={!dutyName.trim() || isLoading || connectionStatus !== "connected"}>
                       {isLoading ? (<><Shuffle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />กำลังจัดยอด...</>) : (<><Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />จัดยอดและสร้างรายชื่อ</>)}
                     </Button>
@@ -1012,7 +1023,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
                           <input id="save-to-history" type="checkbox" checked={saveToHistory} onChange={e => setSaveToHistory(e.target.checked)} className="accent-blue-500 w-4 h-4" />
                           <label htmlFor="save-to-history" className="text-xs text-slate-300 cursor-pointer select-none">บันทึกไฟล์นี้ไว้ในประวัติยอด (แสดงใน Dashboard)</label>
                         </div>
-                      </> 
+                      </>
                     )}
                   </div>
                 </CardContent>

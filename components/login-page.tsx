@@ -27,9 +27,10 @@ import Link from "next/link"
 
 interface LoginPageProps {
   onLogin: (username: string, password: string, rememberMe?: boolean) => Promise<boolean>
+  onRegisterClick?: () => void
 }
 
-export function LoginPage({ onLogin }: LoginPageProps) {
+export function LoginPage({ onLogin, onRegisterClick }: LoginPageProps) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
@@ -149,9 +150,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                     จดจำการเข้าระบบ
                   </Label>
                 </div>
-                <Link href="/register" className="text-sm text-white/80 hover:text-white transition-colors drop-shadow-sm">
+                <button
+                  type="button"
+                  onClick={onRegisterClick}
+                  className="text-sm text-white/80 hover:text-white transition-colors drop-shadow-sm bg-transparent border-none p-0 cursor-pointer"
+                >
                   ลืมรหัสผ่าน?
-                </Link>
+                </button>
               </div>
 
               {error && (
@@ -177,9 +182,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
               <div className="text-center text-sm text-white/80 drop-shadow-sm">
                 {"ยังไม่มีบัญชี? "}
-                <Link href="/register" className="text-white hover:text-white/80 font-medium transition-colors">
-                  สมัครสมาชิก
-                </Link>
+                <button
+                  type="button"
+                  onClick={onRegisterClick}
+                  className="text-white hover:text-white/80 font-medium transition-colors bg-transparent border-none p-0 cursor-pointer"
+                >
+                  ติดต่อสมัครสมาชิก
+                </button>
               </div>
             </form>
           </div>

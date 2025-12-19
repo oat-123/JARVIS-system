@@ -208,7 +208,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
       const personFolderName = buildFolderName(person.first, person.last)
       const personName = personFolderName
 
-      const docPromise = fetch('/api/drive-link', {
+      const wordPromise = fetch('/api/drive-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -226,7 +226,7 @@ export function CreateFiles({ onBack }: { onBack: () => void }) {
         })
       }).then(r => r.json())
 
-      const [docRes, imgRes] = await Promise.allSettled([docPromise, imgPromise])
+      const [docRes, imgRes] = await Promise.allSettled([wordPromise, imgPromise])
       clearInterval(timer)
       setTimerMap(t => { const { [idx]: _, ...rest } = t; return rest })
       const stagedTimers = stagedTimerMap[idx] || []

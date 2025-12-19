@@ -38,6 +38,7 @@ import { Statistics } from "./modules/statistics"
 import { Duty433 } from "./modules/duty-433"
 import { ExcelManager } from "./modules/excel-manager"
 import { SystemSettings } from "./modules/system-settings"
+import { CreateFiles } from "./modules/create-files"
 
 
 interface DashboardProps {
@@ -234,7 +235,10 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
     return <Statistics onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
   }
   if (activeModule === "duty-433") {
-    return <Duty433 onBack={() => setActiveModuleWithSave(null)} user={user} />
+    return <Duty433 onBack={() => setActiveModuleWithSave(null)} onActivateModule={setActiveModuleWithSave} user={user} />
+  }
+  if (activeModule === "create-files") {
+    return <CreateFiles onBack={() => setActiveModuleWithSave(null)} />
   }
 
   if (showHistoryPage) {
@@ -600,6 +604,22 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
             <CardContent>
               <p className="text-slate-400 text-sm mb-4">สุ่มเลือกนนร.สำหรับงานพิธีต่างๆ</p>
               <Badge className="bg-yellow-600 text-white">จัดยอด(สุ่ม)</Badge>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group backdrop-blur-sm"
+            onClick={() => setActiveModuleWithSave("create-files")}
+          >
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center space-x-2 text-white group-hover:text-cyan-400 transition-colors">
+                <Globe className="h-6 w-6" />
+                <span>คลังไฟล์</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-slate-400 text-sm mb-4">ค้นหาและสร้างลิงก์ดาวน์โหลดเอกสาร/รูปภาพ</p>
+              <Badge className="bg-cyan-600 text-white">ค้นหา-สร้าง</Badge>
             </CardContent>
           </Card>
 

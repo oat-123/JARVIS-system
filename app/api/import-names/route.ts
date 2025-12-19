@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getSheetsService } from '@/lib/google-auth'
+import { getSessionAndValidate } from '@/lib/auth-utils'
 
 // POST { date, sheetName }
 export async function POST(req: Request) {
+  const { errorResponse } = await getSessionAndValidate();
+  if (errorResponse) return errorResponse;
+
   console.log('--- IMPORT NAMES API START ---');
   try {
     const { sheetName } = await req.json();
@@ -32,7 +36,7 @@ export async function POST(req: Request) {
     }
 
     console.log(`Found ${rows.length} rows in sheet.`);
-    
+
     const names: any[] = []
     const header = rows[1] || [] // Header is now on the 2nd row (index 1)
     console.log('Sheet Header (Row 2):', header);
@@ -47,22 +51,22 @@ export async function POST(req: Request) {
       }
       for (let i = 0; i < header.length; i++) {
         const h = (header[i] || '').toString().trim().toLowerCase()
-        for (const c of candidates) if (h.includes(c.replace(/\s+/g,'').toLowerCase())) return i
+        for (const c of candidates) if (h.includes(c.replace(/\s+/g, '').toLowerCase())) return i
       }
       return -1
     }
 
-    let idxTitle = findIdx(['ยศ','title'])
+    let idxTitle = findIdx(['ยศ', 'title'])
     let idxFirst = findIdx(['ชื่อ'])
     let idxLast = findIdx(['สกุล'])
-    let idxPos = findIdx(['ตำแหน่ง ทกท.','ตำแหน่ง','position'])
-    let idxPartner = findIdx(['คู่พี่นายทหาร','คู่พี่นาย','คู่พี่','partner'])
-    let idxShift = findIdx(['ผลัด','ผัด','shift'])
-    let idxNote = findIdx(['หมายเหตุ','note'])
+    let idxPos = findIdx(['ตำแหน่ง ทกท.', 'ตำแหน่ง', 'position'])
+    let idxPartner = findIdx(['คู่พี่นายทหาร', 'คู่พี่นาย', 'คู่พี่', 'partner'])
+    let idxShift = findIdx(['ผลัด', 'ผัด', 'shift'])
+    let idxNote = findIdx(['หมายเหตุ', 'note'])
 
     console.log('Column Indexes:', { idxTitle, idxFirst, idxLast, idxPos, idxPartner, idxShift, idxNote });
 
-    const norm = (s:string) => s.toString().normalize('NFKD').replace(/\s+/g, '').toLowerCase()
+    const norm = (s: string) => s.toString().normalize('NFKD').replace(/\s+/g, '').toLowerCase()
     // Start from row 3 (index 2) to skip header
     for (let i = 2; i < rows.length; i++) {
       const r = rows[i]

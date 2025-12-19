@@ -179,7 +179,7 @@ interface CeremonyDutyGradeState extends ModuleState {
 
 const MODULE_NAME = 'ceremony-duty-grade';
 
-function CeremonyDutyGradeInternal() {
+function CeremonyDutyGradeInternal({ onBack }: { onBack?: () => void }) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -1006,7 +1006,7 @@ function CeremonyDutyGradeInternal() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="flex gap-2">
-            <Button onClick={() => router.back()} variant="outline" className="text-white border-white/30 hover:bg-white/10 hover:text-white bg-transparent backdrop-blur-sm">
+            <Button onClick={() => onBack ? onBack() : router.back()} variant="outline" className="text-white border-white/30 hover:bg-white/10 hover:text-white bg-transparent backdrop-blur-sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               กลับ
             </Button>
@@ -1505,7 +1505,7 @@ function CeremonyDutyGradeInternal() {
   );
 }
 
-export function CeremonyDutyGrade() {
+export function CeremonyDutyGrade({ onBack }: { onBack?: () => void }) {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6 flex items-center justify-center">
@@ -1515,7 +1515,7 @@ export function CeremonyDutyGrade() {
         </div>
       </div>
     }>
-      <CeremonyDutyGradeInternal />
+      <CeremonyDutyGradeInternal onBack={onBack} />
     </Suspense>
   )
 }

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { sessionOptions, SessionData } from "@/lib/session";
-import { authenticateUserFromSheet } from "@/lib/google-auth";
+import { authenticateUserFromSheet, logToSheet } from "@/lib/google-auth";
 
 export async function POST(req: NextRequest) {
   const { username, password, rememberMe } = await req.json();
@@ -34,9 +34,11 @@ export async function POST(req: NextRequest) {
       session.role = user.role;
       session.db = user.db;
       await session.save();
+      await logToSheet("LOGIN_SUCCESS", username, `Role: ${user.role}`);
       return NextResponse.json({ success: true, user: { username: user.username, role: user.role, db: user.db } });
     } else {
       console.log(`[API/auth/login] FAILED: Invalid credentials for user: '${username}'`);
+      await logToSheet("LOGIN_FAILED", username, "Invalid credentials");
       return NextResponse.json({ success: false, error: "Invalid username or password" }, { status: 401 });
     }
   } catch (error) {

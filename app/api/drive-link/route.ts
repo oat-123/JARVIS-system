@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { findFolderByName, findFileByName, getDownloadLink, getDriveService, getSystemConfig } from '@/lib/google-auth';
+import { getSessionAndValidate } from '@/lib/auth-utils';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
+  const { errorResponse } = await getSessionAndValidate();
+  if (errorResponse) return errorResponse;
+
   try {
     const { personName, folderName, rootFolderId } = await req.json();
 

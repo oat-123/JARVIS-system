@@ -30,6 +30,7 @@ interface PersonData {
 
 interface Duty433Props {
   onBack: () => void;
+  onActivateModule?: (module: string) => void;
   user: {
     displayName: string;
     role: string;
@@ -43,7 +44,7 @@ function Pie({ data, onSliceClick, selectedLabel }: { data: { label: string; val
   const total = data.reduce((s, d) => s + d.value, 0)
   let acc = 0
   return (
-  <svg viewBox="0 0 32 32" className="w-36 h-36" role="img" aria-label="pie chart">
+    <svg viewBox="0 0 32 32" className="w-36 h-36" role="img" aria-label="pie chart">
       {data.map((d, i) => {
         const value = d.value
         const start = (acc / total) * Math.PI * 2
@@ -80,7 +81,7 @@ function Pie({ data, onSliceClick, selectedLabel }: { data: { label: string; val
   )
 }
 
-export function Duty433({ onBack, user }: Duty433Props) {
+export function Duty433({ onBack, onActivateModule, user }: Duty433Props) {
   const { toast } = useToast()
   const [people, setPeople] = useState<PersonData[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -131,70 +132,70 @@ export function Duty433({ onBack, user }: Duty433Props) {
     // Only fetch when in dashboard view
     if (view !== "dashboard") return
     setIsLoading(true)
-    ;(async () => {
-      try {
-        // cache key
-        const cacheKey = 'duty433_cache_v1'
-        const ttl = 1000 * 60 * 5 // 5 minutes
-        const cachedRaw = typeof window !== 'undefined' ? window.localStorage.getItem(cacheKey) : null
-        if (cachedRaw) {
-          try {
-            const parsed = JSON.parse(cachedRaw)
-            if (parsed && parsed.ts && (Date.now() - parsed.ts) < ttl && parsed.aggData) {
-              // use cache
-              setAggData(parsed.aggData)
-              setPeople(normalizePeopleArray(parsed.aggData.people || []))
-              setIsLoading(false)
-              return
+      ; (async () => {
+        try {
+          // cache key
+          const cacheKey = 'duty433_cache_v1'
+          const ttl = 1000 * 60 * 5 // 5 minutes
+          const cachedRaw = typeof window !== 'undefined' ? window.localStorage.getItem(cacheKey) : null
+          if (cachedRaw) {
+            try {
+              const parsed = JSON.parse(cachedRaw)
+              if (parsed && parsed.ts && (Date.now() - parsed.ts) < ttl && parsed.aggData) {
+                // use cache
+                setAggData(parsed.aggData)
+                setPeople(normalizePeopleArray(parsed.aggData.people || []))
+                setIsLoading(false)
+                return
+              }
+            } catch (e) {
+              // fallthrough to fetch
             }
-          } catch (e) {
-            // fallthrough to fetch
           }
-        }
 
-        const res = await fetch(`/api/sheets/433`)
-        const text = await res.text();
-        console.log("Raw response text:", text);
-        const json = JSON.parse(text);
-        if (json.success && json.data) {
-          const normalizedPeople = normalizePeopleArray(json.data.people || [])
-          const toStore = { ...json.data, people: normalizedPeople }
-          setPeople(normalizedPeople)
-          setAggData(toStore)
-          
-          // แสดง log ข้อมูลที่ได้รับจาก API
-          console.log('📊 Duty 433 - ข้อมูลที่ได้รับจาก API:', {
-            timestamp: new Date().toISOString(),
-            metadata: json.data.metadata,
-            totals: json.data.totals,
-            peopleCount: normalizedPeople.length,
-            samplePerson: normalizedPeople[0] || null,
-            detectedColumns: {
-              '433_columns': json.data.metadata?.detected_433_columns || [],
-              'admin_columns': json.data.metadata?.detected_admin_columns || [],
-              'total_433': json.data.metadata?.total_433_columns || 0,
-              'total_admin': json.data.metadata?.total_admin_columns || 0,
+          const res = await fetch(`/api/sheets/433`)
+          const text = await res.text();
+          console.log("Raw response text:", text);
+          const json = JSON.parse(text);
+          if (json.success && json.data) {
+            const normalizedPeople = normalizePeopleArray(json.data.people || [])
+            const toStore = { ...json.data, people: normalizedPeople }
+            setPeople(normalizedPeople)
+            setAggData(toStore)
+
+            // แสดง log ข้อมูลที่ได้รับจาก API
+            console.log('📊 Duty 433 - ข้อมูลที่ได้รับจาก API:', {
+              timestamp: new Date().toISOString(),
+              metadata: json.data.metadata,
+              totals: json.data.totals,
+              peopleCount: normalizedPeople.length,
+              samplePerson: normalizedPeople[0] || null,
+              detectedColumns: {
+                '433_columns': json.data.metadata?.detected_433_columns || [],
+                'admin_columns': json.data.metadata?.detected_admin_columns || [],
+                'total_433': json.data.metadata?.total_433_columns || 0,
+                'total_admin': json.data.metadata?.total_admin_columns || 0,
+              }
+            })
+
+            try {
+              if (typeof window !== 'undefined') {
+                window.localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), aggData: toStore }))
+              }
+            } catch (e) {
+              // ignore storage errors
             }
-          })
-          
-          try {
-            if (typeof window !== 'undefined') {
-              window.localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), aggData: toStore }))
-            }
-          } catch (e) {
-            // ignore storage errors
+          } else {
+            setPeople([])
+            console.error('❌ Failed to fetch data from API:', json)
           }
-        } else {
+        } catch (e) {
+          console.error('❌ Error caught in fetch block:', e);
           setPeople([])
-          console.error('❌ Failed to fetch data from API:', json)
+        } finally {
+          setIsLoading(false)
         }
-      } catch (e) {
-        console.error('❌ Error caught in fetch block:', e);
-        setPeople([])
-      } finally {
-        setIsLoading(false)
-      }
-    })()
+      })()
   }, [user, view])
 
   // Aggregated data from API
@@ -221,14 +222,14 @@ export function Duty433({ onBack, user }: Duty433Props) {
     const out = new Date(d.getFullYear(), d.getMonth(), d.getDate())
     const day = out.getDay() // 0=Sun .. 6=Sat
     out.setDate(out.getDate() - day)
-    out.setHours(0,0,0,0)
+    out.setHours(0, 0, 0, 0)
     return out
   }
   const endOfWeek = (d: Date) => {
     const s = startOfWeek(d)
     const e = new Date(s)
     e.setDate(e.getDate() + 6)
-    e.setHours(23,59,59,999)
+    e.setHours(23, 59, 59, 999)
     return e
   }
   const isInSelectedWeek = (dateText: string | undefined) => {
@@ -259,9 +260,9 @@ export function Duty433({ onBack, user }: Duty433Props) {
   // Compute weekly duty list from normalized enter433 entries
   const weeklyDutyList = useMemo(() => {
     if (!Array.isArray(people) || !calDate) return [] as any[]
-    const list = people.filter(p => Array.isArray((p as any).enter433) && (p as any).enter433.some((en:any) => isInSelectedWeek(en.date)))
+    const list = people.filter(p => Array.isArray((p as any).enter433) && (p as any).enter433.some((en: any) => isInSelectedWeek(en.date)))
     // sort by position/name for stable UI
-    return list.sort((a:any,b:any) => String(getPositionFrom(a) || '').localeCompare(String(getPositionFrom(b) || '')) || String(a.ชื่อ || '').localeCompare(String(b.ชื่อ || '')))
+    return list.sort((a: any, b: any) => String(getPositionFrom(a) || '').localeCompare(String(getPositionFrom(b) || '')) || String(a.ชื่อ || '').localeCompare(String(b.ชื่อ || '')))
   }, [people, calDate])
 
   // Weekly list from external spreadsheet tabs named by weekend text
@@ -276,23 +277,23 @@ export function Duty433({ onBack, user }: Duty433Props) {
     const sun = new Date(sat)
     sun.setDate(sat.getDate() + 1)
     // If selected day is Sat/Sun, ensure the span covers that weekend
-    const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+    const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
     const thaiNum = (val: number | string) => String(val).split('').map(ch => {
       const d = parseInt(ch as string, 10)
       return Number.isNaN(d) ? ch : '๐๑๒๓๔๕๖๗๘๙'[d]
     }).join('')
     const yearBE = (d: Date) => d.getFullYear() + 543
     const sheetLabel = `${sat.getDate()}-${sun.getDate()} ${monthNames[sat.getMonth()]} ${String(yearBE(sat)).slice(-2)}`
-    ;(async () => {
-      try {
-        const res = await fetch(`/api/sheets/weekly-433?sheetName=${encodeURIComponent(sheetLabel)}`)
-        const json = await res.json()
-        if (json && json.success) setWeeklyExternal(json.people || [])
-        else setWeeklyExternal([])
-      } catch {
-        setWeeklyExternal([])
-      }
-    })()
+      ; (async () => {
+        try {
+          const res = await fetch(`/api/sheets/weekly-433?sheetName=${encodeURIComponent(sheetLabel)}`)
+          const json = await res.json()
+          if (json && json.success) setWeeklyExternal(json.people || [])
+          else setWeeklyExternal([])
+        } catch {
+          setWeeklyExternal([])
+        }
+      })()
   }, [calDate])
 
   // Build a map of date (YYYY-MM-DD) -> people[] from Weekly Sheet tabs for the visible month
@@ -306,7 +307,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
         const startDate = new Date(firstDay)
         startDate.setDate(startDate.getDate() - firstDay.getDay())
         const weekends: { sat: Date; sun: Date; label: string }[] = []
-        const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+        const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
         const yearBE = (d: Date) => d.getFullYear() + 543
         for (let i = 0; i < 42; i++) {
           const d = new Date(startDate)
@@ -328,13 +329,13 @@ export function Duty433({ onBack, user }: Duty433Props) {
             if (json && json.success && Array.isArray(json.people)) {
               return { key: w, people: json.people }
             }
-          } catch {}
+          } catch { }
           return { key: w, people: [] as any[] }
         }))
         const map: Record<string, any[]> = {}
         results.forEach(r => {
-          const satKey = r.key.sat.toISOString().slice(0,10)
-          const sunKey = r.key.sun.toISOString().slice(0,10)
+          const satKey = r.key.sat.toISOString().slice(0, 10)
+          const sunKey = r.key.sun.toISOString().slice(0, 10)
           map[satKey] = r.people || []
           map[sunKey] = r.people || []
         })
@@ -348,7 +349,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
 
   // Format Thai weekend range like "30-31 ส.ค. ๖๘" or "31 ส.ค. - 1 ก.ย. ๖๘"
   function formatThaiRange(start: Date, end: Date) {
-    const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+    const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
     const thaiNum = (val: number | string) => String(val).split('').map(ch => {
       const d = parseInt(ch, 10)
       return Number.isNaN(d) ? ch : '๐๑๒๓๔๕๖๗๘๙'[d]
@@ -396,10 +397,10 @@ export function Duty433({ onBack, user }: Duty433Props) {
     normalized.ตำแหน่ง = pick(['ตำแหน่ง ทกท.', 'ตำแหน่ง', 'position', 'pos']) || row.ตำแหน่ง || '';
     normalized.สังกัด = pick(['สังกัด', 'affiliation']) || row.สังกัด || '';
     normalized.หน้าที่ = pick(['หน้าที่', 'role']) || row.หน้าที่ || '';
-    normalized.นักกีฬา = pick(['นักกีฬา','กีฬา','เป็นนักกีฬา','sport','sports','เล่นกีฬา','athlete','athletics']) || row.นักกีฬา || row.กีฬา || '';
+    normalized.นักกีฬา = pick(['นักกีฬา', 'กีฬา', 'เป็นนักกีฬา', 'sport', 'sports', 'เล่นกีฬา', 'athlete', 'athletics']) || row.นักกีฬา || row.กีฬา || '';
     normalized.คัดเกรด = pick(['คัดเกรด', 'grade', 'grading']) || row.คัดเกรด || row['คัดเกรด'] || '';
     normalized.ตัวชน = pick(['ตัวชน', 'ตัว ชน']) || row.ตัวชน || '';
-    normalized.ส่วนสูง = pick(['ส่วนสูง','สูง','ส่วนสูง(ซม.)','สูง(ซม.)','ส่วนสูง ซม.','height','สูง cm','ส่วนสูง cm','ส่วนสูง (ซม.)','สูง cm.']) || row.ส่วนสูง || row['ส่วนสูง(ซม.)'] || row['สูง(ซม.)'] || '';
+    normalized.ส่วนสูง = pick(['ส่วนสูง', 'สูง', 'ส่วนสูง(ซม.)', 'สูง(ซม.)', 'ส่วนสูง ซม.', 'height', 'สูง cm', 'ส่วนสูง cm', 'ส่วนสูง (ซม.)', 'สูง cm.']) || row.ส่วนสูง || row['ส่วนสูง(ซม.)'] || row['สูง(ซม.)'] || '';
     normalized.เบอร์โทรศัพท์ = pick(['เบอร์โทรศัพท์', 'phone', 'โทร']) || row.เบอร์โทรศัพท์ || '';
     normalized['ธุรการ ฝอ.'] = pick(['ธุรการ ฝอ.', 'ธุรการ', 'admin']) || row['ธุรการ ฝอ.'] || row['ธุรการ'] || '';
 
@@ -414,12 +415,12 @@ export function Duty433({ onBack, user }: Duty433Props) {
     }
     // fallback: if API provided _433_dates, count non-empty entries as well
     if (count433 === 0 && Array.isArray(row._433_dates)) {
-      count433 = row._433_dates.filter((v:any) => isPresent433Value(v)).length
+      count433 = row._433_dates.filter((v: any) => isPresent433Value(v)).length
     }
     // extra fallback: use enter433/_433_dates if header-based count is zero
     if (count433 === 0) {
       if (Array.isArray(row.enter433)) count433 = row.enter433.length
-      else if (Array.isArray(row._433_dates)) count433 = row._433_dates.filter((v:any) => isPresent433Value(v)).length
+      else if (Array.isArray(row._433_dates)) count433 = row._433_dates.filter((v: any) => isPresent433Value(v)).length
     }
     normalized._enter433Count = count433
 
@@ -444,7 +445,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
         if (ds) enterChp.push({ idx: idx + 1, date: ds, note: '' });
       });
     }
-    
+
     // Use reportHistory from API if available (it includes columnHeader info)
     // Otherwise, rebuild from 'ถวายรายงานครั้งที่ n' fields as fallback
     let reportHistory: any[] = [];
@@ -456,13 +457,13 @@ export function Duty433({ onBack, user }: Duty433Props) {
       Object.keys(row).forEach((colName: string) => {
         const match = colName.match(reportRegex);
         if (!match) return;
-        
+
         const cellValue = row[colName];
         if (!cellValue) return;
-        
+
         const cellStr = String(cellValue).trim();
         if (!cellStr) return;
-        
+
         const parts = cellStr.split(' เมื่อ ');
         if (parts.length !== 2) {
           reportHistory.push({
@@ -475,14 +476,14 @@ export function Duty433({ onBack, user }: Duty433Props) {
           });
           return;
         }
-        
+
         const namePart = parts[0].trim();
         const datePart = cleanParenTimestamp(parts[1].trim());
         const nameTokens = namePart.split(/\s+/);
         let code = '';
         let position = '';
         let fullName = '';
-        
+
         if (nameTokens.length >= 3) {
           code = nameTokens[0];
           position = nameTokens[1];
@@ -493,7 +494,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
         } else if (nameTokens.length === 1) {
           fullName = nameTokens[0];
         }
-        
+
         reportHistory.push({
           columnHeader: colName,
           code,
@@ -516,7 +517,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
     return normalized;
   }
 
-  const normalizePeopleArray = (arr: any[]) => Array.isArray(arr) ? arr.map((x:any) => postProcessPerson(normalizePerson(x))) : []
+  const normalizePeopleArray = (arr: any[]) => Array.isArray(arr) ? arr.map((x: any) => postProcessPerson(normalizePerson(x))) : []
 
   // --- Name formatting helpers to avoid duplicated prefixes like "นนร." and extra spaces ---
   const normalizeSpaces = (s: string) => (s || '').replace(/\s+/g, ' ').trim()
@@ -574,10 +575,10 @@ export function Duty433({ onBack, user }: Duty433Props) {
       const d = new Date(input)
       if (isNaN(d.getTime())) return input
       const day = d.getDate()
-      const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+      const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
       const year = d.getFullYear() + 543
       const shortYear = String(year).slice(-2)
-      const thaiNum = (n:number) => String(n).split('').map(ch => '๐๑๒๓๔๕๖๗๘๙'[parseInt(ch)]).join('')
+      const thaiNum = (n: number) => String(n).split('').map(ch => '๐๑๒๓๔๕๖๗๘๙'[parseInt(ch)]).join('')
       return `${thaiNum(day)} ${monthNames[d.getMonth()]} ${thaiNum(parseInt(shortYear))}`
     } catch (e) { return input }
   }
@@ -590,7 +591,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
     const s = raw.trim().replace(/\s*\([^)]*\)$/, '');
     // Normalize Thai digits and prepare month mapping
     const toArabic = (txt: string) => txt.replace(/[๐-๙]/g, ch => '0123456789'["๐๑๒๓๔๕๖๗๘๙".indexOf(ch)])
-    const thMonths: Record<string, number> = { 'ม.ค.':1, 'ก.พ.':2, 'มี.ค.':3, 'เม.ย.':4, 'พ.ค.':5, 'มิ.ย.':6, 'ก.ค.':7, 'ส.ค.':8, 'ก.ย.':9, 'ต.ค.':10, 'พ.ย.':11, 'ธ.ค.':12 }
+    const thMonths: Record<string, number> = { 'ม.ค.': 1, 'ก.พ.': 2, 'มี.ค.': 3, 'เม.ย.': 4, 'พ.ค.': 5, 'มิ.ย.': 6, 'ก.ค.': 7, 'ส.ค.': 8, 'ก.ย.': 9, 'ต.ค.': 10, 'พ.ย.': 11, 'ธ.ค.': 12 }
     const sNorm = toArabic(s)
     // quick ISO parse
     const tryDate = (v: string) => {
@@ -656,15 +657,15 @@ export function Duty433({ onBack, user }: Duty433Props) {
   }
 
   // Post-process a normalized person to ensure history arrays are simple, deduped and dates are ISO strings
-  const postProcessPerson = (p:any) => {
+  const postProcessPerson = (p: any) => {
     if (!p) return p
 
-    const normalizeStr = (v:any) => v == null ? '' : (Array.isArray(v) ? v.join(', ') : (typeof v === 'object' ? JSON.stringify(v) : String(v))).trim()
+    const normalizeStr = (v: any) => v == null ? '' : (Array.isArray(v) ? v.join(', ') : (typeof v === 'object' ? JSON.stringify(v) : String(v))).trim()
 
     // reportHistory: process new format { code, position, fullName, date, _raw }
     if (Array.isArray(p.reportHistory)) {
-      const out:any[] = []
-      p.reportHistory.forEach((r:any) => {
+      const out: any[] = []
+      p.reportHistory.forEach((r: any) => {
         // If already in new format with code/position/fullName
         if (r.code !== undefined || r.position !== undefined || r.fullName !== undefined) {
           let parsedDate = ''
@@ -688,10 +689,10 @@ export function Duty433({ onBack, user }: Duty433Props) {
             if (dtMatch) dateCandidate = dtMatch
           }
           const parsed = parseDateFromText(dateCandidate) || ''
-          const entry = { 
-            code: '', 
-            position: '', 
-            fullName: toRaw, 
+          const entry = {
+            code: '',
+            position: '',
+            fullName: toRaw,
             date: parsed || (dateCandidate || ''),
             _raw: toRaw
           }
@@ -699,8 +700,8 @@ export function Duty433({ onBack, user }: Duty433Props) {
         }
       })
       // dedupe by code+fullName+date
-      const uniq:any[] = []
-      out.forEach(e => { 
+      const uniq: any[] = []
+      out.forEach(e => {
         const key = `${e.code}|${e.fullName}|${e.date}`
         if (!uniq.find(u => `${u.code}|${u.fullName}|${u.date}` === key)) {
           uniq.push(e)
@@ -710,10 +711,10 @@ export function Duty433({ onBack, user }: Duty433Props) {
     }
 
     // enter433 and enterChp: normalize dates and notes
-    const normEnter = (arr:any[]) => {
+    const normEnter = (arr: any[]) => {
       if (!Array.isArray(arr)) return []
-      const out:any[] = []
-      arr.forEach((it:any) => {
+      const out: any[] = []
+      arr.forEach((it: any) => {
         // prefer explicit note; if absent, use date text as source to extract leftover note (e.g., location)
         const noteSourceRaw = normalizeStr(it.note)
         const dateRaw0 = normalizeStr(it.date || '')
@@ -724,21 +725,21 @@ export function Duty433({ onBack, user }: Duty433Props) {
         const stripDates = (txt: string) => {
           let out = txt || ''
           // remove ISO and numeric date patterns
-          out = out.replace(/(\d{1,4}[\/\-\.\s]\d{1,2}[\/\-\.\s]\d{2,4}|\d{4}-\d{2}-\d{2})/g,'')
+          out = out.replace(/(\d{1,4}[\/\-\.\s]\d{1,2}[\/\-\.\s]\d{2,4}|\d{4}-\d{2}-\d{2})/g, '')
           // remove Thai day-month-year forms (with Thai months and Thai/Arabic digits)
           out = out.replace(/[๐-๙0-9]+\s*(ม\.ค\.|ก\.พ\.|มี\.ค\.|เม\.ย\.|พ\.ค\.|มิ\.ย\.|ก\.ค\.|ส\.ค\.|ก\.ย\.|ต\.ค\.|พ\.ย\.|ธ\.ค\.)\s*[๐-๙0-9]+/g, '')
           // remove phrases like "ครั้งที่ 1"
           out = out.replace(/ครั้งที่\s*[๐-๙0-9]+/g, '')
           // remove left-over [object Object]
           out = out.replace(/\[object Object\]/g, '')
-          return out.replace(/\s{2,}/g,' ').trim()
+          return out.replace(/\s{2,}/g, ' ').trim()
         }
         const noteClean = stripDates(noteSource)
         out.push({ idx: it.idx || undefined, note: noteClean, date: parsed || dateRaw })
       })
       // dedupe
-      const uniq:any[] = []
-      out.forEach(e => { const key = `${e.note}|${e.date}`; if (!uniq.find(u=>`${u.note}|${u.date}`===key)) uniq.push(e) })
+      const uniq: any[] = []
+      out.forEach(e => { const key = `${e.note}|${e.date}`; if (!uniq.find(u => `${u.note}|${u.date}` === key)) uniq.push(e) })
       return uniq
     }
 
@@ -750,7 +751,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
 
   const duties = useMemo(() => {
     const s = new Set<string>()
-    people.forEach(p => { 
+    people.forEach(p => {
       if (p.หน้าที่) s.add(p.หน้าที่)
       if (p['ธุรการ ฝอ.']) s.add(p['ธุรการ ฝอ.'])
       if (p.ธุรการ) s.add(p.ธุรการ)
@@ -783,7 +784,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
         if (Array.isArray(p.enter433)) {
           count = p.enter433.length
         }
-        
+
         return { ...p, stat: count }
       })
       .sort((a, b) => b.stat - a.stat)
@@ -811,18 +812,18 @@ export function Duty433({ onBack, user }: Duty433Props) {
     const get433Count = (pp: any) => {
       if (typeof pp._enter433Count === 'number') return pp._enter433Count
       if (Array.isArray(pp.enter433)) return pp.enter433.length
-      if (Array.isArray(pp._433_dates)) return pp._433_dates.filter((v:any)=>isPresent433Value(v)).length
+      if (Array.isArray(pp._433_dates)) return pp._433_dates.filter((v: any) => isPresent433Value(v)).length
       return 0
     }
     return people.filter(p => {
       // กรองตามหน้าที่ (หลายค่า)
       if (Array.isArray(filterDuties) && filterDuties.length > 0) {
-        const dutyVals = [p.หน้าที่, p['ธุรการ ฝอ.'], p.ธุรการ].map(v => (v||'').toString())
+        const dutyVals = [p.หน้าที่, p['ธุรการ ฝอ.'], p.ธุรการ].map(v => (v || '').toString())
         if (!dutyVals.some(v => filterDuties.includes(v))) return false
       }
       // กรองตามคัดเกรด (หลายค่า)
       if (Array.isArray(filterGrades) && filterGrades.length > 0) {
-        if (!filterGrades.includes((p.คัดเกรด||'').toString())) return false
+        if (!filterGrades.includes((p.คัดเกรด || '').toString())) return false
       }
       // กรองตามสังกัด (หลายค่า)
       if (Array.isArray(filterAffiliations) && filterAffiliations.length > 0) {
@@ -896,7 +897,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
               <Button onClick={() => setView("dashboard")} className="bg-white text-slate-900">← ย้อนกลับ</Button>
             </div>
           </div>
-          
+
           {/* Pie detail modal (mobile-friendly drawer) */}
 
           <div className="overflow-x-auto w-full max-w-full rounded-lg bg-slate-800/60 border border-slate-700 p-4">
@@ -907,13 +908,13 @@ export function Duty433({ onBack, user }: Duty433Props) {
                   type="button"
                   onClick={() => setShowDutyPanel((v: boolean) => !v)}
                   className="text-xs px-2 py-1 rounded border border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700"
-                >หน้าที่ {filterDuties.length>0?`(${filterDuties.length})`:''}</button>
+                >หน้าที่ {filterDuties.length > 0 ? `(${filterDuties.length})` : ''}</button>
 
                 <button
                   type="button"
                   onClick={() => setShowGradePanel((v: boolean) => !v)}
                   className="text-xs px-2 py-1 rounded border border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700"
-                >คัดเกรด {filterGrades.length>0?`(${filterGrades.length})`:''}</button>
+                >คัดเกรด {filterGrades.length > 0 ? `(${filterGrades.length})` : ''}</button>
 
                 <button
                   type="button"
@@ -968,7 +969,7 @@ export function Duty433({ onBack, user }: Duty433Props) {
                       openSheetList('นนร.')
                     }}
                   >รีเฟรช</button>
-                  {(filterDuties.length>0 || filterGrades.length>0 || filterAffiliations.length > 0 || minCount > 0 || searchQuery) && (
+                  {(filterDuties.length > 0 || filterGrades.length > 0 || filterAffiliations.length > 0 || minCount > 0 || searchQuery) && (
                     <button
                       type="button"
                       className="text-[10px] text-emerald-300 underline"
@@ -987,14 +988,14 @@ export function Duty433({ onBack, user }: Duty433Props) {
                         className="accent-emerald-500 h-3 w-3"
                         checked={filterDuties.includes(d)}
                         onChange={(e) => {
-                          setFilterDuties(prev => e.target.checked ? Array.from(new Set([...prev, d])) : prev.filter(x => x!==d))
+                          setFilterDuties(prev => e.target.checked ? Array.from(new Set([...prev, d])) : prev.filter(x => x !== d))
                         }}
                       />
                       <span className="truncate max-w-[160px]">{d}</span>
                     </label>
                   ))}
-                  {duties.length>0 && (
-                    <button type="button" className="text-[10px] text-emerald-300 underline ml-1" onClick={()=>setFilterDuties([])}>ล้าง</button>
+                  {duties.length > 0 && (
+                    <button type="button" className="text-[10px] text-emerald-300 underline ml-1" onClick={() => setFilterDuties([])}>ล้าง</button>
                   )}
                 </div>
               )}
@@ -1008,14 +1009,14 @@ export function Duty433({ onBack, user }: Duty433Props) {
                         className="accent-emerald-500 h-3 w-3"
                         checked={filterGrades.includes(g)}
                         onChange={(e) => {
-                          setFilterGrades(prev => e.target.checked ? Array.from(new Set([...prev, g])) : prev.filter(x => x!==g))
+                          setFilterGrades(prev => e.target.checked ? Array.from(new Set([...prev, g])) : prev.filter(x => x !== g))
                         }}
                       />
                       <span className="truncate max-w-[160px]">{g}</span>
                     </label>
                   ))}
-                  {grades.length>0 && (
-                    <button type="button" className="text-[10px] text-emerald-300 underline ml-1" onClick={()=>setFilterGrades([])}>ล้าง</button>
+                  {grades.length > 0 && (
+                    <button type="button" className="text-[10px] text-emerald-300 underline ml-1" onClick={() => setFilterGrades([])}>ล้าง</button>
                   )}
                 </div>
               )}
@@ -1068,26 +1069,26 @@ export function Duty433({ onBack, user }: Duty433Props) {
                 </thead>
                 <tbody>
                   {filtered.map((p, i) => (
-                      <tr
-                        key={i}
-                        className="cursor-pointer hover:bg-slate-700/50 odd:bg-slate-900/30 even:bg-slate-800/50"
-                        onClick={() => openPersonDetail(p)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPersonDetail(p) } }}
-                      >
-                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ลำดับ || i + 1}</td>
-                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ชื่อ && p.ชื่อ !== "นนร." ? p.ชื่อ : <span className="text-red-400">ไม่พบชื่อ</span>}</td>
-                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.สกุล && p.สกุล !== "นนร." ? p.สกุล : <span className="text-red-400">ไม่พบสกุล</span>}</td>
-                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
-                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.สังกัด}</td>
-                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.คัดเกรด || '-'}</td>
-                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ธุรการ ฝอ.'] || p.ธุรการ || '-'}</td>
-                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ส่วนสูง || '-'}</td>
-                        <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.นักกีฬา || '-'}</td>
-                        <td className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap">{p._enter433Count ?? (Array.isArray(p.enter433) ? p.enter433.length : 0)}</td>
+                    <tr
+                      key={i}
+                      className="cursor-pointer hover:bg-slate-700/50 odd:bg-slate-900/30 even:bg-slate-800/50"
+                      onClick={() => openPersonDetail(p)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPersonDetail(p) } }}
+                    >
+                      <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ลำดับ || i + 1}</td>
+                      <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ชื่อ && p.ชื่อ !== "นนร." ? p.ชื่อ : <span className="text-red-400">ไม่พบชื่อ</span>}</td>
+                      <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.สกุล && p.สกุล !== "นนร." ? p.สกุล : <span className="text-red-400">ไม่พบสกุล</span>}</td>
+                      <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
+                      <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.สังกัด}</td>
+                      <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.คัดเกรด || '-'}</td>
+                      <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ธุรการ ฝอ.'] || p.ธุรการ || '-'}</td>
+                      <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ส่วนสูง || '-'}</td>
+                      <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.นักกีฬา || '-'}</td>
+                      <td className="px-1 py-1 text-center font-bold border-b border-slate-700 whitespace-nowrap">{p._enter433Count ?? (Array.isArray(p.enter433) ? p.enter433.length : 0)}</td>
 
-                                              </tr>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -1109,16 +1110,16 @@ export function Duty433({ onBack, user }: Duty433Props) {
 
   if (view === "detail" && selectedPerson) {
     return (
-      <ProfileDetail 
-        person={selectedPerson} 
-        onBack={handleDetailBack} 
+      <ProfileDetail
+        person={selectedPerson}
+        onBack={handleDetailBack}
       />
     )
   }
 
-  
+
   // helper: find person by name (exact or partial)
-const findPersonByName = (name: string) => {
+  const findPersonByName = (name: string) => {
     if (!name) return null;
     const norm = (s: string) => s.toString().trim().toLowerCase();
     const target = norm(name);
@@ -1137,21 +1138,21 @@ const findPersonByName = (name: string) => {
     // 2. Prefix-based matching for first and last name (handles abbreviations)
     const searchTerms = target.split(/\s+/).filter(Boolean);
     if (searchTerms.length > 1) {
-        for (const p of lists) {
-            const firstName = norm(p.ชื่อ || '');
-            const lastName = norm(p.สกุล || '');
-            if (firstName.startsWith(searchTerms[0]) && lastName.startsWith(searchTerms[1])) {
-                return p;
-            }
+      for (const p of lists) {
+        const firstName = norm(p.ชื่อ || '');
+        const lastName = norm(p.สกุล || '');
+        if (firstName.startsWith(searchTerms[0]) && lastName.startsWith(searchTerms[1])) {
+          return p;
         }
+      }
     }
 
     // 3. Fallback to the original logic with a small improvement (startsWith instead of includes)
     for (const p of lists) {
-        const maybe = norm(p.fullName || p.name || '');
-        if (maybe && maybe.startsWith(target)) {
-            return p;
-        }
+      const maybe = norm(p.fullName || p.name || '');
+      if (maybe && maybe.startsWith(target)) {
+        return p;
+      }
     }
 
     return null;
@@ -1197,7 +1198,7 @@ const findPersonByName = (name: string) => {
       setSelectedOverviewItem(null);
       return;
     }
-    
+
     const newSelected = selectedOverviewItem === label ? null : label;
     setSelectedOverviewItem(newSelected);
 
@@ -1231,35 +1232,35 @@ const findPersonByName = (name: string) => {
         {/* Top right corner: date/time and icon buttons */}
         <div className="absolute top-0 right-0 flex flex-col items-end gap-1">
           <div className="text-xs text-slate-400">{new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</div>
-          
+
           {/* Minimal refresh/cache buttons */}
           <div className="flex items-center gap-1 bg-slate-800/40 border border-slate-700 rounded-lg px-2 py-1.5">
             <button
               onClick={() => {
-                try { window.localStorage.removeItem('duty433_cache_v1') } catch (e) {}
+                try { window.localStorage.removeItem('duty433_cache_v1') } catch (e) { }
                 setView('dashboard')
                 setIsLoading(true)
                 setTimeout(() => { setIsLoading(false); }, 300)
               }}
-              className="p-1.5 rounded hover:bg-slate-700/50 transition-colors" 
+              className="p-1.5 rounded hover:bg-slate-700/50 transition-colors"
               title="รีเฟรช"
             >
               <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
-            
+
             <div className="w-px h-4 bg-slate-700"></div>
-            
+
             <button
               onClick={() => {
-                try { 
+                try {
                   window.localStorage.removeItem('duty433_cache_v1')
                   toast({
                     title: "ล้าง Cache สำเร็จ",
                     description: "ระบบจะดึงข้อมูลใหม่จาก Google Sheets",
                   })
-                } catch (e) {}
+                } catch (e) { }
                 setView('dashboard')
                 setIsLoading(true)
                 setTimeout(() => { setIsLoading(false); }, 300)
@@ -1286,12 +1287,12 @@ const findPersonByName = (name: string) => {
 
         {/* Middle: left pie chart, right top list */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-            <div className="xl:col-span-1 bg-slate-800/60 border border-slate-700 rounded-lg p-4 flex flex-col items-center">
+          <div className="xl:col-span-1 bg-slate-800/60 border border-slate-700 rounded-lg p-4 flex flex-col items-center">
             <div className="flex items-center gap-2 mb-3">
               <PieChart className="h-5 w-5 text-yellow-400" />
               <h3 className="font-semibold">อัตราส่วนนนร.ที่ปฏิบัติหน้าที่</h3>
             </div>
-                {isLoading ? (
+            {isLoading ? (
               <div className="text-slate-400">กำลังโหลด...</div>
             ) : (
               <div className="flex flex-col items-center">
@@ -1309,45 +1310,41 @@ const findPersonByName = (name: string) => {
               </div>
             )}
             <div className="mt-3 text-xs text-slate-300 text-center">
-              <span 
-                className={`cursor-pointer px-2 py-1 rounded transition-all duration-200 ${
-                  selectedOverviewItem === 'ถวายรายงาน' 
-                    ? 'bg-blue-600 text-white shadow-lg transform scale-105' 
-                    : 'hover:bg-slate-700/50'
-                }`}
+              <span
+                className={`cursor-pointer px-2 py-1 rounded transition-all duration-200 ${selectedOverviewItem === 'ถวายรายงาน'
+                  ? 'bg-blue-600 text-white shadow-lg transform scale-105'
+                  : 'hover:bg-slate-700/50'
+                  }`}
                 onClick={() => handleOverviewItemSelect('ถวายรายงาน')}
               >
                 ถวายรายงาน
               </span>
               {' : '}
-              <span 
-                className={`cursor-pointer px-2 py-1 rounded transition-all duration-200 ${
-                  selectedOverviewItem === 'เข้าเวร433' 
-                    ? 'bg-green-600 text-white shadow-lg transform scale-105' 
-                    : 'hover:bg-slate-700/50'
-                }`}
+              <span
+                className={`cursor-pointer px-2 py-1 rounded transition-all duration-200 ${selectedOverviewItem === 'เข้าเวร433'
+                  ? 'bg-green-600 text-white shadow-lg transform scale-105'
+                  : 'hover:bg-slate-700/50'
+                  }`}
                 onClick={() => handleOverviewItemSelect('เข้าเวร433')}
               >
                 เข้าเวร433
               </span>
               {' : '}
-              <span 
-                className={`cursor-pointer px-2 py-1 rounded transition-all duration-200 ${
-                  selectedOverviewItem === 'ธุรการ' 
-                    ? 'bg-yellow-600 text-white shadow-lg transform scale-105' 
-                    : 'hover:bg-slate-700/50'
-                }`}
+              <span
+                className={`cursor-pointer px-2 py-1 rounded transition-all duration-200 ${selectedOverviewItem === 'ธุรการ'
+                  ? 'bg-yellow-600 text-white shadow-lg transform scale-105'
+                  : 'hover:bg-slate-700/50'
+                  }`}
                 onClick={() => handleOverviewItemSelect('ธุรการ')}
               >
                 ธุรการ
               </span>
               {' : '}
-              <span 
-                className={`cursor-pointer px-2 py-1 rounded transition-all duration-200 ${
-                  selectedOverviewItem === 'ยังไม่เคย' 
-                    ? 'bg-red-600 text-white shadow-lg transform scale-105' 
-                    : 'hover:bg-slate-700/50'
-                }`}
+              <span
+                className={`cursor-pointer px-2 py-1 rounded transition-all duration-200 ${selectedOverviewItem === 'ยังไม่เคย'
+                  ? 'bg-red-600 text-white shadow-lg transform scale-105'
+                  : 'hover:bg-slate-700/50'
+                  }`}
                 onClick={() => handleOverviewItemSelect('ยังไม่เคย')}
               >
                 ยังไม่เคย
@@ -1369,7 +1366,7 @@ const findPersonByName = (name: string) => {
                       const total = people.length || 0
                       let count = 0
                       // Helper: checks if person has report entries from new multi-column structure or legacy field
-                      const hasReport = (p:any) => {
+                      const hasReport = (p: any) => {
                         return (p && p.reportInfo && Object.keys(p.reportInfo || {}).length > 0) || (Array.isArray(p.reportHistory) && p.reportHistory.length > 0) || Boolean(p.ถวายรายงาน)
                       }
 
@@ -1455,34 +1452,34 @@ const findPersonByName = (name: string) => {
                   })
                   return rows
                     .filter(r => r.count > 0)
-                    .sort((a,b) => b.count - a.count)
+                    .sort((a, b) => b.count - a.count)
                 })()
 
                 return rankedByMetric.slice(0, 6).map((p: any, i: number) => {
-                const rawName = p.fullName || p.name || ''
+                  const rawName = p.fullName || p.name || ''
                   const person = p.personRef || findPersonByName(rawName)
-                const displayName = person ? formatDisplayName(person?.ยศ, person?.ชื่อ, person?.สกุล) : rawName
-                const pos = getPositionFrom(p) || (person ? getPositionFrom(person) : '')
+                  const displayName = person ? formatDisplayName(person?.ยศ, person?.ชื่อ, person?.สกุล) : rawName
+                  const pos = getPositionFrom(p) || (person ? getPositionFrom(person) : '')
                   const count = p.count != null ? p.count : 0
-                return (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-3 py-2 cursor-pointer hover:bg-slate-800/60 transition-colors"
-                    onClick={() => { if (person) openPersonDetail(person) }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (person) openPersonDetail(person) } }}
-                  >
-                    <div>
-                      <div className="font-medium">{displayName || 'ไม่ระบุ'}</div>
-                      <div className="text-xs text-slate-400">{pos ? `ตำแหน่ง: ${pos}` : ''}</div>
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded px-3 py-2 cursor-pointer hover:bg-slate-800/60 transition-colors"
+                      onClick={() => { if (person) openPersonDetail(person) }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (person) openPersonDetail(person) } }}
+                    >
+                      <div>
+                        <div className="font-medium">{displayName || 'ไม่ระบุ'}</div>
+                        <div className="text-xs text-slate-400">{pos ? `ตำแหน่ง: ${pos}` : ''}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-yellow-300">{count}</div>
+                        <div className="text-xs text-slate-400">ครั้ง</div>
+                      </div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-yellow-300">{count}</div>
-                      <div className="text-xs text-slate-400">ครั้ง</div>
-                    </div>
-                  </div>
-                )
+                  )
                 })
               })()}
             </div>
@@ -1537,12 +1534,12 @@ const findPersonByName = (name: string) => {
           {/* Enhanced Calendar Grid */}
           <div className="grid grid-cols-7 gap-2 mb-4">
             {/* Day headers */}
-              {['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'].map((day) => (
+            {['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'].map((day) => (
               <div key={day} className="text-center font-semibold text-slate-400 p-1 text-[9px] sm:text-sm">
                 {day}
               </div>
             ))}
-            
+
             {/* Calendar days with enhanced information */}
             {(() => {
               const year = calMonth.getFullYear()
@@ -1551,22 +1548,22 @@ const findPersonByName = (name: string) => {
               const lastDay = new Date(year, month + 1, 0)
               const startDate = new Date(firstDay)
               startDate.setDate(startDate.getDate() - firstDay.getDay())
-              
+
               const days = []
               const today = new Date()
-              
+
               // ใช้ข้อมูลจริงจาก Weekly Sheet ผ่าน monthWeekendMap ที่โหลดล่วงหน้าสำหรับเดือนนี้
-              
+
               for (let i = 0; i < 42; i++) {
                 const date = new Date(startDate)
                 date.setDate(startDate.getDate() + i)
-                
+
                 const dateStr = date.toISOString().split('T')[0]
                 const externalPeople = monthWeekendMap[dateStr] || []
                 const hasDutyExternal = externalPeople.length > 0
-                
+
                 // Collect internal duty people for this date
-                const internalForDate = weeklyDutyList.filter(p => 
+                const internalForDate = weeklyDutyList.filter(p =>
                   Array.isArray(p.enter433) && p.enter433.some((en: any) => {
                     const entryDate = new Date(parseDateFromText(en.date) || en.date)
                     return entryDate.toDateString() === date.toDateString()
@@ -1576,14 +1573,14 @@ const findPersonByName = (name: string) => {
 
                 // Build small display list: first from external sheet, then internal; dedupe and limit to 3
                 const displayNames = [
-                  ...externalPeople.map((p:any) => `${p.ชื่อ || ''} ${p.สกุล || ''}`.trim()),
-                  ...internalForDate.map((p:any) => `${p.ชื่อ || ''} ${p.สกุล || ''}`.trim()),
+                  ...externalPeople.map((p: any) => `${p.ชื่อ || ''} ${p.สกุล || ''}`.trim()),
+                  ...internalForDate.map((p: any) => `${p.ชื่อ || ''} ${p.สกุล || ''}`.trim()),
                 ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).slice(0, 3)
-                
+
                 const isCurrentMonth = date.getMonth() === month
                 const isToday = date.toDateString() === today.toDateString()
                 const isSelected = calDate?.toDateString() === date.toDateString()
-                
+
                 days.push(
                   <div
                     key={i}
@@ -1600,7 +1597,7 @@ const findPersonByName = (name: string) => {
                       const popupData = {
                         date,
                         weeklyExternal: externalPeople,
-                        weeklyInternal: weeklyDutyList.filter(p => 
+                        weeklyInternal: weeklyDutyList.filter(p =>
                           Array.isArray(p.enter433) && p.enter433.some((en: any) => {
                             const entryDate = new Date(parseDateFromText(en.date) || en.date)
                             return entryDate.toDateString() === date.toDateString()
@@ -1636,7 +1633,7 @@ const findPersonByName = (name: string) => {
                   </div>
                 )
               }
-              
+
               return days
             })()}
           </div>
@@ -1700,7 +1697,7 @@ const findPersonByName = (name: string) => {
                     <div className="text-center py-4 text-slate-400">
                       ไม่มีข้อมูล
                       <div className="flex justify-center gap-2 mt-4">
-               
+
                         <a href="https://docs.google.com/spreadsheets/d/1TwqqgEhug2_oe2iIPlR9q-1pGuGIqMGswtPEnLzzcSk/edit?gid=1911292113#gid=1911292113" target="_blank" rel="noopener noreferrer">
                           <Button>ตรวจสอบชีท</Button>
                         </a>
@@ -1746,10 +1743,10 @@ const findPersonByName = (name: string) => {
         )}
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 mt-3">
-              <div className="flex items-center gap-3">
-              <Button onClick={onBack} className="bg-yellow-400 text-black px-4 py-2 rounded-md shadow-sm w-full sm:w-auto mb-2 sm:mb-0"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>กลับไป Dashboard</Button>
-              <Button onClick={() => openSheetList('นนร.')} className="bg-indigo-600 w-full sm:w-auto mb-2 sm:mb-0"><List className="mr-2"/>ไปหน้ารายชื่อทั้งหมด</Button>
-                            <Button onClick={() => router.push('/create-files')} className="bg-emerald-600 w-full sm:w-auto mb-2 sm:mb-0"><FileText className="mr-2"/>สร้างไฟล์จาก Drive (for PC)</Button>
+          <div className="flex items-center gap-3">
+            <Button onClick={onBack} className="bg-yellow-400 text-black px-4 py-2 rounded-md shadow-sm w-full sm:w-auto mb-2 sm:mb-0"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z" /></svg>กลับไป Dashboard</Button>
+            <Button onClick={() => openSheetList('นนร.')} className="bg-indigo-600 w-full sm:w-auto mb-2 sm:mb-0"><List className="mr-2" />ไปหน้ารายชื่อทั้งหมด</Button>
+            <Button onClick={() => onActivateModule ? onActivateModule('create-files') : router.push('/create-files')} className="bg-emerald-600 w-full sm:w-auto mb-2 sm:mb-0"><FileText className="mr-2" />สร้างไฟล์จาก Drive (for PC)</Button>
           </div>
         </div>
       </div>

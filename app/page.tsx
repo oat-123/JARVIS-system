@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { LoginPage } from '../components/login-page';
 import { Dashboard } from '../components/dashboard';
+import { RegisterPage } from '../components/register-page';
 
 interface User {
   username: string;
@@ -20,6 +21,7 @@ const roleDisplayMap: { [key: string]: string } = {
 };
 
 export default function Home() {
+  const [view, setView] = useState<'login' | 'register' | 'dashboard'>('login');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -77,7 +79,7 @@ export default function Home() {
     sessionStorage.clear();
     localStorage.clear();
   };
-  
+
   if (isInitializing) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
@@ -89,25 +91,32 @@ export default function Home() {
     );
   }
 
-  if (!isLoggedIn || !currentUser) {
-    // The onLogin prop for LoginPage now expects an async function
-    const onLoginAsync = async (username: string, password: string, rememberMe?: boolean): Promise<boolean> => {
-        return await handleLogin(username, password, rememberMe);
+  // Dashboard view
+  if (isLoggedIn && currentUser) {
+    const rawRole = currentUser.role;
+    const displayRole = roleDisplayMap[rawRole] || rawRole;
+
+    const userObj = {
+      username: currentUser.username,
+      displayName: currentUser.username,
+      role: rawRole,
+      group: currentUser.db,
+      sheetname: currentUser.db,
+      displayRole,
     };
-    return <LoginPage onLogin={onLoginAsync} />;
+
+    return <Dashboard user={userObj} username={currentUser.username} onLogout={handleLogout} />;
   }
 
-  const rawRole = currentUser.role;
-  const displayRole = roleDisplayMap[rawRole] || rawRole;
+  // Register view
+  if (view === 'register') {
+    return <RegisterPage onBack={() => setView('login')} />;
+  }
 
-  const userObj = {
-    username: currentUser.username,
-    displayName: currentUser.username, // Display username as the main name
-    role: rawRole, // Use the raw role for logic checks
-    group: currentUser.db, // Use db for group/sheet identification
-    sheetname: currentUser.db, // The sheetname is the db from the API
-    displayRole, // Add displayRole for UI only
+  // Default: Login view
+  const onLoginAsync = async (username: string, password: string, rememberMe?: boolean): Promise<boolean> => {
+    return await handleLogin(username, password, rememberMe);
   };
 
-  return <Dashboard user={userObj} username={currentUser.username} onLogout={handleLogout} />;
+  return <LoginPage onLogin={onLoginAsync} onRegisterClick={() => setView('register')} />;
 }

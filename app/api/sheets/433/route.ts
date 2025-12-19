@@ -98,18 +98,22 @@ export async function GET(request: NextRequest) {
         }
 
         const headers = (values[0] || []).map((h: any) => (h || "").toString().trim());
-        console.log("[API/433] Processing headers.");
+        console.log("[API/433] Processing headers:", headers);
 
-        const idxOf = (name: string) => headers.findIndex((h: string) => h.includes(name));
-        const idxOrder = idxOf("ลำดับ") >= 0 ? idxOf("ลำดับ") : 0;
-        const idxRank = idxOf("ยศ") >= 0 ? idxOf("ยศ") : 1;
-        const idxFirstName = idxOf("ชื่อ") >= 0 ? idxOf("ชื่อ") : 2;
-        const idxLastName = idxOf("สกุล") >= 0 ? idxOf("สกุล") : 3;
-        const idxYear = idxOf("ชั้นปีที่") >= 0 ? idxOf("ชั้นปีที่") : 4;
-        const idxClass = idxOf("ตอน") >= 0 ? idxOf("ตอน") : 5;
-        const idxPosition = idxOf("ตำแหน่ง") >= 0 ? idxOf("ตำแหน่ง") : 6;
-        const idxUnit = idxOf("สังกัด") >= 0 ? idxOf("สังกัด") : 7;
-        const idxPhone = idxOf("เบอร์โทรศัพท์") >= 0 ? idxOf("เบอร์โทรศัพท์") : 8;
+        const idxOf = (name: string) => headers.findIndex((h: string) => h === name);
+        const idxIncludes = (name: string) => headers.findIndex((h: string) => h.includes(name));
+
+        const idxOrder = idxOf("ลำดับ") >= 0 ? idxOf("ลำดับ") : idxIncludes("ลำดับ");
+        const idxRank = idxOf("ยศ") >= 0 ? idxOf("ยศ") : idxIncludes("ยศ");
+        const idxFirstName = idxOf("ชื่อ") >= 0 ? idxOf("ชื่อ") : idxIncludes("ชื่อ") >= 0 ? idxIncludes("ชื่อ") : 2;
+        const idxLastName = idxOf("สกุล") >= 0 ? idxOf("สกุล") : idxIncludes("สกุล") >= 0 ? idxIncludes("สกุล") : idxIncludes("นามสกุล") >= 0 ? idxIncludes("นามสกุล") : 3;
+        const idxFullName = idxOf("ชื่อ-สกุล") >= 0 ? idxOf("ชื่อ-สกุล") : idxIncludes("ชื่อ-นามสกุล") >= 0 ? idxIncludes("ชื่อ-นามสกุล") : -1;
+
+        const idxYear = idxOf("ชั้นปีที่") >= 0 ? idxOf("ชั้นปีที่") : idxIncludes("ชั้นปี");
+        const idxClass = idxOf("ตอน") >= 0 ? idxOf("ตอน") : idxIncludes("ตอน");
+        const idxPosition = idxOf("ตำแหน่ง") >= 0 ? idxOf("ตำแหน่ง") : idxIncludes("ตำแหน่ง");
+        const idxUnit = idxOf("สังกัด") >= 0 ? idxOf("สังกัด") : idxIncludes("หน่วย") >= 0 ? idxIncludes("หน่วย") : idxIncludes("สังกัด");
+        const idxPhone = idxOf("เบอร์โทรศัพท์") >= 0 ? idxOf("เบอร์โทรศัพท์") : idxIncludes("เบอร์โทร");
         const idxReport = idxOf("ถวายรายงาน");
         const idxDutyOfficer = idxOf("น.กำกับยาม");
         const idxDate = idxOf("วันที่");
@@ -249,10 +253,25 @@ export async function GET(request: NextRequest) {
             person._admin_dates = _admin_dates;
 
             // Standardize names for matching logic
-            person._std_first_name = String(get(idxFirstName) || "").trim().replace(/\s+/g, '');
-            person._std_last_name = String(get(idxLastName) || "").trim().replace(/\s+/g, '');
+            let fName = String(get(idxFirstName) || "").trim();
+            let lName = String(get(idxLastName) || "").trim();
+            const fullNameRaw = idxFullName >= 0 ? String(get(idxFullName) || "").trim() : "";
 
-            person.name = `${person.ยศ || ""} ${person.ชื่อ || ""} ${person.สกุล || ""}`.trim();
+            if (!fName && fullNameRaw) {
+                const parts = fullNameRaw.split(/\s+/);
+                fName = parts[0];
+                lName = parts.slice(1).join(" ");
+            }
+
+            person._std_first_name = fName.replace(/\s+/g, '');
+            person._std_last_name = lName.replace(/\s+/g, '');
+
+            const rank = (person.ยศ || "").trim();
+            const first = (person.ชื่อ || fName).trim();
+            const last = (person.สกุล || lName).trim();
+
+            person.name = `${rank} ${first} ${last}`.replace(/\s+/g, ' ').trim();
+            if (!person.name && fullNameRaw) person.name = fullNameRaw;
 
             // Required placeholders for UI compatibility
             person.enter433 = [];

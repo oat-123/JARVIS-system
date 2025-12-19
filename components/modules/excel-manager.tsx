@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import React, { useState, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -14,13 +14,141 @@ import {
     CheckCircle2,
     AlertCircle,
     Loader2,
-    Trash2
+    Trash2,
+    Search
 } from "lucide-react"
 import ExcelJS from "exceljs"
 import { useToast } from "@/hooks/use-toast"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
+import { cn } from "@/lib/utils"
 
 interface ExcelManagerProps {
     onBack: () => void
+}
+
+const NamePicker = ({ currentName, dbPeople, onSelect }: { currentName: string, dbPeople: any[], onSelect: (person: any) => void }) => {
+    const [open, setOpen] = useState(false)
+    const [query, setQuery] = useState(currentName)
+
+    // Sync internal query when currentName changes (from other rows/parent)
+    React.useEffect(() => {
+        setQuery(currentName)
+    }, [currentName])
+
+    const suggestions = useMemo(() => {
+        if (!query || query.length < 1) return []
+
+        const cleanQuery = query.trim().toLowerCase()
+        const queryParts = cleanQuery.split(/\s+/).map(p => p.replace(/\.$/, '')) // Split words and remove trailing dots
+
+        const normalize = (s: any) => String(s || "").normalize('NFC').replace(/[\s\u200B\uFEFF\u00A0\u180E\u2000-\u200B\u202F\u205F\u3000]/g, '').toLowerCase()
+
+        return dbPeople.map(p => {
+            const dbFirst = normalize(p._std_first_name || p.ชื่อ || p["ชื่อ-สกุล"])
+            const dbLast = normalize(p._std_last_name || p.สกุล || "")
+            const dbFull = dbFirst + dbLast
+            const display = p.name || `${p.ยศ || ''}${p.ชื่อ || ''} ${p.สกุล || ''}`.trim()
+
+            if (!display) return { person: p, score: 0, display: "Unknown Person" }
+
+            let score = 0
+
+            // Logic for Multiple Parts (First Name + Surname Abbreviation)
+            if (queryParts.length >= 1) {
+                const qFirst = normalize(queryParts[0])
+                if (dbFirst === qFirst) score += 90
+                else if (dbFirst.startsWith(qFirst)) score += 50
+                else if (dbFirst.includes(qFirst)) score += 20
+
+                if (queryParts.length >= 2) {
+                    const qLast = normalize(queryParts[1])
+                    if (dbLast === qLast) score += 80
+                    else if (dbLast.startsWith(qLast)) score += 60
+                    else if (dbLast.includes(qLast)) score += 30
+                    // Special Thai vowel prefix handling (e.g., "ศ" in "เศวตรักต")
+                    else if (dbLast.length > 1 && dbLast.substring(1).startsWith(qLast)) score += 40
+                }
+            }
+
+            // Full match fallback (for when users type without spaces)
+            const qCombined = normalize(cleanQuery)
+            if (dbFull === qCombined) score += 110
+            else if (dbFull.startsWith(qCombined)) score += 70
+            else if (dbFull.includes(qCombined)) score += 40
+
+            // Character intersection check for minor typos
+            const qChars = qCombined.split('')
+            const fChars = dbFull.split('')
+            const intersection = qChars.filter(c => fChars.includes(c)).length
+            score += (intersection / Math.max(qCombined.length, dbFull.length || 1)) * 30
+
+            return { person: p, score, display }
+        })
+            .filter(s => s.score > 25)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10)
+    }, [query, dbPeople])
+
+    return (
+        <div className="flex items-center gap-2 w-full">
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className="bg-slate-800 border-slate-700 text-xs px-2 py-1 h-8 rounded w-full justify-between hover:bg-slate-700 text-slate-200"
+                    >
+                        <span className="truncate">{currentName || "เลือกรายชื่อ..."}</span>
+                        <Search className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0 bg-slate-900 border-slate-700 shadow-2xl" align="start">
+                    <Command className="bg-slate-900" shouldFilter={false}>
+                        <CommandInput
+                            placeholder="พิมพ์เพื่อค้นหา (รองรับตัวย่อ/พิมพ์ผิด)..."
+                            value={query}
+                            onValueChange={setQuery}
+                            className="text-xs h-9 bg-transparent"
+                        />
+                        <CommandList className="max-h-[250px] min-h-[50px]">
+                            {suggestions.length === 0 && query && (
+                                <CommandEmpty className="text-[10px] py-4 text-slate-500">ไม่พบรายชื่อที่ใกล้เคียง</CommandEmpty>
+                            )}
+                            <CommandGroup heading="รายชื่อที่แนะนำ">
+                                {suggestions.map((s, i) => (
+                                    <CommandItem
+                                        key={i}
+                                        value={s.display}
+                                        onSelect={() => {
+                                            onSelect(s.person)
+                                            setOpen(false)
+                                        }}
+                                        className="text-xs cursor-pointer hover:bg-white/5 data-[selected='true']:bg-cyan-500/20 py-2"
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="font-medium text-cyan-400">{s.display}</span>
+                                            <span className="text-[9px] text-slate-500 group-data-[selected=true]:text-slate-300">
+                                                {s.person.สังกัด || s.person.หน่วย || s.person.ตอน || '-'}
+                                            </span>
+                                        </div>
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+        </div>
+    )
 }
 
 export function ExcelManager({ onBack }: ExcelManagerProps) {
@@ -35,6 +163,7 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
     const [scanning, setScanning] = useState(false)
     const [matchedColumns, setMatchedColumns] = useState<string[]>([])
     const [previewRows, setPreviewRows] = useState<any[]>([])
+    const [dbPeople, setDbPeople] = useState<any[]>([])
     const { toast } = useToast()
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -127,7 +256,9 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
             const res = await fetch("/api/sheets/433")
             const data = await res.json()
             if (!data.success) throw new Error("โหลดฐานข้อมูลไม่สำเร็จ")
-            const dbPeople = data.data.people as any[]
+            const people = data.data.people as any[]
+            setDbPeople(people)
+            const dbPeopleLocal = people
 
             const normalize = (val: any): string => {
                 if (val === null || val === undefined) return ""
@@ -179,9 +310,20 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
                     const nameVal = idxFirst ? getVal(idxFirst) : "Unknown"
                     const lastVal = idxLast ? getVal(idxLast) : ""
 
-                    const match = dbPeople.find(p => {
-                        const dbFirst = normalize(p._std_first_name || p.ชื่อ)
-                        return dbFirst === nameVal || (dbFirst.includes(nameVal) && nameVal.length > 2)
+                    const match = dbPeopleLocal.find(p => {
+                        const dbFirst = normalize(p._std_first_name || p.ชื่อ || p["ชื่อ-นามสกุล"] || "")
+                        const dbLast = normalize(p._std_last_name || p.สกุล || "")
+
+                        // Try matching with input names
+                        if (dbFirst === nameVal && (lastVal === "" || dbLast.startsWith(lastVal))) return true
+                        if (dbFirst.includes(nameVal) && nameVal.length > 2) return true
+
+                        // Try matching with the combined original name
+                        const dbFull = normalize(p.name || "")
+                        const inputFull = normalize(nameVal + lastVal)
+                        if (dbFull.includes(inputFull) || inputFull.includes(dbFirst)) return true
+
+                        return false
                     })
 
                     const missing: string[] = []
@@ -195,11 +337,20 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
                     })
 
                     if (missing.length > 0) {
+                        const combinedInputName = idxLast ? `${getVal(idxFirst)} ${getVal(idxLast)}`.trim() : getVal(idxFirst)
+
+                        // If auto-matched, use the full name from database instead of the potentially abbreviated Excel name
+                        let finalDisplayName = combinedInputName
+                        if (match) {
+                            finalDisplayName = match.name || `${match.ยศ || ''}${match.ชื่อ || ''} ${match.สกุล || ''}`.trim()
+                        }
+
                         results.push({
                             sheet: sheetName,
                             row: rowNumber,
-                            name: nameVal + " " + lastVal,
+                            name: finalDisplayName,
                             isMatched: !!match,
+                            matchedPerson: match || null,
                             missing: missing,
                             debugData: debug,
                             isHeader: false
@@ -284,6 +435,11 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
                 }
             }
 
+            const toThaiNumeral = (n: number) => {
+                const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
+                return n.toString().split('').map(d => thaiDigits[parseInt(d)]).join('');
+            };
+
             for (const sheetName of selectedSheets) {
                 const ws = wb.getWorksheet(sheetName)
                 if (!ws) continue
@@ -297,8 +453,11 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
                     if (txt) headers[txt] = Number(cell.col)
                 })
 
+                let idxOrder = 1 // Column A
                 let idxFirstName = 3
                 let idxLastName = 4
+
+                let dataRowCounter = 1
 
                 // 4. Processing Rows (Starting from 4)
                 ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
@@ -319,8 +478,14 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
                     const inputFirst = normalize(getRawVal(idxFirstName!))
                     const inputLast = idxLastName ? normalize(getRawVal(idxLastName)) : ""
 
-                    if (inputFirst) {
-                        const match = dbPeople.find(p => {
+                    // 4.1 Check for manual override from previewRows
+                    const manualMatchRow = previewRows.find(r => r.sheet === sheetName && r.row === rowNumber && r.isMatched && r.matchedPerson)
+
+                    let match = null
+                    if (manualMatchRow) {
+                        match = manualMatchRow.matchedPerson
+                    } else if (inputFirst) {
+                        match = dbPeople.find(p => {
                             const dbFirst = normalize(p._std_first_name || p.ชื่อ || p["ชื่อ-สกุล"])
                             const dbLast = normalize(p._std_last_name || p.สกุล || "")
 
@@ -331,43 +496,64 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
                             }
                             return false
                         })
+                    }
 
-                        if (match) {
-                            totalMatchedPeople++
-                            // Create a lookup map of normalized DB keys for THIS person
-                            const normMatch: Record<string, any> = {}
-                            Object.keys(match).forEach(k => { normMatch[normalize(k)] = match[k] })
+                    // Handle Column A (ลำดับ) - Only if empty
+                    const currentOrderRaw = getRawVal(idxOrder);
+                    if (normalize(currentOrderRaw) === "") {
+                        const cell = row.getCell(idxOrder);
+                        const thaiNum = toThaiNumeral(dataRowCounter);
+                        cell.value = thaiNum;
+                        cell.font = { name: 'TH Sarabun New', size: 14 };
+                        cell.alignment = { horizontal: 'center' };
+                    }
+                    dataRowCounter++;
 
-                            Object.entries(headers).forEach(([headerName, colIdx]) => {
-                                if (colIdx === undefined) return
-                                const normHeader = normalize(headerName)
+                    if (match) {
+                        totalMatchedPeople++
 
-                                // Skip ID columns
-                                if (normHeader.includes("ชื่อ") || normHeader.includes("สกุล") || normHeader.includes("ยศ") || normHeader === "ลำดับ") return
-
-                                // Check if destination is empty in row
-                                const cellValue = normalize(getRawVal(colIdx))
-                                if (cellValue === "") {
-                                    // 1. Direct match 2. Fuzzy match
-                                    let dbVal = normMatch[normHeader]
-                                    if (dbVal === undefined || dbVal === null || String(dbVal).trim() === "") {
-                                        const fuzzyKey = Object.keys(normMatch).find(k => k.includes(normHeader) || normHeader.includes(k))
-                                        if (fuzzyKey) dbVal = normMatch[fuzzyKey]
-                                    }
-
-                                    if (dbVal !== undefined && dbVal !== null && String(dbVal).trim() !== "") {
-                                        const finalStr = String(dbVal).trim()
-                                        const targetCell = row.getCell(colIdx)
-                                        if (targetCell.isMerged) {
-                                            targetCell.master.value = finalStr
-                                        } else {
-                                            targetCell.value = finalStr
-                                        }
-                                        totalUpdated++
-                                    }
-                                }
-                            })
+                        // Force Column D to be the full surname from DB
+                        const dbSurname = match.สกุล || match._std_last_name || "";
+                        if (dbSurname) {
+                            const dCell = row.getCell(idxLastName);
+                            dCell.value = String(dbSurname).trim();
+                            dCell.font = { name: 'TH Sarabun New', size: 14 };
                         }
+
+                        // Create a lookup map of normalized DB keys for THIS person
+                        const normMatch: Record<string, any> = {}
+                        Object.keys(match).forEach(k => { normMatch[normalize(k)] = match[k] })
+
+                        Object.entries(headers).forEach(([headerName, colIdx]) => {
+                            if (colIdx === undefined) return
+                            const normHeader = normalize(headerName)
+
+                            // SKIP these columns from DB filling to preserve Excel layout or logic
+                            if (normHeader.includes("ชื่อ") || normHeader.includes("สกุล") || normHeader.includes("ยศ") || normHeader === "ลำดับ") return
+
+                            // Check if destination is empty in row
+                            const cellValue = normalize(getRawVal(colIdx))
+                            if (cellValue === "") {
+                                // 1. Direct match 2. Fuzzy match
+                                let dbVal = normMatch[normHeader]
+                                if (dbVal === undefined || dbVal === null || String(dbVal).trim() === "") {
+                                    const fuzzyKey = Object.keys(normMatch).find(k => k.includes(normHeader) || normHeader.includes(k))
+                                    if (fuzzyKey) dbVal = normMatch[fuzzyKey]
+                                }
+
+                                if (dbVal !== undefined && dbVal !== null && String(dbVal).trim() !== "") {
+                                    const finalStr = String(dbVal).trim()
+                                    const targetCell = row.getCell(colIdx)
+                                    if (targetCell.isMerged) {
+                                        targetCell.master.value = finalStr
+                                    } else {
+                                        targetCell.value = finalStr
+                                    }
+                                    targetCell.font = { name: 'TH Sarabun New', size: 14 };
+                                    totalUpdated++
+                                }
+                            }
+                        })
                     }
                 })
             }
@@ -806,7 +992,22 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
                                                     {previewRows.map((row, i) => (
                                                         <tr key={i} className="hover:bg-white/5 transition-colors">
                                                             <td className="p-2 text-slate-500 font-mono">{row.row}</td>
-                                                            <td className="p-2 font-medium">{row.name}</td>
+                                                            <td className="p-2">
+                                                                <NamePicker
+                                                                    currentName={row.name}
+                                                                    dbPeople={dbPeople}
+                                                                    onSelect={(person) => {
+                                                                        const next = [...previewRows]
+                                                                        // Use full display name from database person record
+                                                                        const fullName = person.name || `${person.ยศ || ''}${person.ชื่อ || ''} ${person.สกุล || ''}`.trim()
+                                                                        next[i].name = fullName
+                                                                        next[i].isMatched = true
+                                                                        next[i].matchedPerson = person
+                                                                        setPreviewRows(next)
+                                                                        toast({ title: "เลือกรายชื่อแล้ว", description: fullName })
+                                                                    }}
+                                                                />
+                                                            </td>
                                                             <td className="p-2">
                                                                 <div className="flex flex-wrap gap-1">
                                                                     {row.missing.length > 0 ? (
@@ -827,7 +1028,12 @@ export function ExcelManager({ onBack }: ExcelManagerProps) {
                                                             </td>
                                                             <td className="p-2">
                                                                 {row.isMatched ? (
-                                                                    <Badge className="bg-green-500/20 text-green-400 border-none text-[10px]">พบในฐานข้อมูล</Badge>
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <Badge className="bg-green-500/20 text-green-400 border-none text-[10px] w-fit">ตรงกับฐานข้อมูล</Badge>
+                                                                        <div className="text-[9px] text-green-300 truncate max-w-[150px]">
+                                                                            {row.matchedPerson?.name || `${row.matchedPerson?.ยศ || ''} ${row.matchedPerson?.ชื่อ || ''} ${row.matchedPerson?.สกุล || ''}`.trim()}
+                                                                        </div>
+                                                                    </div>
                                                                 ) : (
                                                                     <Badge className="bg-red-500/20 text-red-400 border-none text-[10px]">ไม่พบข้อมูล</Badge>
                                                                 )}

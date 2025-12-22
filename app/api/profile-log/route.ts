@@ -19,17 +19,17 @@ export async function POST(request: Request) {
       detectedAdminColumns: body?.detectedAdminColumns ?? null,
       metadata: body?.metadata ?? null,
     }
-    
+
     // แสดงข้อมูลแบบละเอียด
     console.log('🔍 [PROFILE LOG] ข้อมูลที่ได้รับ:', JSON.stringify(summary, null, 2))
-    
+
     // แสดงข้อมูลแบบสรุป
     if (body?.allPersonData) {
       const person = body.allPersonData
       console.log('📋 [PROFILE LOG] สรุปข้อมูล:', {
         time,
         name: `${person.ยศ || ''} ${person.ชื่อ || ''} ${person.สกุล || ''}`.trim(),
-        position: person['ตำแหน่ง ทกท.'] || person.ตำแหน่ง || '-',
+        position: person['ตำแหน่ง'] || person.ตำแหน่ง || '-',
         basicInfo: {
           ลำดับ: person.ลำดับ,
           ชั้นปีที่: person.ชั้นปีที่,

@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     let idxTitle = findIdx(['ยศ', 'title'])
     let idxFirst = findIdx(['ชื่อ'])
     let idxLast = findIdx(['สกุล'])
-    let idxPos = findIdx(['ตำแหน่ง ทกท.', 'ตำแหน่ง', 'position'])
+    let idxPos = findIdx(['ตำแหน่ง', 'ตำแหน่ง', 'position'])
     let idxPartner = findIdx(['คู่พี่นายทหาร', 'คู่พี่นาย', 'คู่พี่', 'partner'])
     let idxShift = findIdx(['ผลัด', 'ผัด', 'shift'])
     let idxNote = findIdx(['หมายเหตุ', 'note'])

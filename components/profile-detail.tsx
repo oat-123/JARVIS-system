@@ -33,10 +33,10 @@ const toThaiShortDate = (input: string) => {
     const d = new Date(cleanInput)
     if (isNaN(d.getTime())) return input
     const day = d.getDate()
-    const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+    const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
     const year = d.getFullYear() + 543
     const shortYear = String(year).slice(-2)
-    const thaiNum = (n:number) => String(n).split('').map(ch => '๐๑๒๓๔๕๖๗๘๙'[parseInt(ch)]).join('')
+    const thaiNum = (n: number) => String(n).split('').map(ch => '๐๑๒๓๔๕๖๗๘๙'[parseInt(ch)]).join('')
     return `${thaiNum(day)} ${monthNames[d.getMonth()]} ${thaiNum(parseInt(shortYear))}`
   } catch (e) { return input }
 }
@@ -48,7 +48,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
   const [showFileNotFoundDialog, setShowFileNotFoundDialog] = useState<boolean>(false);
   const [fileTypeNotFound, setFileTypeNotFound] = useState<'word' | 'pdf' | null>(null);
-  
+
   const [showSecondaryDownloadDialog, setShowSecondaryDownloadDialog] = useState<boolean>(false);
   const { toast } = useToast();
 
@@ -67,12 +67,12 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
   const dotIndex = fullName.indexOf('.');
   let wordFilename = fullName;
   if (dotIndex > -1) {
-      const rank = fullName.substring(0, dotIndex + 1);
-      const name = fullName.substring(dotIndex + 1).trim();
-      wordFilename = rank + name;
+    const rank = fullName.substring(0, dotIndex + 1);
+    const name = fullName.substring(dotIndex + 1).trim();
+    wordFilename = rank + name;
   }
   const displayName = (person.ชื่อ && person.ชื่อ !== "นนร.") ? fullName : "ไม่พบชื่อจริง"
-  const position = person['ตำแหน่ง ทกท.'] || person.ตำแหน่ง || person['ทกท.'] || ''
+  const position = person['ตำแหน่ง'] || person.ตำแหน่ง || person['ทกท.'] || ''
 
   useEffect(() => {
     console.log('Profile Detail - reportHistory:', person.reportHistory);
@@ -303,7 +303,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
           totalAdminColumns: person._admin_columns?.length || 0,
         }
       }
-      
+
       // แสดง log ใน console ของ browser
       console.log('🔍 Profile Detail - ข้อมูลที่ได้รับ:', {
         timestamp: new Date().toISOString(),
@@ -345,16 +345,16 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
           }
         }
       })
-      
+
       fetch('/api/profile-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      }).catch(() => {}) // Suppress errors for logging
+      }).catch(() => { }) // Suppress errors for logging
     } catch (e) {
       console.error('❌ Error logging profile data:', e)
     }
-  // เปลี่ยนเมื่อเป้าหมายเปลี่ยนคน
+    // เปลี่ยนเมื่อเป้าหมายเปลี่ยนคน
   }, [fullName, position, person._433_dates, person._admin_dates, person.ถวายรายงาน, person['น.กำกับยาม'], person.วันที่, person._433_columns, person._admin_columns])
 
   useEffect(() => {
@@ -390,15 +390,15 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="flex justify-start items-center mb-3 gap-2">
-            <Button 
-            onClick={onBack} 
+          <Button
+            onClick={onBack}
             className="bg-yellow-400 text-black px-1.5 py-0.5 sm:px-3 sm:py-2 rounded-md shadow hover:bg-yellow-500 text-[11px] sm:text-base"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             ย้อนกลับ
           </Button>
-          <Button 
-            onClick={handleRefresh} 
+          <Button
+            onClick={handleRefresh}
             className="bg-green-500 text-white p-1 sm:p-2 rounded-full shadow hover:bg-green-600"
           >
             <RefreshCw className="h-4 w-4" />
@@ -415,23 +415,23 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <div className="w-28 h-28 sm:w-48 sm:h-48 rounded-full bg-gradient-to-br from-slate-700/60 to-slate-700/40 flex items-center justify-center overflow-hidden ring-4 ring-white/6 shadow-2xl cursor-pointer">
-              {isLoadingImage ? (
-                <div className="text-slate-200 text-center">
-                  <span className="text-xs sm:text-sm">กำลังโหลด...</span>
+                  {isLoadingImage ? (
+                    <div className="text-slate-200 text-center">
+                      <span className="text-xs sm:text-sm">กำลังโหลด...</span>
+                    </div>
+                  ) : avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={fullName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-slate-200 text-center">
+                      <User className="h-10 w-10 sm:h-16 sm:w-16 mx-auto mb-2 opacity-50" />
+                      <span className="text-xs sm:text-sm">รูปภาพ</span>
+                    </div>
+                  )}
                 </div>
-              ) : avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={fullName}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="text-slate-200 text-center">
-                  <User className="h-10 w-10 sm:h-16 sm:w-16 mx-auto mb-2 opacity-50" />
-                  <span className="text-xs sm:text-sm">รูปภาพ</span>
-                </div>
-              )}
-            </div>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -610,12 +610,11 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                       <div className="text-[10px] sm:text-base font-medium text-white">
                         <div className="flex gap-1 flex-wrap mb-1">
                           {entry.code && entry.code !== 'คู่' && (
-                            <span className={`px-2 py-0.5 rounded text-[8px] sm:text-xs ${
-                              entry.code === 'HMSV' ? 'bg-purple-300 text-black' :
-                              entry.code === '๙๐๔' ? 'bg-yellow-400 text-black' :
-                              entry.code === '๙๑๙' ? 'bg-blue-400 text-black' :
-                              'bg-blue-600 text-white'
-                            }`}>{entry.code}</span>
+                            <span className={`px-2 py-0.5 rounded text-[8px] sm:text-xs ${entry.code === 'HMSV' ? 'bg-purple-300 text-black' :
+                                entry.code === '๙๐๔' ? 'bg-yellow-400 text-black' :
+                                  entry.code === '๙๑๙' ? 'bg-blue-400 text-black' :
+                                    'bg-blue-600 text-white'
+                              }`}>{entry.code}</span>
                           )}
                           {entry.position && entry.position !== 'คู่' && <span className="bg-purple-600 px-2 py-0.5 rounded text-[8px] sm:text-xs">{entry.position}</span>}
                           {(entry.code === 'คู่' || entry.position === 'คู่') && <span className="text-white">{entry.code === 'คู่' ? entry.code : entry.position}</span>}
@@ -631,13 +630,13 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                   (Object.entries(person.reportInfo || {})
                     .filter(([_, val]: [string, any]) => val && String(val).trim())
                     .map(([hdr, val]: [string, any], idx: number) => (
-                          <div key={idx} className="grid grid-cols-4 items-start px-3 sm:px-6 py-2 sm:py-4">
-                            {idx === 0 && <div className="text-[9px] sm:text-sm text-slate-300">ประวัติถวายรายงาน</div>}
-                            {idx !== 0 && <div></div>}
-                            <div></div>
-                              <div className="text-[9px] sm:text-sm text-slate-400 font-semibold text-right pr-3">{hdr ? `${hdr} :` : ''}</div>
-                              <div className="text-[10px] sm:text-base font-medium text-white">{val || '-'}</div>
-                          </div>
+                      <div key={idx} className="grid grid-cols-4 items-start px-3 sm:px-6 py-2 sm:py-4">
+                        {idx === 0 && <div className="text-[9px] sm:text-sm text-slate-300">ประวัติถวายรายงาน</div>}
+                        {idx !== 0 && <div></div>}
+                        <div></div>
+                        <div className="text-[9px] sm:text-sm text-slate-400 font-semibold text-right pr-3">{hdr ? `${hdr} :` : ''}</div>
+                        <div className="text-[10px] sm:text-base font-medium text-white">{val || '-'}</div>
+                      </div>
                     ))
                   )
                 )}
@@ -650,14 +649,14 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <div className="text-[9px] sm:text-sm text-slate-300">ประวัติเข้าเวร 433</div>
                 <div></div>
                 <div></div>
-                  <div className="text-[10px] sm:text-base font-medium text-white">
-                    {person.enter433.map((entry: any, index: number) => (
-                      <div key={index} className="mb-1">
-                        {toThaiShortDate(entry.date)}
-                        {entry.note && <span className="text-slate-400 text-[8px] sm:text-xs ml-2">({entry.note})</span>}
-                      </div>
-                    ))}
-                  </div>
+                <div className="text-[10px] sm:text-base font-medium text-white">
+                  {person.enter433.map((entry: any, index: number) => (
+                    <div key={index} className="mb-1">
+                      {toThaiShortDate(entry.date)}
+                      {entry.note && <span className="text-slate-400 text-[8px] sm:text-xs ml-2">({entry.note})</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -667,14 +666,14 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <div className="text-[9px] sm:text-sm text-slate-300">ประวัติเข้าเวรธุรการ</div>
                 <div></div>
                 <div></div>
-                  <div className="text-[10px] sm:text-base font-medium text-white">
-                    {person.enterChp.map((entry: any, index: number) => (
-                      <div key={index} className="mb-1">
-                        {toThaiShortDate(entry.date)}
-                        {entry.note && <span className="text-slate-400 text-[8px] sm:text-xs ml-2">({entry.note})</span>}
-                      </div>
-                    ))}
-                  </div>
+                <div className="text-[10px] sm:text-base font-medium text-white">
+                  {person.enterChp.map((entry: any, index: number) => (
+                    <div key={index} className="mb-1">
+                      {toThaiShortDate(entry.date)}
+                      {entry.note && <span className="text-slate-400 text-[8px] sm:text-xs ml-2">({entry.note})</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -724,7 +723,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
 
             {/* Download Buttons */}
             <div className="px-3 py-4 sm:px-6 sm:py-6 flex flex-row gap-3 sm:gap-4 justify-center">
-              <Button 
+              <Button
                 onClick={handleWordDownload}
                 disabled={isDownloadingWord}
                 className="bg-blue-600 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-md shadow hover:bg-blue-700 disabled:bg-slate-500 w-full sm:w-1/2 text-[11px] sm:text-base"
@@ -732,7 +731,7 @@ export function ProfileDetail({ person, onBack }: ProfileDetailProps) {
                 <Download className="h-4 w-4 mr-2" />
                 {isDownloadingWord ? 'กำลังค้นหา...' : 'ดาวน์โหลดไฟล์ Word'}
               </Button>
-              <Button 
+              <Button
                 onClick={handlePdfDownload}
                 disabled={isDownloadingPdf}
                 className="bg-red-600 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-md shadow hover:bg-red-700 disabled:bg-slate-500 w-full sm:w-1/2 text-[11px] sm:text-base"

@@ -22,7 +22,7 @@ interface PersonData {
   หน้าที่?: string
   ชมรม?: string
   สถิติโดนยอด?: string
-  "ตำแหน่ง ทกท."?: string
+
   "ธุรการ ฝอ."?: string
   "ธุรการ"?: string
   "คัดเกรด"?: string
@@ -369,10 +369,10 @@ export function Duty433({ onBack, onActivateModule, user }: Duty433Props) {
   const [nextStart, nextEnd] = useMemo(() => nextWeekendRange(new Date()), [])
   const nextWeekendText = useMemo(() => formatThaiRange(nextStart, nextEnd), [nextStart, nextEnd])
 
-  // helper: read position from common column names (prefer 'ตำแหน่ง ทกท.')
+  // helper: read position from common column names (prefer 'ตำแหน่ง')
   const getPositionFrom = (obj: any) => {
     if (!obj) return ''
-    const tryKeys = ['ตำแหน่ง ทกท.', 'ตำแหน่ง ทกท', 'ตำแหน่งทกท', 'ตำแหน่ง', 'position', 'pos', 'ทกท.']
+    const tryKeys = ['ตำแหน่ง', 'ตำแหน่ง ทกท', 'ตำแหน่งทกท', 'ตำแหน่ง', 'position', 'pos', 'ทกท.']
     for (const k of tryKeys) {
       if (obj[k]) return obj[k]
     }
@@ -394,7 +394,7 @@ export function Duty433({ onBack, onActivateModule, user }: Duty433Props) {
     normalized.ยศ = pick(['ยศ', 'rank']) || row.ยศ || '';
     normalized.ชื่อ = pick(['ชื่อ', 'firstName', 'firstname', 'name']) || row.ชื่อ || '';
     normalized.สกุล = pick(['สกุล', 'lastName', 'lastname', 'surname']) || row.สกุล || '';
-    normalized.ตำแหน่ง = pick(['ตำแหน่ง ทกท.', 'ตำแหน่ง', 'position', 'pos']) || row.ตำแหน่ง || '';
+    normalized.ตำแหน่ง = pick(['ตำแหน่ง', 'ตำแหน่ง', 'position', 'pos']) || row.ตำแหน่ง || '';
     normalized.สังกัด = pick(['สังกัด', 'affiliation']) || row.สังกัด || '';
     normalized.หน้าที่ = pick(['หน้าที่', 'role']) || row.หน้าที่ || '';
     normalized.นักกีฬา = pick(['นักกีฬา', 'กีฬา', 'เป็นนักกีฬา', 'sport', 'sports', 'เล่นกีฬา', 'athlete', 'athletics']) || row.นักกีฬา || row.กีฬา || '';
@@ -834,7 +834,7 @@ export function Duty433({ onBack, onActivateModule, user }: Duty433Props) {
       if (stat < minCount) return false
       if (q) {
         const name = ((p.ชื่อ || '') + ' ' + (p.สกุล || '')).toLowerCase()
-        const pos = (p['ตำแหน่ง ทกท.'] || p.ตำแหน่ง || '').toString().toLowerCase()
+        const pos = (p['ตำแหน่ง'] || p.ตำแหน่ง || '').toString().toLowerCase()
         if (!name.includes(q) && !pos.includes(q)) return false
       }
       return true
@@ -1080,7 +1080,7 @@ export function Duty433({ onBack, onActivateModule, user }: Duty433Props) {
                       <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ลำดับ || i + 1}</td>
                       <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.ชื่อ && p.ชื่อ !== "นนร." ? p.ชื่อ : <span className="text-red-400">ไม่พบชื่อ</span>}</td>
                       <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.สกุล && p.สกุล !== "นนร." ? p.สกุล : <span className="text-red-400">ไม่พบสกุล</span>}</td>
-                      <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ตำแหน่ง ทกท.'] || getPositionFrom(p) || '-'}</td>
+                      <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ตำแหน่ง'] || getPositionFrom(p) || '-'}</td>
                       <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.สังกัด}</td>
                       <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p.คัดเกรด || '-'}</td>
                       <td className="px-1 py-1 text-center border-b border-slate-700 whitespace-nowrap">{p['ธุรการ ฝอ.'] || p.ธุรการ || '-'}</td>

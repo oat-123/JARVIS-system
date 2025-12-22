@@ -37,7 +37,7 @@ interface Person {
   สกุล: string;
   ชั้นปีที่: string;
   ตอน: string;
-  'ตำแหน่ง ทกท.': string;
+  'ตำแหน่ง': string;
   สังกัด: string;
   เบอร์โทรศัพท์: string;
   คัดเกรด: string;
@@ -491,7 +491,7 @@ function CeremonyDutyGradeInternal({ onBack }: { onBack?: () => void }) {
     // Exclude any position that contains ฝอ (case-insensitive) when enabled
     if (excludeFaw) {
       availablePersons = availablePersons.filter(p => {
-        const pos = (p['ตำแหน่ง ทกท.'] || '').toString();
+        const pos = (p['ตำแหน่ง'] || '').toString();
         return !/ฝอ/i.test(pos);
       });
     }
@@ -644,7 +644,7 @@ function CeremonyDutyGradeInternal({ onBack }: { onBack?: () => void }) {
         person.สกุล || '',
         person.ชั้นปีที่ || '',
         person.ตอน || '',
-        person['ตำแหน่ง ทกท.'] || '',
+        person['ตำแหน่ง'] || '',
         person.สังกัด || '',
         person.เบอร์โทรศัพท์ || '',
         ""
@@ -1055,7 +1055,7 @@ function CeremonyDutyGradeInternal({ onBack }: { onBack?: () => void }) {
                 <div className="flex items-center justify-between mt-3">
                   <div>
                     <Label className="text-white font-medium text-sm">ตัด ฝอ.</Label>
-                    <p className="text-xs text-slate-400">ยกเว้นผู้ที่มีคำว่า 'ฝอ' ในคอลัมน์ 'ตำแหน่ง ทกท.'</p>
+                    <p className="text-xs text-slate-400">ยกเว้นผู้ที่มีคำว่า 'ฝอ' ในคอลัมน์ 'ตำแหน่ง'</p>
                   </div>
                   <Switch checked={excludeFaw} onCheckedChange={setExcludeFaw} />
                 </div>
@@ -1469,7 +1469,7 @@ function CeremonyDutyGradeInternal({ onBack }: { onBack?: () => void }) {
                           </TableCell>
                           <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.ชั้นปีที่}</TableCell>
                           <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.ตอน}</TableCell>
-                          <TableCell className="text-left align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row['ตำแหน่ง ทกท.']}</TableCell>
+                          <TableCell className="text-left align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row['ตำแหน่ง']}</TableCell>
                           <TableCell className="text-left align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.สังกัด}</TableCell>
                           <TableCell className="text-center align-middle text-slate-300 px-1 py-1 whitespace-nowrap text-[11px]">{row.คัดเกรด}</TableCell>
                           <TableCell className="text-right align-middle px-1 py-1 whitespace-nowrap">

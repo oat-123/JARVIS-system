@@ -123,5 +123,8 @@
     "tailwindcss"
   ],
   "author": "J.A.R.V.I.S Team",
-  "license": "MIT"
+  "license": "MIT",
+  "overrides": {
+    "rimraf": "^3.0.2"
+  }
 }

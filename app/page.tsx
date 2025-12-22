@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { LoginPage } from '../components/login-page';
 import { Dashboard } from '../components/dashboard';
 import { RegisterPage } from '../components/register-page';
@@ -101,37 +102,63 @@ export default function Home() {
     return <LoadingScreen />;
   }
 
-  // Dashboard view
-  if (isLoggedIn && currentUser) {
-    const rawRole = currentUser.role;
-    const displayRole = roleDisplayMap[rawRole] || rawRole;
-
-    const userObj = {
-      username: currentUser.username,
-      displayName: currentUser.username,
-      role: rawRole,
-      group: currentUser.db,
-      sheetname: currentUser.db,
-      displayRole,
-    };
-
-    return <Dashboard user={userObj} username={currentUser.username} onLogout={handleLogout} />;
-  }
-
-  // Register view
-  if (view === 'register') {
-    return <RegisterPage onBack={() => setView('login')} />;
-  }
-
-  // Start view (only initial load if not logged in)
-  if (view === 'start') {
-    return <StartScreen onStart={() => setView('login')} />;
-  }
-
   // Default: Login view
+  // Define login handler
   const onLoginAsync = async (username: string, password: string, rememberMe?: boolean): Promise<boolean> => {
     return await handleLogin(username, password, rememberMe);
   };
 
-  return <LoginPage onLogin={onLoginAsync} onRegisterClick={() => setView('register')} />;
+  // Wrap content in AnimatePresence for transitions
+  return (
+    <AnimatePresence mode="wait">
+      {isLoggedIn && currentUser ? (
+        <motion.div
+          key="dashboard"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Dashboard user={{
+            username: currentUser.username,
+            displayName: currentUser.username,
+            role: currentUser.role,
+            group: currentUser.db,
+            sheetname: currentUser.db,
+            displayRole: roleDisplayMap[currentUser.role] || currentUser.role,
+          }} username={currentUser.username} onLogout={handleLogout} />
+        </motion.div>
+      ) : view === 'register' ? (
+        <motion.div
+          key="register"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.3 }}
+        >
+          <RegisterPage onBack={() => setView('login')} />
+        </motion.div>
+      ) : view === 'start' ? (
+        <motion.div
+          key="start"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, scale: 1.1 }} // Zoom out effect on start
+          transition={{ duration: 0.5 }}
+        >
+          <StartScreen onStart={() => setView('login')} />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="login"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 1.05 }}
+          transition={{ duration: 0.3 }}
+        >
+          <LoginPage onLogin={onLoginAsync} onRegisterClick={() => setView('register')} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }

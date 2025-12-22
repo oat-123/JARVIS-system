@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import * as XLSX from "xlsx"
 // ฟังก์ชันช่วยโหลดประวัติยอดจาก localStorage
 function getDutyHistory() {
@@ -43,10 +44,12 @@ import { CreateFiles } from "./modules/create-files"
 
 interface DashboardProps {
   user: {
+    username?: string
     displayName: string
     role: string
     group: string
     sheetname: string
+    displayRole?: string
   } | null
   username: string | null
   onLogout: () => void
@@ -212,38 +215,81 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
   }
 
   if (activeModule === "excel-manager") {
-    return <ExcelManager onBack={() => setActiveModuleWithSave(null)} />
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
+        <ExcelManager onBack={() => setActiveModuleWithSave(null)} />
+      </motion.div>
+    )
   }
 
   if (activeModule === "system-settings") {
-    return <SystemSettings onBack={() => setActiveModuleWithSave(null)} />
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
+        <SystemSettings onBack={() => setActiveModuleWithSave(null)} />
+      </motion.div>
+    )
   }
 
   if (activeModule === "ceremony-duty") {
-    return <CeremonyDuty onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} user={user} />
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
+        <CeremonyDuty onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} user={user} />
+      </motion.div>
+    )
   }
   if (activeModule === "night-duty") {
-    return <NightDuty onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
+        <NightDuty onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
+      </motion.div>
+    )
   }
   if (activeModule === "weekend-duty") {
-    return <WeekendDuty onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
+        <WeekendDuty onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
+      </motion.div>
+    )
   }
   if (activeModule === "release-report") {
-    return <ReleaseReport onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
+        <ReleaseReport onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
+      </motion.div>
+    )
   }
   if (activeModule === "statistics") {
-    return <Statistics onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
+        <Statistics onBack={() => setActiveModuleWithSave(null)} sheetName={user?.sheetname || ""} />
+      </motion.div>
+    )
   }
   if (activeModule === "duty-433") {
-    return <Duty433 onBack={() => setActiveModuleWithSave(null)} onActivateModule={setActiveModuleWithSave} user={user} />
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
+        <Duty433 onBack={() => setActiveModuleWithSave(null)} onActivateModule={setActiveModuleWithSave} user={user} />
+      </motion.div>
+    )
   }
   if (activeModule === "create-files") {
-    return <CreateFiles onBack={() => setActiveModuleWithSave("duty-433")} />
+    return (
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
+        <CreateFiles onBack={() => setActiveModuleWithSave("duty-433")} />
+      </motion.div>
+    )
   }
 
   if (showHistoryPage) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6">
+      <motion.div
+        key="history"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.3 }}
+        className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6"
+      >
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -386,7 +432,7 @@ export function Dashboard({ user, username, onLogout }: DashboardProps) {
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
     );
   }
 

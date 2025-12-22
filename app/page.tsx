@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { LoginPage } from '../components/login-page';
 import { Dashboard } from '../components/dashboard';
 import { RegisterPage } from '../components/register-page';
+import { LoadingScreen } from '../components/loading-screen';
+import { StartScreen } from '../components/start-screen';
 
 interface User {
   username: string;
@@ -21,23 +23,37 @@ const roleDisplayMap: { [key: string]: string } = {
 };
 
 export default function Home() {
-  const [view, setView] = useState<'login' | 'register' | 'dashboard'>('login');
+  const [view, setView] = useState<'start' | 'login' | 'register' | 'dashboard'>('start');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
   // Check session on component mount
+  // Check session on component mount
   useEffect(() => {
     const checkSession = async () => {
-      try {
-        const res = await fetch('/api/auth/user');
-        const data = await res.json();
-        if (data.success && data.user) {
-          setIsLoggedIn(true);
-          setCurrentUser(data.user);
+      // Create a minimum delay to show the loading screen
+      const minLoadTime = new Promise(resolve => setTimeout(resolve, 2000));
+
+      const sessionCheck = (async () => {
+        try {
+          const res = await fetch('/api/auth/user');
+          const data = await res.json();
+          if (data.success && data.user) {
+            return data.user;
+          }
+        } catch (error) {
+          console.error("Failed to check session:", error);
         }
-      } catch (error) {
-        console.error("Failed to check session:", error);
+        return null;
+      })();
+
+      // Wait for both the timer and the session check
+      const [_, user] = await Promise.all([minLoadTime, sessionCheck]);
+
+      if (user) {
+        setIsLoggedIn(true);
+        setCurrentUser(user);
       }
       setIsInitializing(false);
     };
@@ -75,20 +91,14 @@ export default function Home() {
     }
     setIsLoggedIn(false);
     setCurrentUser(null);
+    setView('login'); // Ensure we go to login screen, not start screen
     // Clear any remaining client-side state if necessary
     sessionStorage.clear();
     localStorage.clear();
   };
 
   if (isInitializing) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-white text-lg">Initializing Session...</div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   // Dashboard view
@@ -111,6 +121,11 @@ export default function Home() {
   // Register view
   if (view === 'register') {
     return <RegisterPage onBack={() => setView('login')} />;
+  }
+
+  // Start view (only initial load if not logged in)
+  if (view === 'start') {
+    return <StartScreen onStart={() => setView('login')} />;
   }
 
   // Default: Login view

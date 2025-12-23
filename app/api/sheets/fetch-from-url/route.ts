@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
             // range: 3 means start from row 4 (0-indexed 3)
             const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, range: 3, defval: "" }) as any[][];
 
-            // START_ROW = 3 (Row 4)
+            // START_ROW = 4 (Row 5) or User says Row 4 (Index 3). range: 3 = Row 4.
             // Map to add Original Row Index
             const rowsWithIndex = jsonData.map((cells, i) => ({
                 index: 3 + i,
@@ -52,12 +52,10 @@ export async function POST(req: NextRequest) {
             // Filter empty rows
             const cleanedData = rowsWithIndex.filter(row => row.cells.some((cell: any) => cell !== undefined && cell !== ""));
 
-            if (cleanedData.length > 0) {
-                sheetsData.push({
-                    name: sheetName,
-                    data: cleanedData
-                });
-            }
+            sheetsData.push({
+                name: sheetName,
+                data: cleanedData
+            });
         });
 
         return NextResponse.json({ success: true, sheets: sheetsData });

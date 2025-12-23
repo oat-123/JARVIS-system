@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from "react";
 import * as XLSX from "xlsx";
-import { ArrowLeft, Database, Search, Link as LinkIcon, RefreshCw, Wand2, Copy, FileText, Settings, CheckSquare, Square, ExternalLink, Trash2, Plus, Upload, UserMinus, UserPlus, FileSpreadsheet, Ruler, GraduationCap, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Database, Search, Link as LinkIcon, RefreshCw, Wand2, Copy, FileText, Settings, CheckSquare, Square, ExternalLink, Trash2, Plus, Upload, UserMinus, UserPlus, FileSpreadsheet, Ruler, GraduationCap, ShieldAlert, Pencil, UserCog } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { loadFromCache, saveToCache } from "@/lib/ccache";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +61,7 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
     const [filterHeightMin, setFilterHeightMin] = useState<string>("");
     const [excludedGrades, setExcludedGrades] = useState<string[]>([]);
     const [excludeAdmin433, setExcludeAdmin433] = useState(false);
+    const [excludeFaw, setExcludeFaw] = useState(false);
     const [excludeAthletes, setExcludeAthletes] = useState(false);
     const [selectedAffiliations, setSelectedAffiliations] = useState<string[]>([]);
 
@@ -373,12 +375,8 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
         }
     };
 
-    const handleRandomize = () => {
-        if (dbPersons.length === 0) {
-            toast({ title: "Error", description: "Database not loaded", variant: "destructive" });
-            return;
-        }
-
+    const filteredCandidates = useMemo(() => {
+        if (!dbPersons) return [];
         let candidates = [...dbPersons];
 
         if (selectedAffiliations.length > 0) candidates = candidates.filter(p => selectedAffiliations.includes(p.สังกัด));
@@ -387,18 +385,20 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
             candidates = candidates.filter(p => !excludedGrades.includes(p.คัดเกรด || ""));
         }
 
-        if (filterHeightMin && candidates.some(p => p.ส่วนสูง)) {
+        if (filterHeightMin) {
             const min = parseFloat(filterHeightMin);
-            candidates = candidates.filter(p => {
-                const h = parseFloat(p.ส่วนสูง || "0");
-                return !isNaN(h) && h >= min;
-            });
+            if (!isNaN(min)) {
+                candidates = candidates.filter(p => {
+                    const h = parseFloat(p.ส่วนสูง || "0");
+                    return !isNaN(h) && h >= min;
+                });
+            }
         }
 
         if (exclusionFilePersons.size > 0) candidates = candidates.filter(p => !exclusionFilePersons.has(getFullName(p)));
 
         const linkNames = new Set<string>();
-        sheets.forEach(s => {
+        sheets.filter(s => excludedSheets.includes(s.name)).forEach(s => {
             s.data.forEach(row => {
                 if (row?.cells && row.cells[2] && row.cells[3]) {
                     linkNames.add(`${normalize(row.cells[2])}|${normalize(row.cells[3])}`);
@@ -407,13 +407,50 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
         });
         candidates = candidates.filter(p => !linkNames.has(getFullName(p)));
 
-        if (excludeAdmin433) candidates = candidates.filter(p => !p.ตำแหน่ง?.includes("ธุรการ") && !p.หมายเหตุ?.includes("433"));
-        if (excludeAthletes) candidates = candidates.filter(p => !p.หมายเหตุ?.includes("นักกีฬา") && !p.ตอน?.includes("นักกีฬา"));
+        if (excludeAdmin433) candidates = candidates.filter(p => !p['ธุรการ ฝอ.'] && !p.ตำแหน่ง?.includes("ธุรการ") && !p.หมายเหตุ?.includes("433"));
+        if (excludeFaw) candidates = candidates.filter(p => !p.ตำแหน่ง?.includes("ฝอ."));
+        if (excludeAthletes) candidates = candidates.filter(p => !p['นักกีฬา'] && !p.หมายเหตุ?.includes("นักกีฬา") && !p.ตอน?.includes("นักกีฬา"));
 
-        for (let i = candidates.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+        return candidates;
+    }, [dbPersons, selectedAffiliations, filterHeightMin, excludedGrades, exclusionFilePersons, sheets, excludedSheets, excludeAdmin433, excludeFaw, excludeAthletes]);
+
+    const handleRandomize = () => {
+        if (filteredCandidates.length === 0) {
+            // Toast removed to avoid spam if auto-updating, but okay for button click
+            if (randomCount > 0) toast({ title: "Warning", description: "No candidates match current criteria.", variant: "destructive" });
+            return;
         }
+
+        let candidates = [...filteredCandidates];
+
+        // Priority Grouping: C > B > A > A+ > Others
+        const groups: Record<string, typeof candidates> = {
+            'C': [], 'B': [], 'A': [], 'A+': [], 'Others': []
+        };
+
+        candidates.forEach(p => {
+            const g = (p.คัดเกรด || "").toUpperCase().trim();
+            if (['C', 'B', 'A', 'A+'].includes(g)) {
+                groups[g].push(p);
+            } else {
+                groups['Others'].push(p);
+            }
+        });
+
+        const order = ['C', 'B', 'A', 'A+', 'Others'];
+        let finalCandidates: typeof candidates = [];
+
+        order.forEach(key => {
+            let list = groups[key];
+            // Shuffle within group
+            for (let i = list.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [list[i], list[j]] = [list[j], list[i]];
+            }
+            finalCandidates = [...finalCandidates, ...list];
+        });
+
+        candidates = finalCandidates;
 
         const selected = candidates.slice(0, randomCount);
         setGeneratedList(selected);
@@ -432,6 +469,52 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
         const newList = [...generatedList];
         newList[index] = { ...newList[index], [field]: value };
         setGeneratedList(newList);
+    };
+
+    const [editingRow, setEditingRow] = useState<{ index: number, cells: any[] } | null>(null);
+    const [manualSearchTerm, setManualSearchTerm] = useState("");
+
+    const manualSearchResults = useMemo(() => {
+        if (!manualSearchTerm || !dbPersons) return [];
+        const term = manualSearchTerm.toLowerCase();
+        return dbPersons.filter(p =>
+            (p.ชื่อ && p.ชื่อ.includes(term)) ||
+            (p.สกุล && p.สกุล.includes(term))
+        ).slice(0, 10); // Limit to 10
+    }, [manualSearchTerm, dbPersons]);
+
+    const handleConfirmManualUpdate = async (person: Person) => {
+        if (!editingRow || !activeSheetName || !url) return;
+
+        const rowIndex = editingRow.index;
+        // Construct values for update-rows (Specific cells)
+        const values: Record<number, string> = {
+            1: person.ยศ || "",
+            2: person.ชื่อ || "",
+            3: person.สกุล || "",
+            4: person.ชั้นปีที่ || "",
+            5: person.ตอน || "",
+            6: person.ตำแหน่ง || "",
+            7: person.สังกัด || "",
+            8: person.เบอร์โทรศัพท์ || ""
+        };
+
+        try {
+            setIsUpdatingSheet(true);
+            await fetch('/api/sheets/update-rows', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, sheetName: activeSheetName, updates: [{ rowIndex, values }] })
+            }); // Single row update
+            toast({ title: "Updated", description: `Updated row ${rowIndex + 1} with ${person.ชื่อ}` });
+            setEditingRow(null);
+            setManualSearchTerm("");
+            handleLoadSheet(); // Reload to see changes
+        } catch (e) {
+            toast({ title: "Error", description: "Failed to update row", variant: "destructive" });
+        } finally {
+            setIsUpdatingSheet(false);
+        }
     };
 
     const handleAddGeneratedToLink = async () => {
@@ -581,7 +664,7 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                                             className={cn(
                                                 "relative px-2 py-2 text-xs sm:text-sm rounded-md border text-center transition-all truncate bg-slate-800/80 border-slate-600 text-slate-300 hover:bg-slate-700",
                                                 activeSheetName === sheet.name && "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20 ring-1 ring-blue-400",
-                                                isExcluded && "opacity-50 text-slate-500 decoration-slate-500 line-through"
+                                                isExcluded && "opacity-50 text-slate-500"
                                             )}
                                         >
                                             {sheet.name}
@@ -655,7 +738,17 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                                                 <TableRow key={rIdx} className={isDup ? "bg-red-900/30 hover:bg-red-900/40" : "hover:bg-slate-800/50"}>
                                                     <TableCell className="text-center font-mono text-slate-400">{row[0]}</TableCell>
                                                     <TableCell className="text-slate-300">{row[1]}</TableCell>
-                                                    <TableCell>{row[2]}</TableCell>
+                                                    <TableCell className="relative group">
+                                                        {row[2]}
+                                                        <Button variant="ghost" size="icon" className="h-5 w-5 absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 bg-slate-800/80 hover:bg-blue-600 hover:text-white border border-slate-600 rounded-full"
+                                                            onClick={() => {
+                                                                setEditingRow(rowObj);
+                                                                setManualSearchTerm(typeof row[2] === 'string' ? row[2] : String(row[2] || ""));
+                                                            }}
+                                                        >
+                                                            <Pencil className="h-3 w-3" />
+                                                        </Button>
+                                                    </TableCell>
                                                     <TableCell className={isDup ? "text-red-300 font-semibold" : ""}>
                                                         {row[3]}
                                                         {isDup && <Badge variant="destructive" className="ml-2 text-[10px] h-4">ซ้ำ ({duplicateSet?.get(surname)})</Badge>}
@@ -691,7 +784,12 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Column 1: Criteria */}
                             <div className="space-y-4">
-                                <h3 className="font-semibold text-orange-300 flex items-center gap-2"><Settings className="h-4 w-4" /> เกณฑ์การสุ่ม (Criteria)</h3>
+                                <h3 className="font-semibold text-orange-300 flex items-center gap-2">
+                                    <Settings className="h-4 w-4" /> เกณฑ์การสุ่ม (Criteria)
+                                    <Badge variant="secondary" className="ml-2 text-[10px] h-5 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20">
+                                        เหลือ {filteredCandidates.length}/{dbPersons.length}
+                                    </Badge>
+                                </h3>
 
                                 <div className="space-y-2">
                                     <Label>จำนวนที่ต้องการ (คน)</Label>
@@ -789,6 +887,10 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                                         <Switch id="ex-ath" checked={excludeAthletes} onCheckedChange={setExcludeAthletes} />
                                         <Label htmlFor="ex-ath" className="cursor-pointer">ตัดนักกีฬา</Label>
                                     </div>
+                                    <div className="flex items-center space-x-2 bg-slate-900/40 p-2 rounded border border-slate-700/50">
+                                        <Switch id="ex-faw" checked={excludeFaw} onCheckedChange={setExcludeFaw} />
+                                        <Label htmlFor="ex-faw" className="cursor-pointer">ตัดฝอ.</Label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -797,6 +899,51 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                             <Wand2 className="h-5 w-5 mr-2" />
                             สุ่มรายชื่อ (Process Randomization)
                         </Button>
+
+                        {/* Manual Edit Dialog */}
+                        <Dialog open={!!editingRow} onOpenChange={(open) => !open && setEditingRow(null)}>
+                            <DialogContent className="bg-slate-800 border-slate-700 text-white">
+                                <DialogHeader>
+                                    <DialogTitle>แก้ไขข้อมูลรายบุคคล (Manual Fix)</DialogTitle>
+                                    <DialogDescription className="text-slate-400">
+                                        ค้นหาชื่อที่ถูกต้องเพื่อแทนที่ข้อมูลในแถวที่ {editingRow ? editingRow.index + 1 : ""}
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                    <div className="flex gap-2 p-2 bg-slate-900/50 rounded text-sm text-slate-300">
+                                        <span>Current:</span>
+                                        <span className="font-semibold text-white">{editingRow?.cells[2]} {editingRow?.cells[3]}</span>
+                                    </div>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                                        <Input
+                                            placeholder="พิมพ์ชื่อหรือสกุล..."
+                                            value={manualSearchTerm}
+                                            onChange={e => setManualSearchTerm(e.target.value)}
+                                            className="pl-9 bg-slate-900 border-slate-600"
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <div className="max-h-[200px] overflow-y-auto space-y-1 border border-slate-700 rounded p-1">
+                                        {manualSearchResults.length > 0 ? manualSearchResults.map((p, i) => (
+                                            <div
+                                                key={i}
+                                                className="flex items-center justify-between p-2 hover:bg-blue-600/20 rounded cursor-pointer group"
+                                                onClick={() => handleConfirmManualUpdate(p)}
+                                            >
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-sm text-white">{p.ยศ} {p.ชื่อ} {p.สกุล}</span>
+                                                    <span className="text-xs text-slate-400">{p.สังกัด} | ชั้น {p.ชั้นปีที่}</span>
+                                                </div>
+                                                <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 h-6">เลือก</Button>
+                                            </div>
+                                        )) : (
+                                            <div className="text-center py-4 text-slate-500 text-xs">{manualSearchTerm ? "ไม่พบรายชื่อ" : "พิมพ์เพื่อค้นหา..."}</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
 
                         {/* Results Table */}
                         {generatedList.length > 0 && (
@@ -807,6 +954,7 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                                         ผลลัพธ์การสุ่ม ({generatedList.length} นาย)
                                     </h3>
                                     <div className="flex gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => setGeneratedList([])} className="bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"><Trash2 className="h-4 w-4 mr-2" /> ล้างรายการ</Button>
                                         <Button variant="outline" size="sm" onClick={handleAddRow}><Plus className="h-4 w-4 mr-2" /> เพิ่มแถว</Button>
                                         <Button onClick={handleAddGeneratedToLink} disabled={isUpdatingSheet || !activeSheetName} className="bg-green-600 hover:bg-green-700">
                                             <UserPlus className="h-4 w-4 mr-2" />

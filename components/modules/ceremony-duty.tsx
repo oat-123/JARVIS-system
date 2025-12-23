@@ -49,6 +49,7 @@ import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import { CeremonyDutyManual } from "./ceremony-duty-manual"
 import { CeremonyDutyGrade } from "./ceremony-duty-grade"
+import { CeremonyDutyLink } from "./ceremony-duty-link"
 
 interface CeremonyDutyProps {
   onBack: () => void
@@ -99,7 +100,7 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
   const [dutyName, setDutyName] = useState("");
   const [requiredByYear, setRequiredByYear] = useState<{ [key: string]: number }>({ "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 });
   const [selectedAffiliations, setSelectedAffiliations] = useState<string[]>([]);
-  const [activeSubView, setActiveSubView] = useState<'main' | 'manual' | 'grade'>('main');
+  const [activeSubView, setActiveSubView] = useState<'selection' | 'main' | 'manual' | 'grade' | 'link'>('selection');
   const allAffiliations = useMemo(() => {
     if (!isAdmin) return [];
     const set = new Set<string>();
@@ -761,11 +762,93 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
   }
 
   if (activeSubView === 'manual') {
-    return <CeremonyDutyManual passedSheetName={sheetName} onBack={() => setActiveSubView('main')} />
+    return <CeremonyDutyManual passedSheetName={sheetName} onBack={() => setActiveSubView('selection')} />
   }
 
   if (activeSubView === 'grade') {
-    return <CeremonyDutyGrade onBack={() => setActiveSubView('main')} />
+    return <CeremonyDutyGrade onBack={() => setActiveSubView('selection')} />
+  }
+
+  if (activeSubView === 'link') {
+    return <CeremonyDutyLink onBack={() => setActiveSubView('selection')} />
+  }
+
+  if (activeSubView === 'selection') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white p-4 sm:p-6 flex items-center justify-center">
+        <div className="max-w-4xl w-full">
+          <div className="flex items-center justify-between mb-8">
+            <Button onClick={onBack} variant="outline" className="text-white border-white/30 hover:bg-white/10 hover:text-white bg-transparent backdrop-blur-sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              กลับหน้าหลัก
+            </Button>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent flex items-center gap-2">
+              <Award className="h-8 w-8 text-yellow-400" />
+              เลือกโหมดการจัดยอดพิธี
+            </h1>
+            <div className="w-24"></div> {/* Spacer for balance */}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all cursor-pointer hover:scale-105" onClick={() => setActiveSubView('main')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3 text-white text-xl">
+                  <div className="p-3 rounded-full bg-blue-500/20 text-blue-400">
+                    <Users className="h-8 w-8" />
+                  </div>
+                  1. จัดยอดทั่วไป
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-slate-300">
+                ระบบจัดยอดพิธีแบบมาตรฐาน ใช้สถิติการโดนยอดในการคัดเลือกบุคคล เหมาะสำหรับงานทั่วไป
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all cursor-pointer hover:scale-105" onClick={() => setActiveSubView('manual')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3 text-white text-xl">
+                  <div className="p-3 rounded-full bg-green-500/20 text-green-400">
+                    <FileCheck className="h-8 w-8" />
+                  </div>
+                  2. จัดยอดพิธี (ด้วยตัวเอง)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-slate-300">
+                เลือกรายชื่อและระบุจำนวนคนด้วยตนเอง เหมาะสำหรับงานที่ต้องการเลือกบุคคลเฉพาะเจาะจง
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all cursor-pointer hover:scale-105" onClick={() => setActiveSubView('grade')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3 text-white text-xl">
+                  <div className="p-3 rounded-full bg-purple-500/20 text-purple-400">
+                    <Award className="h-8 w-8" />
+                  </div>
+                  3. จัดยอดตามเกรด 433
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-slate-300">
+                คัดเลือกบุคคลโดยอ้างอิงจากเกรดและผลการฝึก 433 เหมาะสำหรับงานพิธีการสำคัญ
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-all cursor-pointer hover:scale-105" onClick={() => setActiveSubView('link')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3 text-white text-xl">
+                  <div className="p-3 rounded-full bg-orange-500/20 text-orange-400">
+                    <Wifi className="h-8 w-8" />
+                  </div>
+                  4. จัดยอดในลิงก์
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-slate-300">
+                ระบบจัดยอดผ่านลิงก์ Google Sheets เติมข้อมูลอัตโนมัติและตรวจสอบรายชื่อซ้ำ
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -773,9 +856,9 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="flex gap-2">
-            <Button onClick={handleBackWithConfirm} variant="outline" className="text-white border-white/30 hover:bg-white/10 hover:text-white bg-transparent backdrop-blur-sm">
+            <Button onClick={() => setActiveSubView('selection')} variant="outline" className="text-white border-white/30 hover:bg-white/10 hover:text-white bg-transparent backdrop-blur-sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              กลับหน้าหลัก
+              กลับหน้าเลือกโหมด
             </Button>
             <Button onClick={clearCurrentState} variant="outline" className="text-red-400 border-red-400/30 hover:bg-red-400/10 hover:text-red-300 bg-transparent backdrop-blur-sm">
               <X className="h-4 w-4 mr-2" />
@@ -792,301 +875,293 @@ export function CeremonyDuty({ onBack, sheetName, user }: CeremonyDutyProps) {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              className="bg-yellow-500/90 text-white hover:bg-yellow-600"
-              onClick={() => setActiveSubView('manual')}
+              size="sm"
+              disabled={isLoadingData}
+              onClick={() => refreshData()}
+              className="text-white border-white/30 hover:bg-white/10 bg-transparent backdrop-blur-sm"
             >
-              จัดยอดด้วยตัวเอง
-            </Button>
-            <Button
-              variant="outline"
-              className="bg-purple-500/90 text-white hover:bg-purple-600"
-              onClick={() => setActiveSubView('grade')}
-            >
-              จัดยอดตามเกรด
-            </Button>
-            <Button onClick={refreshData} variant="outline" size="sm" disabled={isLoadingData} className="text-white border-white/30 hover:bg-white/10 bg-transparent backdrop-blur-sm w-full sm:w-auto">
               <Database className={`h-4 w-4 mr-2 ${isLoadingData ? "animate-spin" : ""}`} />
               รีเฟรชข้อมูล
             </Button>
           </div>
         </div>
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-              <Badge className={`${connectionStatus === "connected" ? "bg-green-600" : connectionStatus === "error" ? "bg-red-600" : "bg-yellow-600"} text-white text-xs`}>
-                {connectionStatus === "connected" ? <Wifi className="h-3 w-3 mr-1" /> : <WifiOff className="h-3 w-3 mr-1" />}
-                {connectionStatus === "connected" ? "เชื่อมต่อแล้ว" : connectionStatus === "error" ? "เชื่อมต่อล้มเหลว" : "กำลังเชื่อมต่อ"}
-              </Badge>
-              <span className="text-slate-300 text-xs sm:text-sm">
-                ฐานข้อมูล: {sheetName === 'Admin' ? 'รวม' : sheetName}
-                {' | '}ข้อมูลทั้งหมด: {allPersons.length} คน
-              </span>
-              {lastUpdated && (
-                <span className="text-slate-400 text-xs sm:text-sm">อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString("th-TH")}</span>
-              )}
-            </div>
-
-            <div className="text-slate-400 text-xs sm:text-sm">Database from Google Sheets</div>
+      </div>
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+            <Badge className={`${connectionStatus === "connected" ? "bg-green-600" : connectionStatus === "error" ? "bg-red-600" : "bg-yellow-600"} text-white text-xs`}>
+              {connectionStatus === "connected" ? <Wifi className="h-3 w-3 mr-1" /> : <WifiOff className="h-3 w-3 mr-1" />}
+              {connectionStatus === "connected" ? "เชื่อมต่อแล้ว" : connectionStatus === "error" ? "เชื่อมต่อล้มเหลว" : "กำลังเชื่อมต่อ"}
+            </Badge>
+            <span className="text-slate-300 text-xs sm:text-sm">
+              ฐานข้อมูล: {sheetName === 'Admin' ? 'รวม' : sheetName}
+              {' | '}ข้อมูลทั้งหมด: {allPersons.length} คน
+            </span>
+            {lastUpdated && (
+              <span className="text-slate-400 text-xs sm:text-sm">อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString("th-TH")}</span>
+            )}
           </div>
+
+          <div className="text-slate-400 text-xs sm:text-sm">Database from Google Sheets</div>
         </div>
+      </div>
 
-        {error && (
-          <Alert className="mb-6 border-red-500 bg-red-500/10">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-red-200">เกิดข้อผิดพลาด: {error}</AlertDescription>
-          </Alert>
-        )}
+      {error && (
+        <Alert className="mb-6 border-red-500 bg-red-500/10">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-red-200">เกิดข้อผิดพลาด: {error}</AlertDescription>
+        </Alert>
+      )}
 
-        {isLoadingData && (
-          <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm mb-4 sm:mb-6">
-            <CardContent className="p-8 sm:p-12 text-center">
-              <div className="text-slate-400 mb-4">
-                <Database className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 animate-pulse" />
-                <h3 className="text-lg sm:text-xl font-semibold mb-2">กำลังโหลดข้อมูล</h3>
-                <p className="text-slate-500 text-sm sm:text-base">กำลังเชื่อมต่อกับ Google Sheets...</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      {isLoadingData && (
+        <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm mb-4 sm:mb-6">
+          <CardContent className="p-8 sm:p-12 text-center">
+            <div className="text-slate-400 mb-4">
+              <Database className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 animate-pulse" />
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">กำลังโหลดข้อมูล</h3>
+              <p className="text-slate-500 text-sm sm:text-base">กำลังเชื่อมต่อกับ Google Sheets...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-        {!isLoadingData && allPersons.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            <div className="lg:col-span-1 space-y-4 sm:space-y-6">
-              <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Settings className="h-5 w-5 text-blue-400" />
-                    ข้อมูลพื้นฐาน
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="duty-name" className="text-white font-medium text-sm sm:text-base">ชื่อยอด</Label>
-                    <Input id="duty-name" value={dutyName} onChange={(e) => setDutyName(e.target.value)} placeholder="กรอกชื่อยอด" className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 text-sm sm:text-base" />
+      {!isLoadingData && allPersons.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="lg:col-span-1 space-y-4 sm:space-y-6">
+            <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Settings className="h-5 w-5 text-blue-400" />
+                  ข้อมูลพื้นฐาน
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="duty-name" className="text-white font-medium text-sm sm:text-base">ชื่อยอด</Label>
+                  <Input id="duty-name" value={dutyName} onChange={(e) => setDutyName(e.target.value)} placeholder="กรอกชื่อยอด" className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-400 mt-2 text-sm sm:text-base" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Label className="text-white font-medium text-sm sm:text-base">จำนวนคนแต่ละชั้นปี</Label>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {["1", "2", "3", "4", "5"].map((year) => (
+                  <div key={year} className="flex items-center gap-2">
+                    <Label htmlFor={`year-${year}-count`} className="text-white text-sm sm:text-base w-20">
+                      ชั้นปีที่ {year}:
+                    </Label>
+                    <Input
+                      id={`year-${year}-count`}
+                      type="number"
+                      min="0"
+                      value={requiredByYear[year] === 0 ? "" : requiredByYear[year]}
+                      onChange={(e) => {
+                        const value = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        setRequiredByYear(prev => ({ ...prev, [year]: value }));
+                      }}
+                      className="bg-slate-700/50 border-slate-600 text-white focus:border-blue-400 text-sm sm:text-base"
+                    />
                   </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Label className="text-white font-medium text-sm sm:text-base">จำนวนคนแต่ละชั้นปี</Label>
-                  </CardTitle>
+                ))}
+              </CardContent>
+            </Card>
+            {isAdmin && (
+              <Card className="mb-4 bg-slate-800/50 border-slate-700 shadow-xl">
+                <CardHeader className="pb-2 flex flex-row items-center gap-4">
+                  <span className="font-medium text-white text-sm">กรองสังกัด:</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-blue-200 hover:text-white"
+                    onClick={() => setSelectedAffiliations(allAffiliations)}
+                  >เลือกทั้งหมด</Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-200 hover:text-white"
+                    onClick={() => setSelectedAffiliations([])}
+                  >ล้างทั้งหมด</Button>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {["1", "2", "3", "4", "5"].map((year) => (
-                    <div key={year} className="flex items-center gap-2">
-                      <Label htmlFor={`year-${year}-count`} className="text-white text-sm sm:text-base w-20">
-                        ชั้นปีที่ {year}:
-                      </Label>
-                      <Input
-                        id={`year-${year}-count`}
-                        type="number"
-                        min="0"
-                        value={requiredByYear[year] === 0 ? "" : requiredByYear[year]}
-                        onChange={(e) => {
-                          const value = Math.max(0, parseInt(e.target.value, 10) || 0);
-                          setRequiredByYear(prev => ({ ...prev, [year]: value }));
+                <CardContent className="flex flex-wrap gap-2">
+                  {allAffiliations.map(aff => (
+                    <label key={aff} className="flex items-center gap-1 cursor-pointer bg-blue-800/60 rounded px-2 py-1 text-white border border-blue-700 hover:bg-blue-700 transition">
+                      <Checkbox
+                        id={`affiliation-${aff}`}
+                        checked={selectedAffiliations.includes(aff)}
+                        onCheckedChange={checked => {
+                          setSelectedAffiliations(prev =>
+                            checked ? [...prev, aff] : prev.filter(a => a !== aff)
+                          );
                         }}
-                        className="bg-slate-700/50 border-slate-600 text-white focus:border-blue-400 text-sm sm:text-base"
+                        className="border-slate-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
                       />
-                    </div>
+                      <span className="text-xs sm:text-sm truncate max-w-[80px]">{aff}</span>
+                    </label>
                   ))}
                 </CardContent>
               </Card>
-              {isAdmin && (
-                <Card className="mb-4 bg-slate-800/50 border-slate-700 shadow-xl">
-                  <CardHeader className="pb-2 flex flex-row items-center gap-4">
-                    <span className="font-medium text-white text-sm">กรองสังกัด:</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-blue-200 hover:text-white"
-                      onClick={() => setSelectedAffiliations(allAffiliations)}
-                    >เลือกทั้งหมด</Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-200 hover:text-white"
-                      onClick={() => setSelectedAffiliations([])}
-                    >ล้างทั้งหมด</Button>
-                  </CardHeader>
-                  <CardContent className="flex flex-wrap gap-2">
-                    {allAffiliations.map(aff => (
-                      <label key={aff} className="flex items-center gap-1 cursor-pointer bg-blue-800/60 rounded px-2 py-1 text-white border border-blue-700 hover:bg-blue-700 transition">
-                        <Checkbox
-                          id={`affiliation-${aff}`}
-                          checked={selectedAffiliations.includes(aff)}
-                          onCheckedChange={checked => {
-                            setSelectedAffiliations(prev =>
-                              checked ? [...prev, aff] : prev.filter(a => a !== aff)
-                            );
-                          }}
-                          className="border-slate-500 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                        />
-                        <span className="text-xs sm:text-sm truncate max-w-[80px]">{aff}</span>
-                      </label>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
+            )}
 
-              <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-red-400" />ไม่เลือกคนที่มีหน้าที่</CardTitle>
-                    <Button variant="ghost" size="sm" onClick={handleSelectAllPositions} className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
-                      {excludedPositions.length === positions.length ? (<><Square className="h-4 w-4 mr-1" />ยกเลิกทั้งหมด</>) : (<><CheckSquare className="h-4 w-4 mr-1" />เลือกทั้งหมด</>)}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                    {positions.map((position) => (
-                      <div key={position} className="flex items-center space-x-2">
-                        <Checkbox id={`position-${position}`} checked={excludedPositions.includes(position)} onCheckedChange={(checked) => handlePositionChange(position, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" />
-                        <Label htmlFor={`position-${position}`} className="text-white text-xs sm:text-sm cursor-pointer">{position}</Label>
-                      </div>
-                    ))}
-                  </div>
-                  {excludedPositions.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-slate-600"><Badge className="bg-red-600 text-xs">ยกเว้น {excludedPositions.length} หน้าที่</Badge></div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-orange-400" />ไม่เลือกชมรม</CardTitle>
-                    <Button variant="ghost" size="sm" onClick={handleSelectAllClubs} className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
-                      {excludedClubs.length === clubs.length ? (<><Square className="h-4 w-4 mr-1" />ยกเลิกทั้งหมด</>) : (<><CheckSquare className="h-4 w-4 mr-1" />เลือกทั้งหมด</>)}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                    {clubs.map((club) => (
-                      <div key={club} className="flex items-center space-x-2">
-                        <Checkbox id={`club-${club}`} checked={excludedClubs.includes(club)} onCheckedChange={(checked) => handleClubChange(club, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500" />
-                        <Label htmlFor={`club-${club}`} className="text-white text-xs sm:text-sm cursor-pointer">{club}</Label>
-                      </div>
-                    ))}
-                  </div>
-                  {excludedClubs.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-slate-600"><Badge className="bg-orange-500 text-xs">ยกเว้น {excludedClubs.length} ชมรม</Badge></div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <BarChart3 className="h-5 w-5 text-blue-400" />
-                    เลือกค่าสูงสุดของสถิติโดนยอด
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col gap-2">
-                    <Slider
-                      min={statDomain[0]}
-                      max={statDomain[1]}
-                      value={[statMax]}
-                      onValueChange={([val]) => setStatMax(val)}
-                      step={1}
-                    />
-                    <div className="flex justify-between text-xs text-slate-400">
-                      <span>ต่ำสุด: {statDomain[0]}</span>
-                      <span>สูงสุด: {statMax}</span>
+            <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-red-400" />ไม่เลือกคนที่มีหน้าที่</CardTitle>
+                  <Button variant="ghost" size="sm" onClick={handleSelectAllPositions} className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
+                    {excludedPositions.length === positions.length ? (<><Square className="h-4 w-4 mr-1" />ยกเลิกทั้งหมด</>) : (<><CheckSquare className="h-4 w-4 mr-1" />เลือกทั้งหมด</>)}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  {positions.map((position) => (
+                    <div key={position} className="flex items-center space-x-2">
+                      <Checkbox id={`position-${position}`} checked={excludedPositions.includes(position)} onCheckedChange={(checked) => handlePositionChange(position, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" />
+                      <Label htmlFor={`position-${position}`} className="text-white text-xs sm:text-sm cursor-pointer">{position}</Label>
                     </div>
+                  ))}
+                </div>
+                {excludedPositions.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-600"><Badge className="bg-red-600 text-xs">ยกเว้น {excludedPositions.length} หน้าที่</Badge></div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-white"><Users className="h-5 w-5 text-orange-400" />ไม่เลือกชมรม</CardTitle>
+                  <Button variant="ghost" size="sm" onClick={handleSelectAllClubs} className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
+                    {excludedClubs.length === clubs.length ? (<><Square className="h-4 w-4 mr-1" />ยกเลิกทั้งหมด</>) : (<><CheckSquare className="h-4 w-4 mr-1" />เลือกทั้งหมด</>)}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  {clubs.map((club) => (
+                    <div key={club} className="flex items-center space-x-2">
+                      <Checkbox id={`club-${club}`} checked={excludedClubs.includes(club)} onCheckedChange={(checked) => handleClubChange(club, checked as boolean)} className="border-slate-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500" />
+                      <Label htmlFor={`club-${club}`} className="text-white text-xs sm:text-sm cursor-pointer">{club}</Label>
+                    </div>
+                  ))}
+                </div>
+                {excludedClubs.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-600"><Badge className="bg-orange-500 text-xs">ยกเว้น {excludedClubs.length} ชมรม</Badge></div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <BarChart3 className="h-5 w-5 text-blue-400" />
+                  เลือกค่าสูงสุดของสถิติโดนยอด
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-2">
+                  <Slider
+                    min={statDomain[0]}
+                    max={statDomain[1]}
+                    value={[statMax]}
+                    onValueChange={([val]) => setStatMax(val)}
+                    step={1}
+                  />
+                  <div className="flex justify-between text-xs text-slate-400">
+                    <span>ต่ำสุด: {statDomain[0]}</span>
+                    <span>สูงสุด: {statMax}</span>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-              <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center">
-                    <Button onClick={generateDutyAssignment} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto" disabled={!dutyName.trim() || isLoading || connectionStatus !== "connected"}>
-                      {isLoading ? (<><Shuffle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />กำลังจัดยอด...</>) : (<><Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />จัดยอดและสร้างรายชื่อ</>)}
-                    </Button>
-
-                    {selectedPersons.length > 0 && (
-                      <>
-                        <Button onClick={createReport} className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto">
-                          <FileText className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />สร้างรายงาน
-                        </Button>
-                        <Button onClick={exportToExcelXlsx} className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto">
-                          <Download className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />ดาวน์โหลด Excel
-                        </Button>
-                        <div className="flex items-center gap-2 mt-2">
-                          <input id="save-to-history" type="checkbox" checked={saveToHistory} onChange={e => setSaveToHistory(e.target.checked)} className="accent-blue-500 w-4 h-4" />
-                          <label htmlFor="save-to-history" className="text-xs text-slate-300 cursor-pointer select-none">บันทึกไฟล์นี้ไว้ในประวัติยอด (แสดงใน Dashboard)</label>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {selectedPersons.length > 0 && (
-                <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                  <CardHeader>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                      <CardTitle className="text-white text-lg sm:text-xl">รายชื่อที่ถูกสุ่ม - {dutyName}</CardTitle>
-                      <Badge className="bg-blue-600 text-white px-2 sm:px-3 py-1 text-xs sm:text-sm">{selectedPersons.length} คน</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto w-full max-w-full rounded-lg border border-slate-700 p-2">
-                      <Table className="min-w-full w-full max-w-full text-xs table-auto border-collapse break-words">
-                        <TableHeader>
-                          <TableRow className="bg-slate-700/80">
-                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ลำดับ</TableHead>
-                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ยศ ชื่อ-สกุล</TableHead>
-                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ชั้นปีที่</TableHead>
-                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ตอน</TableHead>
-                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ตำแหน่ง</TableHead>
-                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">สังกัด</TableHead>
-                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">เบอร์โทรศัพท์</TableHead>
-                            <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">สถิติโดนยอด</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {selectedPersons.map((person: PersonData, index: number) => (
-                            <TableRow key={person.ลำดับ || index} className={index % 2 === 0 ? "bg-slate-800/60" : "bg-slate-900/60"}>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-pre-line break-words text-center text-white border-b border-slate-700">{toThaiNumber(index + 1)}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-left text-white border-b border-slate-700">{person.ยศ || '-'} {person.ชื่อ || '-'} {person.สกุล || '-'}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ชั้นปีที่ || '-'}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตอน || '-'}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตำแหน่ง || '-'}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.สังกัด || '-'}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.เบอร์โทรศัพท์ || '-'}</TableCell>
-                              <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700"><Badge className="bg-blue-600 text-white text-xs">{person.สถิติโดนยอด || '-'}</Badge></TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {selectedPersons.length === 0 && !isLoading && (
-                <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
-                  <CardContent className="p-8 sm:p-12 text-center">
-                    <div className="text-slate-400 mb-4">
-                      <Users className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 opacity-50" />
-                      <h3 className="text-lg sm:text-xl font-semibold mb-2">ยังไม่มีรายชื่อ</h3>
-                      <p className="text-slate-500 text-sm sm:text-base">กรอกข้อมูลและกดปุ่ม "จัดยอดและสร้างรายชื่อ" เพื่อเริ่มต้น</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        )}
-      </div>
+
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+            <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center">
+                  <Button onClick={generateDutyAssignment} className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto" disabled={!dutyName.trim() || isLoading || connectionStatus !== "connected"}>
+                    {isLoading ? (<><Shuffle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />กำลังจัดยอด...</>) : (<><Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />จัดยอดและสร้างรายชื่อ</>)}
+                  </Button>
+
+                  {selectedPersons.length > 0 && (
+                    <>
+                      <Button onClick={createReport} className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto">
+                        <FileText className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />สร้างรายงาน
+                      </Button>
+                      <Button onClick={exportToExcelXlsx} className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium shadow-lg text-sm sm:text-base w-full sm:w-auto">
+                        <Download className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />ดาวน์โหลด Excel
+                      </Button>
+                      <div className="flex items-center gap-2 mt-2">
+                        <input id="save-to-history" type="checkbox" checked={saveToHistory} onChange={e => setSaveToHistory(e.target.checked)} className="accent-blue-500 w-4 h-4" />
+                        <label htmlFor="save-to-history" className="text-xs text-slate-300 cursor-pointer select-none">บันทึกไฟล์นี้ไว้ในประวัติยอด (แสดงใน Dashboard)</label>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {selectedPersons.length > 0 && (
+              <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <CardTitle className="text-white text-lg sm:text-xl">รายชื่อที่ถูกสุ่ม - {dutyName}</CardTitle>
+                    <Badge className="bg-blue-600 text-white px-2 sm:px-3 py-1 text-xs sm:text-sm">{selectedPersons.length} คน</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto w-full max-w-full rounded-lg border border-slate-700 p-2">
+                    <Table className="min-w-full w-full max-w-full text-xs table-auto border-collapse break-words">
+                      <TableHeader>
+                        <TableRow className="bg-slate-700/80">
+                          <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ลำดับ</TableHead>
+                          <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ยศ ชื่อ-สกุล</TableHead>
+                          <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ชั้นปีที่</TableHead>
+                          <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ตอน</TableHead>
+                          <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">ตำแหน่ง</TableHead>
+                          <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">สังกัด</TableHead>
+                          <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">เบอร์โทรศัพท์</TableHead>
+                          <TableHead className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white font-semibold border-b border-slate-600">สถิติโดนยอด</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedPersons.map((person: PersonData, index: number) => (
+                          <TableRow key={person.ลำดับ || index} className={index % 2 === 0 ? "bg-slate-800/60" : "bg-slate-900/60"}>
+                            <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-pre-line break-words text-center text-white border-b border-slate-700">{toThaiNumber(index + 1)}</TableCell>
+                            <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-left text-white border-b border-slate-700">{person.ยศ || '-'} {person.ชื่อ || '-'} {person.สกุล || '-'}</TableCell>
+                            <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ชั้นปีที่ || '-'}</TableCell>
+                            <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตอน || '-'}</TableCell>
+                            <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.ตำแหน่ง || '-'}</TableCell>
+                            <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.สังกัด || '-'}</TableCell>
+                            <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700">{person.เบอร์โทรศัพท์ || '-'}</TableCell>
+                            <TableCell className="px-1 sm:px-2 py-1 text-xs whitespace-nowrap text-center text-white border-b border-slate-700"><Badge className="bg-blue-600 text-white text-xs">{person.สถิติโดนยอด || '-'}</Badge></TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {selectedPersons.length === 0 && !isLoading && (
+              <Card className="bg-slate-800/50 border-slate-700 shadow-xl backdrop-blur-sm">
+                <CardContent className="p-8 sm:p-12 text-center">
+                  <div className="text-slate-400 mb-4">
+                    <Users className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-lg sm:text-xl font-semibold mb-2">ยังไม่มีรายชื่อ</h3>
+                    <p className="text-slate-500 text-sm sm:text-base">กรอกข้อมูลและกดปุ่ม "จัดยอดและสร้างรายชื่อ" เพื่อเริ่มต้น</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

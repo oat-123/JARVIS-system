@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { sessionOptions, SessionData } from "@/lib/session";
 import { getSheetsService, getCombinedSheetData, getSystemConfig } from "@/lib/google-auth";
 
-const DEFAULT_CEREMONY_ID = "1fItcYVGL1a5WcvVsdleZhe5WT8VoJ6YGgPTJFMNozrw";
+const DEFAULT_CEREMONY_ID = "1E0cu1J33gpRA-OHyNYL7tND30OoHBX4YpeoQ7JFUOaQ";
 
 // The data processing logic can be kept as is
 const processSheetData = (values: any[][]) => {

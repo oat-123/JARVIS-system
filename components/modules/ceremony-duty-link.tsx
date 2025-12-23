@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from "react";
 import * as XLSX from "xlsx";
-import { ArrowLeft, Database, Search, Link as LinkIcon, RefreshCw, Wand2, Copy, FileText, Settings, CheckSquare, Square, ExternalLink, Trash2, Plus, Upload, UserMinus, UserPlus, FileSpreadsheet, Ruler, GraduationCap, ShieldAlert, Pencil, UserCog } from "lucide-react";
+import { ArrowLeft, Database, Search, Link as LinkIcon, RefreshCw, Wand2, Copy, FileText, Settings, CheckSquare, Square, ExternalLink, Trash2, Plus, Upload, UserMinus, UserPlus, FileSpreadsheet, Ruler, GraduationCap, ShieldAlert, Pencil, UserCog, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
 import { loadFromCache, saveToCache } from "@/lib/ccache";
 import { cn } from "@/lib/utils";
 
@@ -58,7 +59,7 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
     const [exclusionFilePersons, setExclusionFilePersons] = useState<Set<string>>(new Set());
 
     // Filters
-    const [filterHeightMin, setFilterHeightMin] = useState<string>("");
+    const [filterHeightRange, setFilterHeightRange] = useState<number[]>([160, 200]);
     const [excludedGrades, setExcludedGrades] = useState<string[]>([]);
     const [excludeAdmin433, setExcludeAdmin433] = useState(false);
     const [excludeFaw, setExcludeFaw] = useState(false);
@@ -385,14 +386,11 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
             candidates = candidates.filter(p => !excludedGrades.includes(p.คัดเกรด || ""));
         }
 
-        if (filterHeightMin) {
-            const min = parseFloat(filterHeightMin);
-            if (!isNaN(min)) {
-                candidates = candidates.filter(p => {
-                    const h = parseFloat(p.ส่วนสูง || "0");
-                    return !isNaN(h) && h >= min;
-                });
-            }
+        if (true) { // range matches always active if using range state
+            candidates = candidates.filter(p => {
+                const h = parseFloat(p.ส่วนสูง || "0");
+                return !isNaN(h) && h >= filterHeightRange[0] && h <= filterHeightRange[1];
+            });
         }
 
         if (exclusionFilePersons.size > 0) candidates = candidates.filter(p => !exclusionFilePersons.has(getFullName(p)));
@@ -412,7 +410,7 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
         if (excludeAthletes) candidates = candidates.filter(p => !p['นักกีฬา'] && !p.หมายเหตุ?.includes("นักกีฬา") && !p.ตอน?.includes("นักกีฬา"));
 
         return candidates;
-    }, [dbPersons, selectedAffiliations, filterHeightMin, excludedGrades, exclusionFilePersons, sheets, excludedSheets, excludeAdmin433, excludeFaw, excludeAthletes]);
+    }, [dbPersons, selectedAffiliations, filterHeightRange, excludedGrades, exclusionFilePersons, sheets, excludedSheets, excludeAdmin433, excludeFaw, excludeAthletes]);
 
     const handleRandomize = () => {
         if (filteredCandidates.length === 0) {
@@ -582,10 +580,20 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                                     <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                                     <Input
                                         placeholder="วางลิงก์ Google Sheets ที่นี่..."
-                                        className="pl-9 bg-slate-900/50 border-slate-600 text-white"
+                                        className="pl-9 pr-8 bg-slate-900/50 border-slate-600 text-white"
                                         value={url}
                                         onChange={(e) => setUrl(e.target.value)}
                                     />
+                                    {url && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-full"
+                                            onClick={() => setUrl("")}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    )}
                                 </div>
                                 <Button onClick={handleLoadSheet} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 min-w-[120px]">
                                     {isLoading ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
@@ -679,8 +687,8 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
 
                 {activeSheetName && currentActiveSheetData ? (
                     <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-slate-700/50">
-                            <CardTitle className="text-xl flex items-center gap-2">
+                        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between pb-2 border-b border-slate-700/50 gap-4">
+                            <CardTitle className="text-xl flex flex-wrap items-center gap-2">
                                 <FileText className="h-5 w-5 text-blue-400" />
                                 {activeSheetName}
                                 <Badge variant="outline" className="ml-2 text-xs font-normal text-slate-400">
@@ -688,7 +696,7 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                                 </Badge>
                                 {excludedSheets.includes(activeSheetName) && <Badge variant="destructive" className="text-xs">Excluded</Badge>}
                             </CardTitle>
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2 w-full md:w-auto justify-start md:justify-end">
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -717,14 +725,15 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                         <CardContent className="p-0">
                             <div className="overflow-x-auto max-h-[600px]">
                                 <Table>
-                                    <TableHeader className="bg-slate-900/80 sticky top-0 z-10 backdrop-blur-sm">
-                                        <TableRow>
-                                            <TableHead className="w-[60px] text-center text-slate-300">ลำดับ</TableHead>
-                                            <TableHead className="text-slate-300">ยศ</TableHead>
-                                            <TableHead className="text-slate-300">ชื่อ</TableHead>
-                                            <TableHead className="text-slate-300">สกุล</TableHead>
-                                            <TableHead className="text-slate-300">ตำแหน่ง</TableHead>
-                                            <TableHead className="text-slate-300">หมายเหตุ</TableHead>
+                                    <TableHeader className="bg-slate-900/80 sticky top-0 z-10 backdrop-blur-sm shadow-sm">
+                                        <TableRow className="border-b border-slate-700">
+                                            <TableHead className="w-[60px] min-w-[50px] text-center text-slate-300 border-r border-slate-700/50">ลำดับ</TableHead>
+                                            <TableHead className="w-[80px] min-w-[70px] text-slate-300 border-r border-slate-700/50">ยศ</TableHead>
+                                            <TableHead className="min-w-[180px] text-slate-300 border-r border-slate-700/50">ชื่อ - สกุล</TableHead>
+                                            <TableHead className="min-w-[120px] text-slate-300 border-r border-slate-700/50">ตำแหน่ง</TableHead>
+                                            <TableHead className="min-w-[100px] text-slate-300 border-r border-slate-700/50">สังกัด</TableHead>
+                                            <TableHead className="w-[60px] min-w-[50px] text-center text-slate-300 border-r border-slate-700/50">เกรด</TableHead>
+                                            <TableHead className="min-w-[150px] text-slate-300">หมายเหตุ</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody className="bg-slate-900/30">
@@ -734,13 +743,18 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                                             const surname = normalize(row[3]);
                                             const isDup = highlightDuplicates && duplicateSet && duplicateSet.get(surname)! > 1;
 
+                                            // Grade lookup
+                                            const person = dbPersons?.find(p => p.ชื่อ === normalize(row[2]) && p.สกุล === normalize(row[3]));
+                                            const grade = person?.คัดเกรด || "-";
+
                                             return (
-                                                <TableRow key={rIdx} className={isDup ? "bg-red-900/30 hover:bg-red-900/40" : "hover:bg-slate-800/50"}>
-                                                    <TableCell className="text-center font-mono text-slate-400">{row[0]}</TableCell>
-                                                    <TableCell className="text-slate-300">{row[1]}</TableCell>
-                                                    <TableCell className="relative group">
-                                                        {row[2]}
-                                                        <Button variant="ghost" size="icon" className="h-5 w-5 absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 bg-slate-800/80 hover:bg-blue-600 hover:text-white border border-slate-600 rounded-full"
+                                                <TableRow key={rIdx} className={cn("border-b border-slate-800/50 transition-colors", isDup ? "bg-red-900/20 hover:bg-red-900/30" : "hover:bg-slate-800/50")}>
+                                                    <TableCell className="text-center font-mono text-slate-400 border-r border-slate-700/50 whitespace-nowrap">{row[0]}</TableCell>
+                                                    <TableCell className="text-slate-300 truncate max-w-[80px] border-r border-slate-700/50 whitespace-nowrap" title={row[1]}>{row[1]}</TableCell>
+                                                    <TableCell className={cn("relative group border-r border-slate-700/50 whitespace-nowrap", isDup ? "text-red-300 font-semibold" : "")}>
+                                                        <span>{row[2]}  {row[3]}</span>
+                                                        {isDup && <Badge variant="destructive" className="ml-2 text-[10px] h-4 inline-flex">ซ้ำ ({duplicateSet?.get(surname)})</Badge>}
+                                                        <Button variant="ghost" size="icon" className="h-5 w-5 ml-2 opacity-0 group-hover:opacity-100 bg-slate-800/80 hover:bg-blue-600 hover:text-white border border-slate-600 rounded-full inline-flex items-center justify-center transition-opacity"
                                                             onClick={() => {
                                                                 setEditingRow(rowObj);
                                                                 setManualSearchTerm(typeof row[2] === 'string' ? row[2] : String(row[2] || ""));
@@ -749,12 +763,10 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                                                             <Pencil className="h-3 w-3" />
                                                         </Button>
                                                     </TableCell>
-                                                    <TableCell className={isDup ? "text-red-300 font-semibold" : ""}>
-                                                        {row[3]}
-                                                        {isDup && <Badge variant="destructive" className="ml-2 text-[10px] h-4">ซ้ำ ({duplicateSet?.get(surname)})</Badge>}
-                                                    </TableCell>
-                                                    <TableCell className="text-slate-300 text-xs">{row[6]}</TableCell>
-                                                    <TableCell className="text-slate-400 text-sm">{row[9]}</TableCell>
+                                                    <TableCell className="text-slate-300 text-xs border-r border-slate-700/50 whitespace-nowrap">{row[6]}</TableCell>
+                                                    <TableCell className="text-slate-300 text-xs border-r border-slate-700/50 whitespace-nowrap">{row[7]}</TableCell>
+                                                    <TableCell className="text-center text-slate-300 text-xs font-mono border-r border-slate-700/50 whitespace-nowrap">{grade}</TableCell>
+                                                    <TableCell className="text-slate-400 text-sm whitespace-nowrap">{row[9]}</TableCell>
                                                 </TableRow>
                                             );
                                         })}
@@ -796,14 +808,27 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                                     <Input type="number" value={randomCount} onChange={e => setRandomCount(Number(e.target.value))} className="bg-slate-900/50 border-slate-600" />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>ส่วนสูงขั้นต่ำ (ซม.)</Label>
-                                        <Input type="number" placeholder="เช่น 160" value={filterHeightMin} onChange={e => setFilterHeightMin(e.target.value)} className="bg-slate-900/50 border-slate-600" />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <Label>ช่วงส่วนสูง (ซม.)</Label>
+                                            <span className="text-xs text-blue-400 font-mono bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                                                {filterHeightRange[0]} - {filterHeightRange[1]}
+                                            </span>
+                                        </div>
+                                        <Slider
+                                            defaultValue={[160, 200]}
+                                            max={200}
+                                            min={0}
+                                            step={1}
+                                            value={filterHeightRange}
+                                            onValueChange={setFilterHeightRange}
+                                            className="py-4"
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
-                                            <Label>ตัดเกรดที่ไม่ต้องการ (Exclude Grades)</Label>
+                                            <Label>ตัดเกรดที่ไม่ต้องการ</Label>
                                             <div className="flex gap-1">
                                                 <Button variant="ghost" size="sm" onClick={() => setExcludedGrades(uniqueGrades)} className="text-[10px] h-5 px-1 hover:bg-slate-700">All</Button>
                                                 <Button variant="ghost" size="sm" onClick={() => setExcludedGrades([])} className="text-[10px] h-5 px-1 hover:bg-slate-700">None</Button>

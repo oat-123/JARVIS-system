@@ -504,10 +504,32 @@ export function CeremonyDutyLink({ onBack }: { onBack: () => void }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url, sheetName: activeSheetName, updates: [{ rowIndex, values }] })
             }); // Single row update
+
+            // Update local state instead of reloading helper
+            setSheets(prev => prev.map(sheet => {
+                if (sheet.name !== activeSheetName) return sheet;
+                return {
+                    ...sheet,
+                    data: sheet.data.map(row => {
+                        if (row.index !== rowIndex) return row;
+                        const newCells = [...row.cells];
+                        newCells[1] = values[1];
+                        newCells[2] = values[2];
+                        newCells[3] = values[3];
+                        newCells[4] = values[4];
+                        newCells[5] = values[5];
+                        newCells[6] = values[6];
+                        newCells[7] = values[7];
+                        newCells[8] = values[8];
+                        return { ...row, cells: newCells };
+                    })
+                };
+            }));
+
             toast({ title: "Updated", description: `Updated row ${rowIndex + 1} with ${person.ชื่อ}` });
             setEditingRow(null);
             setManualSearchTerm("");
-            handleLoadSheet(); // Reload to see changes
+            // handleLoadSheet(); // Removed to prevent reload
         } catch (e) {
             toast({ title: "Error", description: "Failed to update row", variant: "destructive" });
         } finally {
